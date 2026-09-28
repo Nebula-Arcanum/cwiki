@@ -24,8 +24,21 @@ make verify
 ```
 
 Linux CI additionally runs `make analyze` with packaged `clang-tidy` and enables
-AddressSanitizer leak detection. `make demo` is the user-facing fixture replay
-and snapshot demonstration; during the initial build-foundation task it aliases
-`make check` and will gain the seed replay before Milestone 0 completes.
+AddressSanitizer leak detection.
+
+Replay the checked-in raw key recording and compare its deterministic screen to
+the expected snapshot:
+
+```sh
+make demo
+```
+
+The authoritative recording is `tests/fixtures/keys/seed.keys.raw`; its decoded
+companion is `seed.keys.txt`, and the expected screen is
+`tests/snapshots/seed.screen`.
+
+CI applies the same checks on Arch Linux, macOS with Homebrew, and FreeBSD. The
+deterministic change-review gate is `scripts/review-changes.sh`; it also rejects
+whitespace errors and tracked build artifacts before running the checks.
 
 Build artifacts stay under `build/` and are removed by `make clean`.

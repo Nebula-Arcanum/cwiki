@@ -15,6 +15,8 @@ a packaged dependency, revalidate its Arch Linux, Homebrew, and FreeBSD package.
 
 ## Milestone 0 — verification harness
 
+Status: **implemented locally; user demo and first hosted CI matrix run pending.**
+
 **Outcome.** Establish the build, test, replay, and review system before product
 behavior exists. This milestone contains the harness, not product features.
 

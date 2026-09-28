@@ -69,7 +69,7 @@ analyze:
 
 verify: check sanitize
 
-demo: check
+demo: replay-test
 
 clean:
 	rm -rf $(BUILD_DIR)
