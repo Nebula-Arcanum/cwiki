@@ -19,8 +19,8 @@ static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
 static const char supported_reply[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?1;2c";
-static const char startup[] = CWIKI_TERMINAL_ALT_ENTER
-    CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_KEYBOARD_PUSH
+static const char startup[] = CWIKI_INPUT_KEYBOARD_PUSH
+    CWIKI_TERMINAL_ALT_ENTER CWIKI_TERMINAL_CURSOR_HIDE
     CWIKI_INPUT_PASTE_ENABLE;
 
 static int failures;
@@ -302,6 +302,8 @@ test_missing_timeout_and_errors(void)
 static unsigned char fake_output[256];
 static size_t fake_output_len;
 static int fake_calls;
+static int startup_failure;
+static int startup_failure_phase;
 
 static ssize_t
 short_write(int fd, const void *bytes, size_t length)
@@ -318,6 +320,81 @@ short_write(int fd, const void *bytes, size_t length)
    (void)memcpy(fake_output + fake_output_len, bytes, count);
    fake_output_len += count;
    return (ssize_t)count;
+}
+
+static ssize_t
+startup_fault_write(int fd, const void *bytes, size_t length)
+{
+   if (startup_failure_phase == 0 &&
+       length == sizeof(CWIKI_INPUT_KEYBOARD_PUSH) - 1U &&
+       memcmp(bytes, CWIKI_INPUT_KEYBOARD_PUSH, length) == 0) {
+      if (startup_failure == 1) {
+         if (!write_exact(fd, bytes, 2U)) {
+            return -1;
+         }
+         startup_failure_phase = 1;
+         return 2;
+      }
+      if (!write_exact(fd, bytes, length)) {
+         return -1;
+      }
+      startup_failure_phase = 1;
+      return (ssize_t)length;
+   }
+   if (startup_failure_phase == 1) {
+      startup_failure_phase = 2;
+      errno = EIO;
+      return -1;
+   }
+   return write(fd, bytes, length);
+}
+
+static void
+run_startup_failure(int failure, const char *expected, size_t expected_len,
+    const char *output_message)
+{
+   struct pty_pair pair = open_pty();
+   struct termios before;
+   struct termios after;
+   struct cwiki_terminal terminal;
+   struct cwiki_terminal_result result;
+   unsigned char output[128];
+   pid_t responder;
+
+   check(expected_len <= sizeof(output), "startup failure fixture fits");
+   check(tcgetattr(pair.slave, &before) == 0,
+       "capture startup-failure termios");
+   responder = spawn_reply(pair.master, pair.slave, supported_reply,
+       sizeof(supported_reply) - 1U);
+   startup_failure = failure;
+   startup_failure_phase = 0;
+   cwiki_terminal_test_set_write(startup_fault_write);
+   result = cwiki_terminal_start_timeout(&terminal, pair.slave, pair.slave,
+       250L);
+   cwiki_terminal_test_set_write(NULL);
+   wait_ok(responder, "startup-failure responder completes");
+   check(result.status == CWIKI_TERMINAL_SYSTEM_ERROR &&
+       result.system_errno == EIO, "startup write failure is a system error");
+   check(read_exact(pair.master, (char *)output, expected_len) &&
+       memcmp(output, expected, expected_len) == 0 &&
+       no_pending_output(pair.master), output_message);
+   check(tcgetattr(pair.slave, &after) == 0 &&
+       same_termios(&after, &before),
+       "startup write failure restores termios");
+   (void)close(pair.slave);
+   (void)close(pair.master);
+}
+
+static void
+test_transactional_startup_failures(void)
+{
+   static const char after_push[] = CWIKI_INPUT_KEYBOARD_PUSH
+       CWIKI_TERMINAL_RESTORE;
+
+   run_startup_failure(1, CWIKI_INPUT_KEYBOARD_PUSH, 2U,
+       "partial keyboard push does not emit an unowned pop");
+   run_startup_failure(2, after_push, sizeof(after_push) - 1U,
+       "failure after keyboard push emits full restoration");
 }
 
 static void
@@ -467,6 +544,7 @@ main(void)
    test_success_raw_handoff_and_cleanup();
    test_missing_timeout_and_errors();
    test_complete_normal_writes_and_reset();
+   test_transactional_startup_failures();
    test_handled_signal_restores_and_reraises();
    test_signal_during_probe_does_not_pop_modes();
    if (failures != 0) {

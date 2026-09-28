@@ -208,9 +208,8 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
 {
    static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
        CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
-   static const char startup[] = CWIKI_TERMINAL_ALT_ENTER
-       CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_KEYBOARD_PUSH
-       CWIKI_INPUT_PASTE_ENABLE;
+   static const char startup_modes[] = CWIKI_TERMINAL_ALT_ENTER
+       CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE;
    struct cwiki_capabilities_parser parser;
    struct cwiki_capabilities_result capabilities;
    struct cwiki_terminal_result result;
@@ -327,7 +326,8 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
          cwiki_terminal_cleanup(terminal);
          return result;
       }
-      if (write_all(output_fd, startup, sizeof(startup) - 1U) != 0) {
+      if (write_all(output_fd, CWIKI_INPUT_KEYBOARD_PUSH,
+          sizeof(CWIKI_INPUT_KEYBOARD_PUSH) - 1U) != 0) {
          result.system_errno = errno;
          (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
          cwiki_terminal_cleanup(terminal);
@@ -335,6 +335,13 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
       }
       terminal->modes_owned = 1;
       signal_modes_owned = 1;
+      if (write_all(output_fd, startup_modes, sizeof(startup_modes) - 1U) !=
+          0) {
+         result.system_errno = errno;
+         (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+         cwiki_terminal_cleanup(terminal);
+         return result;
+      }
       if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0) {
          result.system_errno = errno;
          cwiki_terminal_cleanup(terminal);
