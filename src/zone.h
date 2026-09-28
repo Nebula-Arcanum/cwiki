@@ -7,6 +7,8 @@
 
 #define CWIKI_ZONE_MAX_DEPTH 16U
 #define CWIKI_ZONE_MAX_REGIONS 64U
+#define CWIKI_ZONE_DEFAULT_MATCH_LIMIT 100000U
+#define CWIKI_ZONE_DEFAULT_DEPTH_LIMIT 1000U
 #define CWIKI_ZONE_REGION_BIT(index) (UINT64_C(1) << (index))
 
 enum cwiki_zone_kind {
@@ -55,6 +57,9 @@ struct cwiki_buffer;
 int cwiki_zone_engine_init(struct cwiki_zone_engine **engine,
     const struct cwiki_zone_region *regions, size_t region_count,
     uint64_t top_level);
+int cwiki_zone_engine_init_with_limits(struct cwiki_zone_engine **engine,
+    const struct cwiki_zone_region *regions, size_t region_count,
+    uint64_t top_level, uint32_t match_limit, uint32_t depth_limit);
 void cwiki_zone_engine_free(struct cwiki_zone_engine *engine);
 const struct cwiki_zone_region *cwiki_zone_builtin_regions(size_t *count,
     uint64_t *top_level);

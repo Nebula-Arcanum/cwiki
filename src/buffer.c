@@ -237,7 +237,15 @@ bool
 cwiki_buffer_line_degraded(const struct cwiki_buffer *buffer, size_t line)
 {
    return buffer != NULL && line < buffer->line_count &&
-       buffer->lines[line].length > CWIKI_DEGRADED_LINE_BYTES;
+       (buffer->lines[line].length > CWIKI_DEGRADED_LINE_BYTES ||
+       buffer->lines[line].zone_degraded);
+}
+
+bool
+cwiki_buffer_line_zone_degraded(const struct cwiki_buffer *buffer, size_t line)
+{
+   return buffer != NULL && line < buffer->line_count &&
+       buffer->lines[line].zone_degraded;
 }
 
 int

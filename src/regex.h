@@ -65,6 +65,8 @@ enum cwiki_regex_compile_status cwiki_regex_compile(
     uint32_t options, uint32_t match_limit, uint32_t depth_limit,
     struct cwiki_regex_compile_error *error);
 void cwiki_regex_free(struct cwiki_regex *regex);
+/* Includes capture zero (the whole match); returns zero for NULL. */
+size_t cwiki_regex_capture_count(const struct cwiki_regex *regex);
 /* Returned pointers remain valid until this pattern is executed again or freed. */
 struct cwiki_regex_result cwiki_regex_execute(struct cwiki_regex *regex,
     const char *subject, size_t subject_length, size_t start_offset,

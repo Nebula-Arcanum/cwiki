@@ -19,6 +19,7 @@ struct cwiki_line {
    size_t capacity;
    struct cwiki_zone_stack end_zones;
    bool zone_dirty;
+   bool zone_degraded;
 };
 
 struct cwiki_position {
@@ -43,6 +44,8 @@ int cwiki_buffer_load(struct cwiki_buffer *buffer, const char *bytes,
 int cwiki_buffer_encode(const struct cwiki_buffer *buffer, char **bytes,
     size_t *length);
 bool cwiki_buffer_line_degraded(const struct cwiki_buffer *buffer, size_t line);
+bool cwiki_buffer_line_zone_degraded(const struct cwiki_buffer *buffer,
+    size_t line);
 int cwiki_buffer_register_position(struct cwiki_buffer *buffer,
     struct cwiki_position *position);
 void cwiki_buffer_unregister_position(struct cwiki_buffer *buffer,

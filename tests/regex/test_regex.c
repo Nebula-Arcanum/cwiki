@@ -111,6 +111,9 @@ test_captures_and_alternatives(void)
    if (regex == NULL) {
       return;
    }
+   check(cwiki_regex_capture_count(regex) == 4U &&
+       cwiki_regex_capture_count(NULL) == 0U,
+       "capture-count query includes the whole-match slot");
    result = cwiki_regex_execute(regex, subject, sizeof(subject) - 1U, 0U,
        false);
    check(result.status == CWIKI_REGEX_MATCH && result.capture_count == 4U,

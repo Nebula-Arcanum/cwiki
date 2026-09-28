@@ -1,12 +1,10 @@
-#define PCRE2_CODE_UNIT_WIDTH 8
-
 #include "zone.h"
 
 #include "buffer.h"
+#include "regex.h"
 #include "unicode.h"
 
 #include <errno.h>
-#include <pcre2.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -91,8 +89,7 @@ static const struct cwiki_zone_region builtin_regions[REGION_COUNT] = {
 };
 
 struct compiled_pattern {
-   pcre2_code *code;
-   pcre2_match_data *match_data;
+   struct cwiki_regex *regex;
 };
 
 struct compiled_region {
@@ -153,82 +150,78 @@ next_codepoint(const char *bytes, size_t length, size_t offset)
 static void
 compiled_pattern_free(struct compiled_pattern *pattern)
 {
-   pcre2_match_data_free(pattern->match_data);
-   pcre2_code_free(pattern->code);
+   cwiki_regex_free(pattern->regex);
    memset(pattern, 0, sizeof(*pattern));
 }
 
 static int
 compiled_pattern_init(struct compiled_pattern *compiled, const char *pattern,
-    uint8_t detail_capture)
+    uint8_t detail_capture, uint32_t match_limit, uint32_t depth_limit)
 {
-   int error;
-   PCRE2_SIZE error_offset;
-   uint32_t captures;
+   struct cwiki_regex_compile_error error;
+   enum cwiki_regex_compile_status status;
 
    if (pattern == NULL) {
       return 0;
    }
-   compiled->code = pcre2_compile((PCRE2_SPTR)pattern, PCRE2_ZERO_TERMINATED,
-       PCRE2_UTF | PCRE2_UCP, &error, &error_offset, NULL);
-   if (compiled->code == NULL) {
-      (void)error;
-      (void)error_offset;
-      errno = EINVAL;
-      return -1;
-   }
-   if (pcre2_pattern_info(compiled->code, PCRE2_INFO_CAPTURECOUNT, &captures) !=
-       0 || (detail_capture != 0U && detail_capture > captures)) {
-      errno = EINVAL;
+   status = cwiki_regex_compile(&compiled->regex, pattern, strlen(pattern), 0U,
+       match_limit, depth_limit, &error);
+   if (status != CWIKI_REGEX_COMPILE_OK ||
+       (detail_capture != 0U &&
+       (size_t)detail_capture >= cwiki_regex_capture_count(compiled->regex))) {
       compiled_pattern_free(compiled);
-      return -1;
-   }
-   compiled->match_data = pcre2_match_data_create_from_pattern(compiled->code,
-       NULL);
-   if (compiled->match_data == NULL) {
-      compiled_pattern_free(compiled);
-      errno = ENOMEM;
+      errno = status == CWIKI_REGEX_COMPILE_NO_MEMORY ? ENOMEM : EINVAL;
       return -1;
    }
    return 0;
 }
 
+static bool
+resource_limit(enum cwiki_regex_status status)
+{
+   return status == CWIKI_REGEX_MATCH_LIMIT ||
+       status == CWIKI_REGEX_DEPTH_LIMIT ||
+       status == CWIKI_REGEX_JIT_STACK_LIMIT;
+}
+
 static int
 pattern_match(struct compiled_pattern *pattern, const char *bytes,
     size_t length, size_t limit, size_t offset, uint8_t detail_capture,
-    struct match *match)
+    struct match *match, bool *degraded)
 {
-   int result;
-   PCRE2_SIZE *ovector;
+   struct cwiki_regex_result result;
    const char *subject = bytes == NULL ? "" : bytes;
 
    memset(match, 0, sizeof(*match));
-   if (pattern->code == NULL) {
+   if (pattern->regex == NULL) {
       return 0;
    }
-   result = pcre2_match(pattern->code, (PCRE2_SPTR)subject, length, offset,
-       PCRE2_ANCHORED, pattern->match_data, NULL);
-   if (result == PCRE2_ERROR_NOMATCH) {
+   result = cwiki_regex_execute(pattern->regex, subject, length, offset, true);
+   if (result.status == CWIKI_REGEX_NO_MATCH) {
       return 0;
    }
-   if (result < 0) {
+   if (resource_limit(result.status)) {
+      *degraded = true;
+      return 0;
+   }
+   if (result.status != CWIKI_REGEX_MATCH || result.capture_count == 0U ||
+       result.captures == NULL) {
       errno = EINVAL;
       return -1;
    }
-   ovector = pcre2_get_ovector_pointer(pattern->match_data);
-   if (ovector[1] <= offset) {
+   if (result.captures[0].end <= offset) {
       errno = EINVAL;
       return -1;
    }
-   if (ovector[1] > limit) {
+   if (result.captures[0].end > limit) {
       return 0;
    }
-   match->end = ovector[1];
+   match->end = result.captures[0].end;
    match->found = true;
-   if (detail_capture != 0U && (int)detail_capture < result &&
-       ovector[(size_t)detail_capture * 2U] != PCRE2_UNSET) {
-      size_t start = ovector[(size_t)detail_capture * 2U];
-      size_t end = ovector[(size_t)detail_capture * 2U + 1U];
+   if (detail_capture != 0U && (size_t)detail_capture < result.capture_count &&
+       result.captures[detail_capture].start != CWIKI_REGEX_UNSET) {
+      size_t start = result.captures[detail_capture].start;
+      size_t end = result.captures[detail_capture].end;
 
       match->detail = subject + start;
       match->detail_length = end - start;
@@ -326,11 +319,22 @@ cwiki_zone_engine_init(struct cwiki_zone_engine **result,
     const struct cwiki_zone_region *regions, size_t region_count,
     uint64_t top_level)
 {
+   return cwiki_zone_engine_init_with_limits(result, regions, region_count,
+       top_level, CWIKI_ZONE_DEFAULT_MATCH_LIMIT,
+       CWIKI_ZONE_DEFAULT_DEPTH_LIMIT);
+}
+
+int
+cwiki_zone_engine_init_with_limits(struct cwiki_zone_engine **result,
+    const struct cwiki_zone_region *regions, size_t region_count,
+    uint64_t top_level, uint32_t match_limit, uint32_t depth_limit)
+{
    struct cwiki_zone_engine *engine;
    size_t index;
 
    if (result == NULL || regions == NULL || region_count == 0U ||
-       region_count > CWIKI_ZONE_MAX_REGIONS ||
+       region_count > CWIKI_ZONE_MAX_REGIONS || match_limit == 0U ||
+       depth_limit == 0U ||
        (region_count < CWIKI_ZONE_MAX_REGIONS &&
        (top_level >> region_count) != 0U)) {
       errno = EINVAL;
@@ -354,15 +358,21 @@ cwiki_zone_engine_init(struct cwiki_zone_engine **result,
       if (region->name == NULL || region->start == NULL ||
           (!region->ends_at_line && region->end == NULL) ||
           (region_count < CWIKI_ZONE_MAX_REGIONS &&
-          (region->contains >> region_count) != 0U) ||
-          compiled_pattern_init(&engine->compiled[index].start, region->start,
-          region->start_detail_capture) != 0 ||
-          compiled_pattern_init(&engine->compiled[index].end, region->end,
-          region->end_detail_capture) != 0 ||
-          compiled_pattern_init(&engine->compiled[index].skip, region->skip,
-          0U) != 0) {
+          (region->contains >> region_count) != 0U)) {
          cwiki_zone_engine_free(engine);
          errno = EINVAL;
+         return -1;
+      }
+      if (compiled_pattern_init(&engine->compiled[index].start, region->start,
+          region->start_detail_capture, match_limit, depth_limit) != 0 ||
+          compiled_pattern_init(&engine->compiled[index].end, region->end,
+          region->end_detail_capture, match_limit, depth_limit) != 0 ||
+          compiled_pattern_init(&engine->compiled[index].skip, region->skip,
+          0U, match_limit, depth_limit) != 0) {
+         int saved_errno = errno;
+
+         cwiki_zone_engine_free(engine);
+         errno = saved_errno;
          return -1;
       }
    }
@@ -438,16 +448,17 @@ cwiki_zone_stack_equal(const struct cwiki_zone_stack *left,
 static int
 scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
     size_t limit, const struct cwiki_zone_stack *start,
-    struct cwiki_zone_stack *result, bool finish_line)
+    struct cwiki_zone_stack *result, bool finish_line, bool *degraded)
 {
    struct cwiki_zone_stack stack;
    size_t offset = 0U;
 
    if (engine == NULL || (bytes == NULL && length != 0U) || limit > length ||
-       result == NULL || !valid_stack(engine, start)) {
+       result == NULL || degraded == NULL || !valid_stack(engine, start)) {
       errno = EINVAL;
       return -1;
    }
+   *degraded = false;
    stack = *start;
    while (offset < limit) {
       struct match match;
@@ -462,7 +473,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
          struct compiled_region *compiled = &engine->compiled[top->region];
 
          if (pattern_match(&compiled->skip, bytes, length, limit, offset, 0U,
-             &match) != 0) {
+             &match, degraded) != 0) {
             return -1;
          }
          if (match.found) {
@@ -471,7 +482,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
          }
          if (!region->ends_at_line &&
              pattern_match(&compiled->end, bytes, length, limit, offset,
-             region->end_detail_capture, &match) != 0) {
+             region->end_detail_capture, &match, degraded) != 0) {
             return -1;
          }
          if (!region->ends_at_line && match.found &&
@@ -498,8 +509,8 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
          }
          region = &engine->regions[region_index];
          if (pattern_match(&engine->compiled[region_index].start, bytes,
-             length, limit, offset, region->start_detail_capture, &match) !=
-             0) {
+             length, limit, offset, region->start_detail_capture, &match,
+             degraded) != 0) {
             return -1;
          }
          if (!match.found) {
@@ -545,11 +556,13 @@ cwiki_zone_scan_line(struct cwiki_zone_engine *engine, const char *bytes,
     size_t length, const struct cwiki_zone_stack *start,
     struct cwiki_zone_stack *end)
 {
+   bool degraded;
+
    if (!cwiki_utf8_validate(bytes, length)) {
       errno = EINVAL;
       return -1;
    }
-   return scan(engine, bytes, length, length, start, end, true);
+   return scan(engine, bytes, length, length, start, end, true, &degraded);
 }
 
 int
@@ -571,14 +584,23 @@ cwiki_zone_recompute(struct cwiki_zone_engine *engine,
    for (line = first_line; line < buffer->line_count; line++) {
       struct cwiki_zone_stack previous = buffer->lines[line].end_zones;
       struct cwiki_zone_stack end;
+      bool previous_degraded = buffer->lines[line].zone_degraded;
+      bool degraded;
       bool changed;
 
-      if (cwiki_zone_scan_line(engine, buffer->lines[line].bytes,
-          buffer->lines[line].length, &start, &end) != 0) {
+      if (!cwiki_utf8_validate(buffer->lines[line].bytes,
+          buffer->lines[line].length)) {
+         errno = EINVAL;
          return -1;
       }
-      changed = !cwiki_zone_stack_equal(&previous, &end);
+      if (scan(engine, buffer->lines[line].bytes, buffer->lines[line].length,
+          buffer->lines[line].length, &start, &end, true, &degraded) != 0) {
+         return -1;
+      }
+      changed = !cwiki_zone_stack_equal(&previous, &end) ||
+          previous_degraded != degraded;
       buffer->lines[line].end_zones = end;
+      buffer->lines[line].zone_degraded = degraded;
       buffer->lines[line].zone_dirty = false;
       start = end;
       count++;
@@ -600,6 +622,7 @@ cwiki_zone_at(struct cwiki_zone_engine *engine,
 {
    struct cwiki_zone_stack start = {{{CWIKI_ZONE_PROSE, 0U, 0U}}, 0U};
    struct cwiki_zone_stack at;
+   bool degraded;
 
    if (engine == NULL || buffer == NULL || zone == NULL ||
        line >= buffer->line_count || byte > buffer->lines[line].length ||
@@ -614,7 +637,7 @@ cwiki_zone_at(struct cwiki_zone_engine *engine,
       start = buffer->lines[line - 1U].end_zones;
    }
    if (scan(engine, buffer->lines[line].bytes, buffer->lines[line].length,
-       byte, &start, &at, false) != 0) {
+       byte, &start, &at, false, &degraded) != 0) {
       return -1;
    }
    if (at.depth == 0U) {

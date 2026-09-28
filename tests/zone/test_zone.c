@@ -319,6 +319,78 @@ test_depth_bound_and_malformed_input(void)
    cwiki_zone_engine_free(engine);
 }
 
+static void
+test_regex_resource_degradation(void)
+{
+   static const char match_fixture[] =
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX\n"
+       "neighbor\n"
+       "cached\n";
+   const struct cwiki_zone_region match_region = {
+      CWIKI_ZONE_CUSTOM, "match-bound", "(*NO_AUTO_POSSESS)^(a+)+$", ">",
+      NULL, 0U, 0U, 0U, 0U, false
+   };
+   const struct cwiki_zone_region depth_region = {
+      CWIKI_ZONE_CUSTOM, "depth-bound",
+      "(*NO_START_OPT)(*NO_AUTO_POSSESS)^a((a)*)*b", ">", NULL, 0U, 0U,
+      0U, 0U, false
+   };
+   struct cwiki_zone_engine *engine = NULL;
+   struct cwiki_buffer buffer;
+   size_t scanned = 0U;
+
+   errno = 0;
+   check(cwiki_zone_engine_init_with_limits(&engine, &match_region, 1U,
+       CWIKI_ZONE_REGION_BIT(0), 0U, 1U) == -1 && errno == EINVAL,
+       "zone regex limits must be explicit nonzero values");
+   check(cwiki_zone_engine_init_with_limits(&engine, &match_region, 1U,
+       CWIKI_ZONE_REGION_BIT(0), 2U, 1000U) == 0,
+       "compile pathological region with a deliberately tiny match limit");
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, match_fixture);
+   check(cwiki_buffer_line_zone_degraded(&buffer, 0U) &&
+       cwiki_buffer_line_degraded(&buffer, 0U),
+       "match-limit exhaustion visibly degrades only the affected line");
+   check(!cwiki_buffer_line_zone_degraded(&buffer, 1U) &&
+       !cwiki_buffer_line_zone_degraded(&buffer, 2U),
+       "asymmetric safe neighboring lines remain trustworthy");
+   check_kind(engine, &buffer, 1U, "neighbor", CWIKI_ZONE_PROSE,
+       "a limited pattern remains a no-match for later safe lines");
+   check(cwiki_buffer_delete(&buffer, 0U, 0U,
+       buffer.lines[0U].length) == 0 &&
+       cwiki_buffer_insert(&buffer, 0U, 0U, "safe", 4U) == 0 &&
+       cwiki_zone_recompute(engine, &buffer, 0U, &scanned) == 0 &&
+       scanned == 2U,
+       "clearing degradation propagates through one equal cached neighbor");
+   check(!cwiki_buffer_line_zone_degraded(&buffer, 0U) &&
+       !cwiki_buffer_line_degraded(&buffer, 0U),
+       "successful later recomputation clears visible degradation");
+   check(!buffer.lines[2U].zone_dirty &&
+       !cwiki_buffer_line_zone_degraded(&buffer, 2U),
+       "recomputation preserves the unchanged cached suffix");
+   check_kind(engine, &buffer, 2U, "cached", CWIKI_ZONE_PROSE,
+       "the untouched cached suffix keeps its zone behavior");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+
+   engine = NULL;
+   check(cwiki_zone_engine_init_with_limits(&engine, &depth_region, 1U,
+       CWIKI_ZONE_REGION_BIT(0), 100000U, 1U) == 0,
+       "compile pathological region with a deliberately tiny depth limit");
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, "aaaa\n");
+   check(cwiki_buffer_line_zone_degraded(&buffer, 0U),
+       "depth-limit exhaustion degrades the affected line as a no-match");
+   check(!cwiki_buffer_line_zone_degraded(&buffer, 1U),
+       "depth-limit exhaustion does not degrade an empty neighboring line");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
 int
 main(void)
 {
@@ -328,6 +400,7 @@ main(void)
    test_declarative_skip_and_containment();
    test_incremental_propagation();
    test_depth_bound_and_malformed_input();
+   test_regex_resource_degradation();
    if (failures != 0) {
       return 1;
    }

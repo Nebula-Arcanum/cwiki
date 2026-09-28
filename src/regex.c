@@ -95,6 +95,12 @@ cwiki_regex_free(struct cwiki_regex *regex)
    free(regex);
 }
 
+size_t
+cwiki_regex_capture_count(const struct cwiki_regex *regex)
+{
+   return regex == NULL ? 0U : regex->capture_count;
+}
+
 enum cwiki_regex_compile_status
 cwiki_regex_compile(struct cwiki_regex **output, const char *pattern,
     size_t pattern_length, uint32_t options, uint32_t match_limit,

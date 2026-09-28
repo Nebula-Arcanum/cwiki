@@ -46,6 +46,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
          if (buffer.lines[line].end_zones.depth > CWIKI_ZONE_MAX_DEPTH) {
             abort();
          }
+         (void)cwiki_buffer_line_zone_degraded(&buffer, line);
          for (byte = 0U; byte <= buffer.lines[line].length; byte++) {
             if (cwiki_zone_at(engine, &buffer, line, byte, &zone) != 0) {
                abort();
