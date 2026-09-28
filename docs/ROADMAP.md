@@ -1,6 +1,6 @@
 # cwiki roadmap
 
-Status: **specification approved; implementation milestones planned.**
+Status: **specification approved; Milestone 0 verification harness complete.**
 
 The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
@@ -15,7 +15,9 @@ a packaged dependency, revalidate its Arch Linux, Homebrew, and FreeBSD package.
 
 ## Milestone 0 — verification harness
 
-Status: **implemented locally; user demo and first hosted CI matrix run pending.**
+Status: **complete.** Local verification and the replay demo pass; hosted
+[CI run 36490600390](https://github.com/Nebula-Arcanum/cwiki/actions/runs/36490600390)
+passed on Arch Linux, macOS with Homebrew, and FreeBSD 14.5.
 
 **Outcome.** Establish the build, test, replay, and review system before product
 behavior exists. This milestone contains the harness, not product features.
