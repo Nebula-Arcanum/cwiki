@@ -2,7 +2,7 @@
 
 CC = cc
 CLANG_TIDY = clang-tidy
-CPPFLAGS = -D_POSIX_C_SOURCE=200809L
+CPPFLAGS = -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700
 CFLAGS = -std=c11 -pedantic -Wall -Wextra -Werror -Wconversion -Wshadow \
 	-Wstrict-prototypes -Wmissing-prototypes
 LDFLAGS =
