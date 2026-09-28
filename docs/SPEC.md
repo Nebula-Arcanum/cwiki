@@ -1969,6 +1969,99 @@ Rejected:
 
 ---
 
+## 7. Configuration and extension boundary
+
+### 7.1 Format and validation
+
+**R7.1.1** cwiki configuration is declarative YAML using the same packaged YAML
+parser as note frontmatter. Configuration contains data only; it does not
+execute code.
+
+**R7.1.2** Every configuration object has a strict schema. Unknown keys,
+duplicate keys, wrong types, invalid action names, and conflicting keybindings
+produce source-located errors rather than being ignored.
+
+**R7.1.3** Configuration loading is transactional. cwiki validates and composes
+the complete candidate configuration before replacing the active one. A failed
+reload leaves the previous valid configuration active.
+
+Rejected:
+
+- **TOML.** A viable declarative format, but would add a second parser beside
+  the YAML already required for note frontmatter.
+- **Embedded Lua.** Provides Neovim-level programmable configuration only by
+  committing cwiki to a scripting runtime and stable public API across every
+  subsystem.
+
+### 7.2 Scopes and precedence
+
+**R7.2.1** Configuration composes in this order, with later permitted values
+overriding earlier ones:
+
+1. built-in defaults;
+2. global user configuration in the OS configuration directory;
+3. synchronized vault configuration under the vault's hidden cwiki directory;
+4. machine-local vault overrides in the OS configuration directory, keyed by
+   the vault identity;
+5. note frontmatter for note-scoped keys;
+6. ephemeral per-window runtime toggles.
+
+**R7.2.2** Each schema key declares which scopes may set it. Security-sensitive
+values, including trusted-vault shell escape and local reminder-daemon state,
+are machine-local and cannot be enabled by synchronized files or note
+frontmatter.
+
+**R7.2.3** The state-dump/config-inspection command shows every effective value
+and the scope and source location that supplied it.
+
+Rejected:
+
+- **One global file plus frontmatter.** Cannot share vault behavior through Git
+  or express machine-local exceptions safely.
+- **One self-contained synchronized vault configuration.** Lets a pulled file
+  alter machine trust and host integrations.
+
+### 7.3 Declarative surface
+
+**R7.3.1** The schema covers keymaps and clue groups, snippets and named
+transforms, themes, conceal and display options, parser and index rule tables,
+package and environment tables, save/render/index policies, and workflow
+defaults.
+
+**R7.3.2** Every bindable operation remains a named action under R1.14.1.
+Configuration may bind, unbind, group, label, or parameterize exposed actions;
+it cannot inject a new implementation.
+
+**R7.3.3** Core file-format meanings, synchronization and data-safety rules,
+resource limits, and requirement semantics are not configurable. A setting
+cannot weaken the guarantees in §§3–6.
+
+### 7.4 Extensions and integrations
+
+**R7.4.1** cwiki initially has no embedded scripting language, public plugin
+API, ABI, or community plugin ecosystem. New behavior is implemented in cwiki;
+user customization composes the declarative primitives in §7.3.
+
+**R7.4.2** The action/event dispatch used internally is not a public lifecycle
+hook API. Configuration does not attach arbitrary commands to initialization,
+render, mode-switch, save, or quit events.
+
+**R7.4.3** External commands are exposed only through specific reviewed
+integration slots required by an approved feature, such as the notification
+command. Each slot defines its arguments, environment, failure behavior, and
+security boundary; there is no generic shell-hook escape hatch.
+
+Rejected:
+
+- **Generic lifecycle shell hooks.** Appear simpler than scripting, but create
+  an unstable and unsafe shell-based plugin API with poor data exchange.
+- **A public event API without scripting.** Commits cwiki to compatibility
+  constraints before there is an extension consumer or execution model.
+- **A community plugin ecosystem.** Requires API stability, distribution,
+  compatibility, and security work outside the product priorities.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -1976,8 +2069,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Configuration and extension model** — config format, what is configurable,
-  whether any extension mechanism exists beyond config.
 - **Flashcards, calendar, tasks and projects** as workflow designs, on top of the
   storage decided in §2.
 - **UI details.**
