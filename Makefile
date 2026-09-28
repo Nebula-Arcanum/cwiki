@@ -23,9 +23,10 @@ CAPABILITIES_TEST = $(BUILD_DIR)/test-capabilities
 UNDO_TEST = $(BUILD_DIR)/test-undo
 ZONE_TEST = $(BUILD_DIR)/test-zone
 ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
+REGEX_TEST = $(BUILD_DIR)/test-regex
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
-	$(CAPABILITIES_TEST) $(UNDO_TEST) $(ZONE_TEST) $(ZONE_FUZZ)
+	$(CAPABILITIES_TEST) $(UNDO_TEST) $(ZONE_TEST) $(ZONE_FUZZ) $(REGEX_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -33,7 +34,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
 	tests/buffer/test_buffer.c src/capabilities.c \
 	tests/terminal/capabilities_test.c src/undo.c tests/undo/test_undo.c \
-	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c
+	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
+	tests/regex/test_regex.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -119,6 +121,11 @@ $(ZONE_FUZZ): src/zone.c src/zone.h src/buffer.c src/buffer.h src/unicode.c \
 		src/zone.c tests/zone/fuzz_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(ZONE_FUZZ)
 
+$(REGEX_TEST): src/regex.c src/regex.h tests/regex/test_regex.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PCRE2_CFLAGS) -Isrc src/regex.c \
+		tests/regex/test_regex.c $(LDFLAGS) $(PCRE2_LIBS) -o $(REGEX_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -127,6 +134,7 @@ product-test: $(PRODUCT_TESTS)
 	$(UNDO_TEST)
 	$(ZONE_TEST)
 	$(ZONE_FUZZ)
+	$(REGEX_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
