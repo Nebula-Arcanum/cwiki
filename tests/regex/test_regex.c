@@ -210,6 +210,16 @@ test_limits(void)
        "anchored interpreter execution reports the distinct match limit");
    cwiki_regex_free(regex);
 
+   regex = compile("(*NO_START_OPT)(a|aa)+$", 0U, 2U, 1000U);
+   if (regex == NULL) {
+      return;
+   }
+   result = cwiki_regex_execute(regex, subject, sizeof(subject) - 1U, 0U,
+       false);
+   check(result.status == CWIKI_REGEX_MATCH_LIMIT && result.used_jit,
+       "unanchored JIT execution reports the distinct match limit");
+   cwiki_regex_free(regex);
+
    regex = compile("(*NO_START_OPT)(*NO_AUTO_POSSESS)^((a)*)*b", 0U,
        100000U, 1U);
    if (regex == NULL) {
