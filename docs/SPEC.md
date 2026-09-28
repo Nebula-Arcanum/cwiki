@@ -1749,6 +1749,101 @@ Rejected:
 
 ---
 
+## 5. Time, recurrence, and reminders
+
+### 5.1 Recurrence model
+
+**R5.1.1** Calendar recurrence is stored using RFC 5545 `RRULE`, `RDATE`, and
+`EXDATE`. The required initial `RRULE` fields are `FREQ`, `INTERVAL`, `BYDAY`,
+`BYMONTHDAY`, `COUNT`, and `UNTIL`. cwiki provides a friendly editor over these
+fields rather than inventing a second storage language.
+
+**R5.1.2** Calendar recurrence is schedule-relative. Overrides and exclusions
+identify individual generated occurrences without copying the whole recurring
+definition into each day file.
+
+**R5.1.3** Recurring tasks have an explicit `repeat-from:schedule` or
+`repeat-from:completion` mode. Schedule-relative tasks remain anchored to their
+rule; completion-relative tasks calculate the next due time from actual
+completion.
+
+**R5.1.4** Multiple missed schedule-relative task occurrences collapse into one
+overdue occurrence that shows how many were missed. Completing it records that
+count and advances to the first future occurrence. cwiki does not generate an
+unbounded backlog of overdue copies.
+
+Rejected:
+
+- **A custom recurrence grammar.** Could be smaller, but creates a conversion
+  boundary for calendar interoperability and duplicates a mature standard.
+- **A Remind-style expression language.** More expressive, but adds an embedded
+  language for needs covered by RRULE plus explicit task modes.
+- **Generating every missed task occurrence.** Faithful to the schedule, but a
+  dormant daily task can flood the active list with hundreds of copies.
+
+### 5.2 Time zones and daylight saving
+
+**R5.2.1** Timed events and tasks store local wall time with an IANA time-zone
+identifier. A vault default may fill the field during creation, but authored
+items do not depend on the current machine's local zone. All-day items are
+date-only.
+
+**R5.2.2** Recurrence preserves local wall time across offset changes. “Tuesday
+09:00 America/Toronto” remains at 09:00 rather than preserving a UTC instant
+and drifting by an hour.
+
+**R5.2.3** If a generated wall time does not exist during a DST gap, cwiki moves
+it forward by the size of the gap and marks that occurrence adjusted. If the
+wall time occurs twice during a fold, cwiki selects the earlier occurrence
+unless that instance has an explicit override.
+
+Rejected:
+
+- **UTC-instant recurrence.** Simple arithmetic, but recurring local events
+  drift after daylight-saving transitions.
+- **Prompting on every DST anomaly.** Gives control but makes unattended
+  expansion, reminders, and calendar views nondeterministic.
+
+### 5.3 Reminders
+
+**R5.3.1** While cwiki runs, due reminders use OSC 99. Advance-warning deltas
+and repeat intervals are properties of the event or task.
+
+**R5.3.2** Reminders while cwiki is closed are provided by an optional companion
+daemon. It is enabled per machine in non-synchronized configuration and is off
+by default. The normal multi-machine setup enables one notifier to prevent
+duplicate desktop notifications.
+
+**R5.3.3** The TUI and local daemon coordinate so exactly one local notification
+fires when both are running. Notification state is machine-local and
+rebuildable; it does not become authored vault data.
+
+Rejected:
+
+- **Notifications only while the TUI runs.** Cannot cover scheduled reminders
+  when cwiki is closed.
+- **A daemon enabled automatically on every machine.** Requires distributed
+  notification claiming or produces duplicates from a Git-synchronized vault.
+
+### 5.4 Calendar interoperability
+
+**R5.4.1** Core calendar interoperability is standards-based iCalendar export,
+with stable UIDs and mappings for `VEVENT` and `VTODO`.
+
+**R5.4.2** Two-way CalDAV is a much later optional companion feature. It is not
+part of the first calendar implementation and does not shape the core vault or
+sync architecture beyond the stable iCalendar identities in R5.4.1.
+
+Rejected:
+
+- **CalDAV in the first calendar release.** Phone integration is useful, but
+  remote authentication, conflict handling, and provider differences would
+  delay the local time-blocking workflow.
+- **No interoperability.** Would unnecessarily trap events and tasks in cwiki
+  despite a standard export boundary.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -1756,9 +1851,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Time and scheduling** — recurrence rules, time zones and DST, next
-  occurrence from schedule versus from completion, reminders while cwiki runs
-  and what fires when it does not, whether events must reach other devices.
 - **Terminal rendering** — TeX engine and image route, layout of tall inline
   formulas, pre-rendering while typing, render feedback in editing mode,
   shell-escape policy, OSC 66 for headings, and the L-sized TeX log parser
