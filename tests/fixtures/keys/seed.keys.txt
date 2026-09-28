@@ -1,0 +1,14 @@
+# Decoded companion for seed.keys.raw (the raw file is authoritative).
+# Offsets are deterministic fixture metadata, not replay timing inputs.
+0000ms  key    code=105 modifiers=1 text="i"       action=enter-insert
+0010ms  key    code=110 modifiers=2 text="N"
+0020ms  key    code=111 modifiers=1 text="o"
+0030ms  key    code=116 modifiers=1 text="t"
+0040ms  key    code=101 modifiers=1 text="e"
+0050ms  key    code=32  modifiers=1 text=" "
+0060ms  key    code=945 modifiers=1 text="α"
+0070ms  key    code=13  modifiers=1                action=newline
+0080ms  paste  bytes=9 lines=2 preview="raw\\nbytes"
+0090ms  key    code=27  modifiers=1                action=normal-mode
+0100ms  key    code=104 modifiers=1 text="h"       action=cursor-left
+0110ms  key    code=120 modifiers=1 text="x"       action=delete-under-cursor
