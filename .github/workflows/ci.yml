@@ -28,7 +28,7 @@ jobs:
           restore-keys: arch-pacman-
 
       - name: Install analysis tools
-        run: pacman -Syu --needed --noconfirm clang
+        run: pacman -Syu --needed --noconfirm clang git
 
       - name: Review changes
         env:
