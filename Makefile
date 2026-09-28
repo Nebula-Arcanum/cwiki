@@ -20,20 +20,23 @@ DURABLE_WRITE_TEST = $(BUILD_DIR)/test-durable-write
 INPUT_TEST = $(BUILD_DIR)/test-input
 BUFFER_TEST = $(BUILD_DIR)/test-buffer
 CAPABILITIES_TEST = $(BUILD_DIR)/test-capabilities
+TERMINAL_TEST = $(BUILD_DIR)/test-terminal
 UNDO_TEST = $(BUILD_DIR)/test-undo
 ZONE_TEST = $(BUILD_DIR)/test-zone
 ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
 REGEX_TEST = $(BUILD_DIR)/test-regex
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
-	$(CAPABILITIES_TEST) $(UNDO_TEST) $(ZONE_TEST) $(ZONE_FUZZ) $(REGEX_TEST)
+	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
+	$(ZONE_FUZZ) $(REGEX_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	src/durable_write.c tests/io/test_durable_write.c \
 	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
 	tests/buffer/test_buffer.c src/capabilities.c \
-	tests/terminal/capabilities_test.c src/undo.c tests/undo/test_undo.c \
+	tests/terminal/capabilities_test.c src/terminal.c \
+	tests/terminal/terminal_test.c src/undo.c tests/undo/test_undo.c \
 	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
 	tests/regex/test_regex.c
 
@@ -99,6 +102,13 @@ $(CAPABILITIES_TEST): src/capabilities.c src/capabilities.h \
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/capabilities.c \
 		tests/terminal/capabilities_test.c $(LDFLAGS) -o $(CAPABILITIES_TEST)
 
+$(TERMINAL_TEST): src/terminal.c src/terminal.h src/capabilities.c \
+		src/capabilities.h src/input.h tests/terminal/terminal_test.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_TERMINAL_TESTING -Isrc \
+		src/capabilities.c src/terminal.c tests/terminal/terminal_test.c \
+		$(LDFLAGS) -o $(TERMINAL_TEST)
+
 $(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
 		src/unicode.h tests/undo/test_undo.c
 	mkdir -p $(BUILD_DIR)
@@ -132,6 +142,7 @@ product-test: $(PRODUCT_TESTS)
 	$(INPUT_TEST)
 	$(BUFFER_TEST)
 	$(CAPABILITIES_TEST)
+	$(TERMINAL_TEST)
 	$(UNDO_TEST)
 	$(ZONE_TEST)
 	$(ZONE_FUZZ)
@@ -151,7 +162,8 @@ analyze:
 	$(CLANG_TIDY) --checks='-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling' \
 		--warnings-as-errors='*' \
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
-		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_UNDO_TESTING \
+		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_TERMINAL_TESTING \
+		-DCWIKI_UNDO_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
 
 verify: check sanitize
