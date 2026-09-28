@@ -118,7 +118,10 @@ struct Buffer {
 
 **R1.1.2** Line endings are normalised to LF in memory. A file read with CRLF
 endings is recorded as such on the buffer and written back with CRLF, so cwiki
-never rewrites line endings it did not author. Files cwiki creates use LF.
+never rewrites line endings it did not author. Files cwiki creates use LF. A
+file mixing LF and CRLF is rejected with a clear error rather than silently
+normalised; exact mixed-ending preservation would require per-line metadata
+outside the approved buffer-level line-ending model.
 
 **R1.1.3** Each line caches the parser state in effect at its end (soft-wrap row
 counts are per window, R1.12.3). That state is a **zone stack**, not a scalar:
@@ -219,7 +222,7 @@ Rejected:
 
 ### 1.3 Unicode
 
-**R1.3.1** cwiki depends on **utf8proc** (MIT, ≥ 2.9) for UAX #29 extended
+**R1.3.1** cwiki depends on **utf8proc** (MIT, ≥ 2.11) for UAX #29 extended
 grapheme cluster segmentation, NFC/NFD normalisation and case folding.
 Packaging is confirmed on all three targets, binary packages in every case
 (revalidated 2026-09-28):
@@ -240,7 +243,7 @@ applied per grapheme cluster:
 - everything else → 1 cell
 - cluster width = width of its base character; marks add nothing
 
-**R1.3.3** The Unicode version cwiki targets is pinned in this document and
+**R1.3.3** cwiki targets **Unicode 17.0** through utf8proc's tables. This pin
 must be reviewed when the minimum kitty version moves. A CI test prints a fixed
 corpus of clusters (combining sequences, East Asian wide, emoji with and
 without VS16, ZWJ sequences, flags, default-ignorables) to kitty and reads the

@@ -6,19 +6,28 @@ CPPFLAGS = -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700
 CFLAGS = -std=c11 -pedantic -Wall -Wextra -Werror -Wconversion -Wshadow \
 	-Wstrict-prototypes -Wmissing-prototypes
 LDFLAGS =
+UTF8PROC_CFLAGS = `pkg-config --cflags libutf8proc`
+UTF8PROC_LIBS = `pkg-config --libs libutf8proc`
 
 BUILD_DIR = build
 SMOKE = $(BUILD_DIR)/cwiki-smoke
 REPLAY_TEST = $(BUILD_DIR)/cwiki-replay-test
 FIXTURE_VAULT_TEST = $(BUILD_DIR)/test-fixture-vault
 REFERENCE_BUFFER_TEST = $(BUILD_DIR)/test-reference-buffer
+DURABLE_WRITE_TEST = $(BUILD_DIR)/test-durable-write
+INPUT_TEST = $(BUILD_DIR)/test-input
+BUFFER_TEST = $(BUILD_DIR)/test-buffer
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
+PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
-	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c
+	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
+	src/durable_write.c tests/io/test_durable_write.c \
+	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
+	tests/buffer/test_buffer.c
 
-.PHONY: all smoke replay-test support-test test check sanitize analyze verify \
-	demo clean
+.PHONY: all smoke replay-test support-test product-test test check sanitize \
+	analyze verify demo clean
 
 all: smoke
 
@@ -54,7 +63,31 @@ support-test: $(SUPPORT_TESTS)
 	$(FIXTURE_VAULT_TEST)
 	$(REFERENCE_BUFFER_TEST)
 
-test: smoke replay-test support-test
+$(DURABLE_WRITE_TEST): src/durable_write.c src/durable_write.h \
+		tests/io/test_durable_write.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_DURABLE_WRITE_TESTING -Isrc \
+		src/durable_write.c tests/io/test_durable_write.c $(LDFLAGS) \
+		-o $(DURABLE_WRITE_TEST)
+
+$(INPUT_TEST): src/input.c src/input.h tests/input/input_test.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/input.c tests/input/input_test.c \
+		$(LDFLAGS) -o $(INPUT_TEST)
+
+$(BUFFER_TEST): src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
+		tests/buffer/test_buffer.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) -Isrc src/buffer.c \
+		src/unicode.c tests/buffer/test_buffer.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) -o $(BUFFER_TEST)
+
+product-test: $(PRODUCT_TESTS)
+	$(DURABLE_WRITE_TEST)
+	$(INPUT_TEST)
+	$(BUFFER_TEST)
+
+test: smoke replay-test support-test product-test
 	$(SMOKE)
 
 check: test
@@ -67,7 +100,8 @@ sanitize:
 analyze:
 	$(CLANG_TIDY) --checks='-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling' \
 		--warnings-as-errors='*' \
-		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS)
+		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
+		-DCWIKI_DURABLE_WRITE_TESTING $(UTF8PROC_CFLAGS) -Isrc
 
 verify: check sanitize
 

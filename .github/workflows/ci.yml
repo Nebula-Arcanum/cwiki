@@ -33,8 +33,8 @@ jobs:
           key: arch-pacman-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: arch-pacman-
 
-      - name: Install analysis tools
-        run: pacman -Syu --needed --noconfirm clang
+      - name: Install dependencies and analysis tools
+        run: pacman -Syu --needed --noconfirm clang libutf8proc pkgconf
 
       - name: Review changes
         env:
@@ -55,8 +55,8 @@ jobs:
           key: macos-homebrew-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: macos-homebrew-
 
-      - name: Install LLVM
-        run: brew install llvm
+      - name: Install dependencies and LLVM
+        run: brew install llvm utf8proc pkgconf
 
       - name: Run strict build and tests
         run: make CC="$(brew --prefix llvm)/bin/clang" check
@@ -76,5 +76,6 @@ jobs:
         with:
           release: "14.5"
           run: |
+            pkg install -y utf8proc pkgconf
             make check
             make sanitize

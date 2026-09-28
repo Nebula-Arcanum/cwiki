@@ -176,14 +176,20 @@ cwiki_buffer_encode(const struct cwiki_buffer *buffer, char **bytes,
    char *encoded;
 
    if (buffer == NULL || bytes == NULL || length == NULL ||
-       buffer->line_count == 0U) {
+       buffer->line_count == 0U || buffer->lines == NULL) {
       errno = EINVAL;
       return -1;
    }
    newline_length = buffer->line_ending == CWIKI_LINE_ENDING_CRLF ? 2U : 1U;
    for (line = 0U; line < buffer->line_count; line++) {
-      if (buffer->lines[line].length > SIZE_MAX - total) {
-         errno = ENOMEM;
+      if ((buffer->lines[line].length != 0U &&
+          buffer->lines[line].bytes == NULL) ||
+          buffer->lines[line].length > SIZE_MAX - total) {
+         if (buffer->lines[line].bytes == NULL) {
+            errno = EINVAL;
+         } else {
+            errno = ENOMEM;
+         }
          return -1;
       }
       total += buffer->lines[line].length;
@@ -200,12 +206,22 @@ cwiki_buffer_encode(const struct cwiki_buffer *buffer, char **bytes,
       return -1;
    }
    for (line = 0U; line < buffer->line_count; line++) {
+      if (offset > total || buffer->lines[line].length > total - offset) {
+         free(encoded);
+         errno = EINVAL;
+         return -1;
+      }
       if (buffer->lines[line].length != 0U) {
          memcpy(encoded + offset, buffer->lines[line].bytes,
              buffer->lines[line].length);
       }
       offset += buffer->lines[line].length;
       if (line + 1U < buffer->line_count) {
+         if (offset > total || newline_length > total - offset) {
+            free(encoded);
+            errno = EINVAL;
+            return -1;
+         }
          if (newline_length == 2U) {
             encoded[offset++] = '\r';
          }

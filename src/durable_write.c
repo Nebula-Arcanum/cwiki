@@ -226,7 +226,6 @@ durable_write(const char *path, const void *bytes, size_t length,
       goto fail;
    }
    (void)close(directory_descriptor);
-   directory_descriptor = -1;
 
    free(temporary);
    free(directory);

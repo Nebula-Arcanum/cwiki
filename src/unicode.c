@@ -5,8 +5,8 @@
 #include <utf8proc.h>
 
 #if UTF8PROC_VERSION_MAJOR < 2 || \
-    (UTF8PROC_VERSION_MAJOR == 2 && UTF8PROC_VERSION_MINOR < 9)
-#error "cwiki requires utf8proc 2.9 or newer"
+    (UTF8PROC_VERSION_MAJOR == 2 && UTF8PROC_VERSION_MINOR < 11)
+#error "cwiki requires utf8proc 2.11 or newer"
 #endif
 
 static utf8proc_ssize_t
