@@ -17,14 +17,18 @@ REFERENCE_BUFFER_TEST = $(BUILD_DIR)/test-reference-buffer
 DURABLE_WRITE_TEST = $(BUILD_DIR)/test-durable-write
 INPUT_TEST = $(BUILD_DIR)/test-input
 BUFFER_TEST = $(BUILD_DIR)/test-buffer
+CAPABILITIES_TEST = $(BUILD_DIR)/test-capabilities
+UNDO_TEST = $(BUILD_DIR)/test-undo
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
-PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST)
+PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
+	$(CAPABILITIES_TEST) $(UNDO_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	src/durable_write.c tests/io/test_durable_write.c \
 	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
-	tests/buffer/test_buffer.c
+	tests/buffer/test_buffer.c src/capabilities.c \
+	tests/terminal/capabilities_test.c src/undo.c tests/undo/test_undo.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -82,10 +86,25 @@ $(BUFFER_TEST): src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
 		src/unicode.c tests/buffer/test_buffer.c $(LDFLAGS) \
 		$(UTF8PROC_LIBS) -o $(BUFFER_TEST)
 
+$(CAPABILITIES_TEST): src/capabilities.c src/capabilities.h \
+		tests/terminal/capabilities_test.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/capabilities.c \
+		tests/terminal/capabilities_test.c $(LDFLAGS) -o $(CAPABILITIES_TEST)
+
+$(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h tests/undo/test_undo.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) -DCWIKI_UNDO_TESTING \
+		-Isrc src/buffer.c src/unicode.c src/undo.c tests/undo/test_undo.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) -o $(UNDO_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
 	$(BUFFER_TEST)
+	$(CAPABILITIES_TEST)
+	$(UNDO_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -101,7 +120,8 @@ analyze:
 	$(CLANG_TIDY) --checks='-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling' \
 		--warnings-as-errors='*' \
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
-		-DCWIKI_DURABLE_WRITE_TESTING $(UTF8PROC_CFLAGS) -Isrc
+		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_UNDO_TESTING \
+		$(UTF8PROC_CFLAGS) -Isrc
 
 verify: check sanitize
 

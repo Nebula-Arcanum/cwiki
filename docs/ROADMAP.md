@@ -49,11 +49,11 @@ implemented.
 
 ## Milestone 1 — daily class-note skeleton
 
-Status: **in progress.** The UTF-8 line buffer and position fix-up, kitty key
-and bracketed-paste parser, and durable-write primitive are integrated with
-strict, sanitizer, model, protocol, and fault-injection tests. Application
-integration and the remaining editor, parser, snippet, and terminal work are
-not yet implemented.
+Status: **in progress.** The UTF-8 line buffer and position fix-up, in-session
+undo tree, kitty key/bracketed-paste and startup-capability parsers, and
+durable-write primitive are integrated with strict, sanitizer, model, protocol,
+and fault-injection tests. Application integration and the remaining editor,
+zone, snippet, and terminal-lifecycle work are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
