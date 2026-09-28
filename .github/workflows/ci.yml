@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  arch-linux:
+    name: Arch Linux
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cache package downloads
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /var/cache/pacman/pkg
+          key: arch-pacman-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: arch-pacman-
+
+      - name: Install analysis tools
+        run: pacman -Syu --needed --noconfirm clang
+
+      - name: Review changes
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: scripts/review-changes.sh
+
+  macos:
+    name: macOS / Homebrew
+    runs-on: macos-26
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: macos-homebrew-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: macos-homebrew-
+
+      - name: Install LLVM
+        run: brew install llvm
+
+      - name: Run strict build and tests
+        run: make CC="$(brew --prefix llvm)/bin/clang" check
+
+      - name: Run sanitizers
+        run: make CC="$(brew --prefix llvm)/bin/clang" sanitize
+
+  freebsd:
+    name: FreeBSD 14.5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run checks in FreeBSD
+        uses: vmactions/freebsd-vm@a2f9a41fa97f6848b8c3b791087dfcdaa5b473ff # v1.5.8
+        with:
+          release: "14.5"
+          run: |
+            make check
+            make sanitize
