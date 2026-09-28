@@ -143,7 +143,7 @@ cwiki_buffer_load(struct cwiki_buffer *buffer, const char *bytes, size_t length)
          size_t end = index;
          struct cwiki_line *line = &loaded.lines[line_count];
 
-         if (saw_crlf && end > start) {
+         if (index < length && saw_crlf && end > start) {
             end--;
          }
          line->length = end - start;

@@ -46,6 +46,7 @@ test_line_endings(void)
    struct cwiki_buffer buffer;
    const char lf[] = "alpha\n\xce\xb2" "eta\n";
    const char crlf[] = "left\r\nright\r\n";
+   const char crlf_no_final_newline[] = "left\r\nrightward";
    const char mixed[] = "one\r\ntwo\n";
 
    check(cwiki_buffer_init(&buffer) == 0, "initialize one-line LF buffer");
@@ -68,9 +69,21 @@ test_line_endings(void)
    check_line(&buffer, 0U, "left", 4U, "CR is absent from in-memory line");
    check_encoding(&buffer, crlf, sizeof(crlf) - 1U,
        "CRLF bytes round trip exactly");
+   check(cwiki_buffer_load(&buffer, crlf_no_final_newline,
+       sizeof(crlf_no_final_newline) - 1U) == 0,
+       "load CRLF input without trailing newline");
+   check(buffer.line_count == 2U &&
+       buffer.line_ending == CWIKI_LINE_ENDING_CRLF,
+       "unterminated CRLF input records two complete lines");
+   check_line(&buffer, 1U, "rightward", 9U,
+       "unterminated final line preserves every byte");
+   check_encoding(&buffer, crlf_no_final_newline,
+       sizeof(crlf_no_final_newline) - 1U,
+       "CRLF without trailing newline round trips exactly");
    check(cwiki_buffer_load(&buffer, mixed, sizeof(mixed) - 1U) == -1,
        "reject mixed line endings that cannot round trip by one style");
-   check_encoding(&buffer, crlf, sizeof(crlf) - 1U,
+   check_encoding(&buffer, crlf_no_final_newline,
+       sizeof(crlf_no_final_newline) - 1U,
        "failed mixed-ending load leaves prior buffer unchanged");
    cwiki_buffer_free(&buffer);
 }
