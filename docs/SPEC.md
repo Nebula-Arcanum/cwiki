@@ -1,24 +1,24 @@
 # cwiki — specification
 
-Decisions from the completed portion of the product interview, stated as
-requirements. Each section records the alternatives that were rejected and
-why, so later work does not relitigate them.
+Decisions from the completed product interview, stated as requirements. Each
+section records the alternatives that were rejected and why, so later work does
+not relitigate them.
 
-Status: **in progress; not approved for implementation.** Reuse these decisions
-and ask only targeted questions about the gaps and contradictions listed under
-[Open questions](#open-questions). Before product implementation starts, the
+Status: **complete; awaiting approval for implementation.** The remaining
+[Open questions](#open-questions) are explicitly deferred to their owning
+milestones and do not block approval. Before product implementation starts, the
 user must explicitly approve this file.
 
 ---
 
-## 0. Known influences not yet in FEATURES.md
+## 0. Additional influence: vimtex
 
 **vimtex.** The user edits LaTeX with
 [vimtex](https://github.com/lervag/vimtex) and wants cwiki's LaTeX experience
 to be close to it. The initial inventory missed it. It is now inventoried in
 `../research/vimtex.md`, and `FEATURES.md` has gained 68 vimtex rows (section
 "Editor — vimtex LaTeX editing") plus 11 existing rows amended to add `vimtex`
-as a source. Those rows are **decided** as of commit `16f6666`.
+as a source. The completed interview decided those rows.
 
 The architecture-grade rows among them are folded into §1 rather than left to the
 end-of-interview `c`/`?` pass, since the same context detection serves conceal,
@@ -43,27 +43,29 @@ snippet gating and source highlighting:
 | On-demand recomputation, explicit refresh policy | **R1.14.4** (new) |
 | Internal message log; state dump | **R1.14.5, R1.14.6** (new) |
 
-Rows deferred to the topic that owns them: structured TeX-log diagnostics,
-per-block compile for diagnostics and diagnostic filtering to **rendering**;
-outline layers, the two-stage indexer matcher, label/anchor completion and the
-shared cache location to **index and search**; per-note preamble directives via
-frontmatter and LaTeX-aware indent/reflow to **data model**; lifecycle hooks to
-**configuration and extension**.
+The follow-up interview resolved the dependencies this inventory exposed:
+command-object greediness is fixed by R1.15.2; comment syntax and motions by
+§1.9; default snippets by R9.4.1; structured TeX diagnostics by §6.5; outline
+and label indexing by §4; per-note preambles by §2.8; and the extension boundary
+by §7. R1.10.7's closed transform set remains compatible with R1.14.2 because
+transforms are reviewed code while user behavior is declarative data.
 
-**Reopened by these decisions** — marked here, resolved in the current topic:
+Package availability was revalidated against the official Arch package index,
+Homebrew formula/cask index, and FreeBSD ports/packages on **2026-09-28**:
 
-| Point | Why |
-|---|---|
-| `ic`/`ac` command text object (row 172, `c`) | Decision says commit to **one documented greediness rule** rather than making it configurable. The rule is not yet chosen. |
-| Comment-block motions (row 179, `c`) | Conditional on cwiki having comment blocks at all, which depends on note 16. cwiki's comment syntax is undecided — a data-model question. |
-| Default snippet library (note 23, still `?`) | R1.10.10b commits ~70 symbol expansions as *default* snippets, which pre-empts part of that undecided row. |
-| R1.10.7 closed transform set | R1.14.2 says behaviour is tables, not booleans. Transforms are code rather than data, so a closed set stands — recorded so it is not mistaken for an oversight. |
+| Dependency | FreeBSD package | Arch package | Homebrew package |
+|---|---|---|---|
+| kitty | `kitty` (`x11/kitty`) | `extra/kitty` | cask `kitty` |
+| utf8proc | `utf8proc` (`textproc/utf8proc`) | `extra/libutf8proc` | `utf8proc` |
+| PCRE2 | `pcre2` (`devel/pcre2`) | `core/pcre2` | `pcre2` |
+| SQLite | `sqlite3` (`databases/sqlite3`) | `core/sqlite` | `sqlite` |
+| Poppler tools | `poppler-utils` (`graphics/poppler-utils`) | `extra/poppler` | `poppler` |
+| libyaml | `libyaml` (`textproc/libyaml`) | `extra/libyaml` | `libyaml` |
+| LuaLaTeX / TeX Live | `texlive-full` | official `texlive-*` packages | cask `mactex-no-gui` |
 
-Rows still `?` and needing your input: **notes 39 and 40** (three rows — the
-section/heading object and two toggles, all three appear to have been read as
-LaTeX-prose features when they are not), and **note 11** (answered by the vimtex
-diagnostics rows; confirm in the rendering topic). Note 24 (conceal) is now
-resolved by §1.6.
+No dependency requires the AUR, a non-core Homebrew tap, or building a FreeBSD
+port from source. Revalidate this matrix before implementation first introduces
+each dependency; package names and versions are not permanent architecture.
 
 What the inventory changed or confirmed in decisions already committed:
 
@@ -73,8 +75,8 @@ What the inventory changed or confirmed in decisions already committed:
 | R1.3.6 grapheme-cluster motion | **Extended**, see R1.6.9. Conceal breaks the source-column ↔ screen-column identity, so motion consults a mapping. The inventory names this as the row most likely to be underestimated as "just a display transform". |
 | R1.4.1 own Markdown+LaTeX parser is the highlighter | **Confirmed and widened.** vimtex gets zone predicates, conceal categories, fold levels and delimiter matching from Vim's syntax machinery for free; cwiki's parser must supply all four. The inventory notes vimtex proves the dependency negatively: with tree-sitter instead of Vim syntax, `i$`/`a$` and the math motions stop working outright. |
 | SyncTeX granularity (R1.8.9) | **Bounded.** SyncTeX records boxes, so character-level source↔render mapping is not available at any price. Line granularity within a block is the ceiling, which is exactly what the sync marker needs, but no UI may promise more. |
-| Rendering topic, not yet interviewed | TeX log parsing is an **L-sized subsystem**, not a detail of the render pipeline: the decided "LaTeX errors shown in place of the formula" needs a stateful multi-line parse producing line numbers, `l.NNN` context lines and per-included-file attribution, which Vim hands vimtex for free as `errorformat`. |
-| Snippet topic, not yet interviewed | vimtex's `in_mathzone()` predicate family is exactly the gate snippet expansion needs — one mechanism, not two. Note also that vimtex deliberately *removed* snippets in favour of context-aware insert-mode maps, which is prior art worth weighing. |
+| TeX diagnostics (§6.5) | TeX log parsing is an **L-sized subsystem**, not a detail of the render pipeline: the decided "LaTeX errors shown in place of the formula" needs a stateful multi-line parse producing line numbers, `l.NNN` context lines and per-included-file attribution, which Vim hands vimtex for free as `errorformat`. |
+| Snippet context (§1.10) | vimtex's `in_mathzone()` predicate family is exactly the gate snippet expansion needs — one mechanism, not two. Note also that vimtex deliberately *removed* snippets in favour of context-aware insert-mode maps, which remains relevant prior art for implementation. |
 
 Two things the inventory flags as not achievable exactly, by construction, both
 to be handled by choosing and documenting one rule rather than chasing
@@ -220,7 +222,8 @@ Rejected:
 
 **R1.3.1** cwiki depends on **utf8proc** (MIT, ≥ 2.9) for UAX #29 extended
 grapheme cluster segmentation, NFC/NFD normalisation and case folding.
-Packaging is confirmed on all three targets, binary packages in every case:
+Packaging is confirmed on all three targets, binary packages in every case
+(revalidated 2026-09-28):
 
 | Platform | Package |
 |---|---|
@@ -368,10 +371,11 @@ adopts requires it. Margin against packaged versions:
 
 | Target | Packaged kitty |
 |---|---|
-| FreeBSD 13 (quarterly, oldest anywhere) | 0.46.2 |
-| FreeBSD 14 / 15 | 0.48.2 |
+| FreeBSD 13 quarterly | 0.46.2 |
+| FreeBSD 14 / 15 quarterly | 0.47.4 |
+| FreeBSD 14 / 15 latest | 0.48.2 |
 | Arch `extra` | 0.48.2 |
-| Homebrew cask | 0.48.2 |
+| Homebrew cask | 0.49.0 |
 
 The pin is a documentation and support boundary. cwiki still detects
 capabilities at runtime per R1.5.7 and never infers them from a version string.
@@ -818,13 +822,14 @@ Rejected:
 
 **R1.11.1** cwiki has exactly one regex engine, **PCRE2 ≥ 10.40**, shared by all
 four consumers: the zone engine (§1.9), typed search, `:s`/`:g`, and regex
-snippet triggers. Binary packages at 10.48 on all three targets:
+snippet triggers. Official binary packages on every target exceed the floor
+(revalidated 2026-09-28):
 
-| Platform | Package |
+| Platform | Package and current version |
 |---|---|
-| FreeBSD | `pkg install pcre2` (`devel/pcre2`); oldest packaged 10.47 |
-| Arch | `core/pcre2` |
-| macOS | `brew install pcre2` (homebrew/core) |
+| FreeBSD | `pkg install pcre2` (`devel/pcre2`); quarterly 10.47_1, latest 10.48 |
+| Arch | `core/pcre2` 10.48 |
+| macOS | `brew install pcre2` (homebrew/core) 10.48 |
 
 PCRE2 was chosen over a hand-written non-backtracking engine specifically for
 **lookbehind**, which is what makes the region patterns vimtex fidelity depends

@@ -1,16 +1,14 @@
 # cwiki roadmap
 
-Status: **not yet planned; implementation is blocked pending specification
-completion and explicit approval.**
+Status: **not yet planned; implementation is blocked pending explicit
+specification approval.**
 
-No product code or milestone implementation has started. Before assigning
-features to milestones:
+The follow-up interview is complete, implementation-blocking architecture gaps
+are settled, and `docs/FEATURES.md` has no undecided rows. No product code or
+milestone implementation has started. Next:
 
-1. Resolve the contradictions and architecture gaps in `docs/SPEC.md` through
-   targeted questions only.
-2. Reconcile stale `?` rows in `docs/FEATURES.md` with settled requirements.
-3. Ask: **Do you approve `docs/SPEC.md` for implementation?**
-4. After approval, add a milestone column to `docs/FEATURES.md` and assign every
+1. Ask: **Do you approve `docs/SPEC.md` for implementation?**
+2. After approval, add a milestone column to `docs/FEATURES.md` and assign every
    kept or changed feature exactly once.
 
 ## Fixed sequencing constraints
