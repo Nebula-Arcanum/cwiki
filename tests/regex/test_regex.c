@@ -1,6 +1,7 @@
 #include "regex.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int failures;
@@ -137,8 +138,8 @@ test_anchoring(void)
    }
    result = cwiki_regex_execute(regex, "xxcat", 5U, 0U, false);
    check(result.status == CWIKI_REGEX_MATCH && result.captures[0].start == 2U &&
-       result.captures[0].end == 5U,
-       "unanchored execution searches after the start offset");
+       result.captures[0].end == 5U && result.used_jit,
+       "unanchored execution searches after the start offset using JIT");
    result = cwiki_regex_execute(regex, "xxcat", 5U, 0U, true);
    check(result.status == CWIKI_REGEX_NO_MATCH,
        "anchored execution only accepts a match at the start offset");
@@ -205,8 +206,8 @@ test_limits(void)
    }
    result = cwiki_regex_execute(regex, subject, sizeof(subject) - 1U, 0U,
        true);
-   check(result.status == CWIKI_REGEX_MATCH_LIMIT,
-       "tiny match limit has a distinct execution status");
+   check(result.status == CWIKI_REGEX_MATCH_LIMIT && !result.used_jit,
+       "anchored interpreter execution reports the distinct match limit");
    cwiki_regex_free(regex);
 
    regex = compile("(*NO_START_OPT)(*NO_AUTO_POSSESS)^((a)*)*b", 0U,
@@ -215,8 +216,35 @@ test_limits(void)
       return;
    }
    result = cwiki_regex_execute(regex, "aaaa", 4U, 0U, true);
-   check(result.status == CWIKI_REGEX_DEPTH_LIMIT,
-       "tiny depth limit has a distinct execution status");
+   check(result.status == CWIKI_REGEX_DEPTH_LIMIT && !result.used_jit,
+       "anchored interpreter execution reports the distinct depth limit");
+   cwiki_regex_free(regex);
+}
+
+static void
+test_jit_stack_limit(void)
+{
+   const size_t depth = 32000U;
+   struct cwiki_regex *regex = compile(
+       "(?<pn>\\((?:[^()]++|(?&pn))*\\))", 0U, UINT32_MAX, UINT32_MAX);
+   struct cwiki_regex_result result;
+   char *subject;
+
+   if (regex == NULL) {
+      return;
+   }
+   subject = malloc(depth * 2U);
+   check(subject != NULL, "allocate stack-limit fixture");
+   if (subject == NULL) {
+      cwiki_regex_free(regex);
+      return;
+   }
+   (void)memset(subject, '(', depth);
+   (void)memset(subject + depth, ')', depth);
+   result = cwiki_regex_execute(regex, subject, depth * 2U, 0U, false);
+   check(result.status == CWIKI_REGEX_JIT_STACK_LIMIT && result.used_jit,
+       "stack-hungry unanchored JIT match reaches the bounded stack status");
+   free(subject);
    cwiki_regex_free(regex);
 }
 
@@ -230,6 +258,7 @@ main(void)
    test_invalid_utf_and_compile_diagnostic();
    test_jit_failure();
    test_limits();
+   test_jit_stack_limit();
 
    if (failures != 0) {
       (void)fprintf(stderr, "%d regex test(s) failed\n", failures);

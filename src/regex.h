@@ -6,6 +6,9 @@
 #include <stdint.h>
 
 #define CWIKI_REGEX_ERROR_MESSAGE_SIZE 256U
+#define CWIKI_REGEX_JIT_STACK_INITIAL_SIZE (32U * 1024U)
+/* PCRE2 recommends 512 KiB to 1 MiB as enough for any pattern. */
+#define CWIKI_REGEX_JIT_STACK_MAX_SIZE (512U * 1024U)
 #define CWIKI_REGEX_UNSET SIZE_MAX
 
 enum cwiki_regex_compile_option {
@@ -32,6 +35,7 @@ enum cwiki_regex_status {
    CWIKI_REGEX_NO_MATCH,
    CWIKI_REGEX_MATCH_LIMIT,
    CWIKI_REGEX_DEPTH_LIMIT,
+   CWIKI_REGEX_JIT_STACK_LIMIT,
    CWIKI_REGEX_INVALID_UTF,
    CWIKI_REGEX_INTERNAL_ERROR
 };
@@ -50,6 +54,8 @@ struct cwiki_regex_result {
    const char *alternative;
    size_t alternative_length;
    int engine_code;
+   /* True only when PCRE2 invoked the assigned JIT-stack callback. */
+   bool used_jit;
 };
 
 struct cwiki_regex;

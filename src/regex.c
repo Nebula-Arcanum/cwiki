@@ -10,9 +10,20 @@ struct cwiki_regex {
    pcre2_code *code;
    pcre2_match_context *context;
    pcre2_match_data *match_data;
+   pcre2_jit_stack *jit_stack;
    struct cwiki_regex_capture *captures;
    size_t capture_count;
+   bool used_jit;
 };
+
+static pcre2_jit_stack *
+use_jit_stack(void *data)
+{
+   struct cwiki_regex *regex = data;
+
+   regex->used_jit = true;
+   return regex->jit_stack;
+}
 
 static void
 set_error(struct cwiki_regex_compile_error *error, int code, size_t offset)
@@ -78,6 +89,7 @@ cwiki_regex_free(struct cwiki_regex *regex)
    }
    free(regex->captures);
    pcre2_match_data_free(regex->match_data);
+   pcre2_jit_stack_free(regex->jit_stack);
    pcre2_match_context_free(regex->context);
    pcre2_code_free(regex->code);
    free(regex);
@@ -165,6 +177,15 @@ cwiki_regex_compile(struct cwiki_regex **output, const char *pattern,
       cwiki_regex_free(regex);
       return CWIKI_REGEX_COMPILE_JIT_FAILED;
    }
+   regex->jit_stack = pcre2_jit_stack_create(
+       CWIKI_REGEX_JIT_STACK_INITIAL_SIZE, CWIKI_REGEX_JIT_STACK_MAX_SIZE,
+       NULL);
+   if (regex->jit_stack == NULL) {
+      set_error(error, PCRE2_ERROR_NOMEMORY, CWIKI_REGEX_UNSET);
+      cwiki_regex_free(regex);
+      return CWIKI_REGEX_COMPILE_NO_MEMORY;
+   }
+   pcre2_jit_stack_assign(regex->context, use_jit_stack, regex);
    if (error != NULL) {
       error->engine_code = 0;
       error->byte_offset = CWIKI_REGEX_UNSET;
@@ -186,7 +207,7 @@ cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
     size_t subject_length, size_t start_offset, bool anchored)
 {
    struct cwiki_regex_result match = {CWIKI_REGEX_INTERNAL_ERROR, NULL, 0U,
-       NULL, 0U, PCRE2_ERROR_NULL};
+       NULL, 0U, PCRE2_ERROR_NULL, false};
    PCRE2_SIZE *offsets;
    PCRE2_SPTR mark;
    uint32_t options = anchored ? PCRE2_ANCHORED : 0U;
@@ -201,8 +222,10 @@ cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
    if (input == NULL) {
       input = "";
    }
+   regex->used_jit = false;
    result = pcre2_match(regex->code, (PCRE2_SPTR)input, subject_length,
        start_offset, options, regex->match_data, regex->context);
+   match.used_jit = regex->used_jit;
    match.engine_code = result < 0 ? result : 0;
    if (result == PCRE2_ERROR_NOMATCH) {
       match.status = CWIKI_REGEX_NO_MATCH;
@@ -214,6 +237,10 @@ cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
    }
    if (result == PCRE2_ERROR_DEPTHLIMIT) {
       match.status = CWIKI_REGEX_DEPTH_LIMIT;
+      return match;
+   }
+   if (result == PCRE2_ERROR_JIT_STACKLIMIT) {
+      match.status = CWIKI_REGEX_JIT_STACK_LIMIT;
       return match;
    }
    if (is_utf_error(result)) {
