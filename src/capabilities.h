@@ -19,6 +19,7 @@ enum cwiki_capability_state {
 struct cwiki_capabilities_result {
    enum cwiki_capability_state keyboard;
    enum cwiki_capability_state graphics;
+   uint32_t keyboard_flags;
    int complete;
 };
 
@@ -30,7 +31,7 @@ struct cwiki_capabilities_parser {
 };
 
 void cwiki_capabilities_parser_init(struct cwiki_capabilities_parser *parser);
-void cwiki_capabilities_parser_feed(struct cwiki_capabilities_parser *parser,
+size_t cwiki_capabilities_parser_feed(struct cwiki_capabilities_parser *parser,
     const unsigned char *bytes, size_t length);
 struct cwiki_capabilities_result cwiki_capabilities_parser_result(
     const struct cwiki_capabilities_parser *parser);

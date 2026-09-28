@@ -101,21 +101,48 @@ test_fragmentation_and_order(void)
 }
 
 static void
-test_flags_are_exactly_29(void)
+test_current_keyboard_flags(void)
 {
-   static const char *const replies[] = {
-      "\033[?0u", "\033[?1u", "\033[?28u", "\033[?31u",
-      "\033[?4294967295u", "\033[?4294967296u", "\033[?u"
+   static const struct {
+      const char *reply;
+      uint32_t flags;
+   } valid[] = {
+      {"\033[?0u", 0U},
+      {"\033[?6u", 6U},
+      {"\033[?29u", 29U},
+      {"\033[?31u", 31U},
+      {"\033[?32u", 32U},
+      {"\033[?4294967295u", UINT32_MAX}
+   };
+   static const char *const malformed[] = {
+      "\033[?4294967296u", "\033[?u", "\033[?-1u", "\033[?1;2u"
    };
    size_t i;
 
-   for (i = 0U; i < sizeof(replies) / sizeof(replies[0]); i++) {
+   for (i = 0U; i < sizeof(valid) / sizeof(valid[0]); i++) {
       struct cwiki_capabilities_parser parser;
       struct cwiki_capabilities_result result;
 
       cwiki_capabilities_parser_init(&parser);
       cwiki_capabilities_parser_feed(&parser,
-          (const unsigned char *)replies[i], strlen(replies[i]));
+          (const unsigned char *)valid[i].reply, strlen(valid[i].reply));
+      cwiki_capabilities_parser_feed(&parser, graphics_reply,
+          sizeof(graphics_reply) - 1U);
+      cwiki_capabilities_parser_feed(&parser, da1_reply,
+          sizeof(da1_reply) - 1U);
+      result = cwiki_capabilities_parser_result(&parser);
+      check(result.complete != 0 && supported(result) &&
+          result.keyboard_flags == valid[i].flags,
+          "any valid current keyboard flags prove support and are preserved");
+   }
+
+   for (i = 0U; i < sizeof(malformed) / sizeof(malformed[0]); i++) {
+      struct cwiki_capabilities_parser parser;
+      struct cwiki_capabilities_result result;
+
+      cwiki_capabilities_parser_init(&parser);
+      cwiki_capabilities_parser_feed(&parser,
+          (const unsigned char *)malformed[i], strlen(malformed[i]));
       cwiki_capabilities_parser_feed(&parser, graphics_reply,
           sizeof(graphics_reply) - 1U);
       cwiki_capabilities_parser_feed(&parser, da1_reply,
@@ -124,7 +151,7 @@ test_flags_are_exactly_29(void)
       check(result.complete != 0 &&
           result.keyboard == CWIKI_CAPABILITY_MISSING &&
           result.graphics == CWIKI_CAPABILITY_SUPPORTED,
-          "only the exact required keyboard flags value 29 is supported");
+          "malformed or overflowing keyboard flags do not prove support");
    }
 }
 
@@ -229,15 +256,41 @@ test_da1_concludes_missing(void)
        "DA1 preserves a valid graphics reply and marks keyboard missing");
 }
 
+static void
+test_da1_preserves_unconsumed_input(void)
+{
+   static const unsigned char fixture[] = "\x1b[?1;2c\x1b[97;1u";
+   static const unsigned char pending[] = "\x1b[97;1u";
+   struct cwiki_capabilities_parser parser;
+   struct cwiki_capabilities_result result;
+   size_t consumed;
+
+   cwiki_capabilities_parser_init(&parser);
+   check(cwiki_capabilities_parser_feed(&parser, pending,
+       sizeof(pending) - 1U) == sizeof(pending) - 1U,
+       "pending parser consumes the complete input chunk");
+
+   cwiki_capabilities_parser_init(&parser);
+   consumed = cwiki_capabilities_parser_feed(&parser, fixture,
+       sizeof(fixture) - 1U);
+   result = cwiki_capabilities_parser_result(&parser);
+   check(consumed == sizeof(da1_reply) - 1U && result.complete != 0,
+       "feed stops exactly after the DA1 final byte");
+   check(cwiki_capabilities_parser_feed(&parser, fixture + consumed,
+       sizeof(fixture) - 1U - consumed) == 0U,
+       "completed parser consumes no post-barrier key input");
+}
+
 int
 main(void)
 {
    test_query_strings();
    test_fragmentation_and_order();
-   test_flags_are_exactly_29();
+   test_current_keyboard_flags();
    test_graphics_id_is_exact();
    test_malformed_then_valid_recovery();
    test_da1_concludes_missing();
+   test_da1_preserves_unconsumed_input();
    if (failures != 0) {
       return 1;
    }

@@ -71,8 +71,9 @@ finish_csi(struct cwiki_capabilities_parser *parser, unsigned char final)
    if (final == (unsigned char)'u' && parser->sequence_len >= 2U &&
        parser->sequence[0] == (unsigned char)'?' &&
        parse_number(parser->sequence + 1U, parser->sequence_len - 1U,
-       &flags) && flags == 29U) {
+       &flags)) {
       parser->result.keyboard = CWIKI_CAPABILITY_SUPPORTED;
+      parser->result.keyboard_flags = flags;
    } else if (final == (unsigned char)'c' &&
        valid_da1(parser->sequence, parser->sequence_len)) {
       if (parser->result.keyboard == CWIKI_CAPABILITY_PENDING) {
@@ -124,10 +125,11 @@ cwiki_capabilities_parser_init(struct cwiki_capabilities_parser *parser)
    parser->state = STATE_GROUND;
    parser->result.keyboard = CWIKI_CAPABILITY_PENDING;
    parser->result.graphics = CWIKI_CAPABILITY_PENDING;
+   parser->result.keyboard_flags = 0U;
    parser->result.complete = 0;
 }
 
-void
+size_t
 cwiki_capabilities_parser_feed(struct cwiki_capabilities_parser *parser,
     const unsigned char *bytes, size_t length)
 {
@@ -196,6 +198,7 @@ cwiki_capabilities_parser_feed(struct cwiki_capabilities_parser *parser,
          break;
       }
    }
+   return i;
 }
 
 struct cwiki_capabilities_result
