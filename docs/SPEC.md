@@ -1385,13 +1385,16 @@ Rejected:
 ### 2.5 Note names and link resolution
 
 **R2.5.1** A note's link name is its filename stem. Resolution is **case-sensitive
-and normal-form-sensitive**: `[[chain rule]]` does not resolve `Chain Rule.md`.
+and normalization-insensitive**: `[[chain rule]]` does not resolve
+`Chain Rule.md`, but canonically equivalent NFC and NFD spellings resolve the
+same note.
 
-**R2.5.2** Resolution compares exact bytes against cwiki's own **index** and never
-asks the filesystem. This is what makes R2.5.1 platform-consistent: the same link
-resolves, or fails, identically on macOS, Linux and FreeBSD. Resolving by attempting
-to open a path would make behaviour depend on the filesystem's case folding, so a
-link written on macOS could be dead on Linux — which the brief rules out.
+**R2.5.2** Resolution compares NFC-normalized, case-preserving keys against
+cwiki's own **index** and never asks the filesystem. This makes R2.5.1
+platform-consistent: the same link resolves, or fails, identically on macOS,
+Linux and FreeBSD. Resolving by attempting to open a path would make behaviour
+depend on the filesystem's case and normalization behavior, so a link written
+on macOS could be dead on Linux — which the brief rules out.
 
 **R2.5.3** **Collision guard.** cwiki refuses to create, and reports when scanning,
 any two notes whose names differ only by case or by Unicode normal form. Such a
@@ -1404,14 +1407,18 @@ aliases and headings, driven by the link index. This is the same completion
 mechanism as the label/anchor row, not a second one.
 
 **R2.5.5** Frontmatter `aliases` add further exact keys for a note. `[[Note#Heading]]`
-resolves headings through the same index and the same exactness rule.
+resolves headings through the same index and the same case-sensitive,
+normalization-insensitive rule.
 
 Rejected:
 
-- **Folding case and normal form for resolution.** Makes `[[chain rule]]`,
-  `[[Chain Rule]]` and `[[CHAIN RULE]]` all work, identically everywhere, at the cost
-  of forbidding notes deliberately distinguished by case — which macOS forbids
-  anyway. Rejected in favour of exactness plus completion.
+- **Folding case for resolution.** Makes `[[chain rule]]`, `[[Chain Rule]]` and
+  `[[CHAIN RULE]]` all work, identically everywhere, but hides mistakes and
+  weakens the predictable filename-based naming rule. Rejected in favor of
+  case-sensitive matching plus completion.
+- **Exact-byte, normalization-sensitive resolution.** Preserves every byte-level
+  distinction, but makes canonically equivalent Unicode spellings fail to match
+  and conflicts with R1.3.4's cross-platform comparison-key rule.
 - **Case-sensitive resolution via the filesystem.** Simplest, needs no index for
   resolution, but behaviour then differs per machine, which the brief rules out.
 - **Folding with a tie-break rule on collision.** Silently sends a link to one of
@@ -1571,14 +1578,6 @@ Rejected:
 
 Settled topics are the numbered sections above; this section lists only what is
 still open.
-
-### Contradiction requiring confirmation
-
-- **Link normalization.** R1.3.4 says comparison keys use NFC normalization so
-  canonically equivalent text resolves consistently. R2.5.1–R2.5.2 say links
-  are exact-byte and normalization-sensitive. Confirm whether links should be
-  case-sensitive but normalization-insensitive, or sensitive to both case and
-  normalization.
 
 ### Topics not yet interviewed, in the order the brief sets
 
