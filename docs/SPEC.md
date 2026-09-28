@@ -1258,12 +1258,13 @@ the path, so reorganising decks is moving files and needs no rewrite anywhere el
 then touch different files and never the same region of one — which is the normal
 case, since cards get added wherever studying happens.
 
-**R2.2.4** Frontmatter carries a **stable id**, the note type, the named fields, a
-`source` wikilink back to the note the material came from, and a **subject**
-classification. The subject is a separate field rather than being inferred from the
-deck path, because topics overlap between subjects — thermodynamics,
-electromagnetism and spectroscopy each appear in both physics and chemistry — so
-deck placement cannot carry it.
+**R2.2.4** Frontmatter carries a **stable id**, the note type, the named fields,
+an optional `source` wikilink back to the note the material came from, and a
+**subject** classification. The subject is a separate field rather than being
+inferred from the deck path, because topics overlap between subjects —
+thermodynamics, electromagnetism and spectroscopy each appear in both physics
+and chemistry — so deck placement cannot carry it. Standalone cards need no
+fake source note.
 
 **R2.2.5** The subject field is the same one that selects layered snippet sets
 (R1.10.11), so a card and the note it came from agree about their subject without a
@@ -2062,6 +2063,141 @@ Rejected:
 
 ---
 
+## 8. Study and planning workflows
+
+### 8.1 Flashcard authoring and review
+
+**R8.1.1** Flashcards are created and maintained only through a dedicated deck
+browser. Ordinary note editing has no create-card action and no embedded card
+syntax. The browser creates the separate card-note files specified by §2.2.
+
+**R8.1.2** Card creation selects a deck, note type, subject, and optional source
+note, then edits named fields with the normal modal editor and render pipeline.
+The source picker writes the optional R2.2.4 wikilink.
+
+**R8.1.3** Note types are synchronized declarative YAML definitions with named
+fields and one or more Markdown front/back templates. Templates support
+`{{Field}}` substitution, simple field-presence conditionals, and built-in
+cloze expansion. They use cwiki's Markdown/TeX renderer and theme; there is no
+HTML/CSS or template scripting runtime.
+
+**R8.1.4** The deck browser shows the deck/subdeck hierarchy with new, learning,
+and due counts. Reviewing a deck includes its subdecks by default.
+
+**R8.1.5** The default review queue presents learning and relearning cards,
+then due reviews, with new cards interleaved according to the deck setting.
+Again, Hard, Good, and Easy show their next intervals. Daily new and review
+limits apply per deck, and sibling cards from one note are buried until the
+next day by default.
+
+**R8.1.6** Review remains keyboard-driven and supports reveal, grade, undo the
+last grade, edit and return, suspend, bury, and mark. Due cards are pre-rendered
+under the existing rendering requirement.
+
+**R8.1.7** Custom Study creates a temporary query-backed queue for cram,
+catch-up, or other saved-query criteria. It neither moves cards nor changes
+their home decks.
+
+Rejected:
+
+- **Creating cards from a note selection.** Faster while reading notes, but
+  mixes card authoring into the note workflow; all creation belongs in the deck
+  browser.
+- **Cards embedded in notes.** Conflicts with the separate-file data model and
+  couples prose edits to card identity.
+- **Anki-compatible HTML/CSS templates.** Would require a second renderer and a
+  web styling model in the terminal application.
+- **One global queue with no deck selection.** Removes deck navigation but loses
+  course-specific review limits and intentional study sessions.
+
+### 8.2 Calendar interaction
+
+**R8.2.1** The primary calendar planning surface is a keyboard-driven week time
+grid with day columns, a movable time-slot cursor, duration-aware event and task
+blocks, and overlap layout. Month view navigates dates; day view provides a
+wider detailed schedule.
+
+**R8.2.2** Enter on a grid slot opens the shared structured event form prefilled
+with that start time. The form covers title, date and time, duration, zone,
+location, recurrence, and reminders. Keyboard actions move and resize existing
+blocks.
+
+**R8.2.3** Every view uses the same event form. A compact deterministic
+quick-add syntax may prefill it; free-form natural-language date guessing is a
+later optional feature, not part of the first calendar workflow.
+
+**R8.2.4** Editing or deleting a recurring occurrence offers: this occurrence,
+this and future occurrences, or the whole series. A single-instance change uses
+an override or exclusion; this-and-future splits the series while retaining its
+stable relationship for export.
+
+Rejected:
+
+- **Month or agenda view as the primary surface.** Useful for overview, but not
+  the time-blocking workflow that calendar priority requires.
+- **Free-form natural language in the first release.** Convenient when guessed
+  correctly, but inherently ambiguous and unnecessary beside a slot-prefilled
+  form and deterministic shorthand.
+- **Editing day Markdown for every event.** Keeps the plain-file representation
+  visible but makes routine time-block manipulation unnecessarily textual.
+
+### 8.3 Task dashboard and time blocks
+
+**R8.3.1** The main task screen is a query-backed dashboard with Inbox, Overdue,
+Today, Upcoming, and Someday sections. Each item shows its source note, status,
+priority, due date, and scheduled blocks.
+
+**R8.3.2** Completing, editing, or rescheduling an inline task updates its source
+note through the durable-write path. A dashboard result is a view of the source
+task, not a second task record.
+
+**R8.3.3** A task may have zero or more calendar work blocks. Each block
+references a stable task ID; an inline task receives an ID only when another
+record first needs to reference it. A due date remains independent of planned
+work times.
+
+**R8.3.4** Task blocks appear in calendar views but are projections of the task,
+not copied events. Moving or resizing one updates that block's schedule.
+Completing a task asks before cancelling any future incomplete work blocks.
+
+Rejected:
+
+- **A flat priority list.** Hides the distinction between overdue, actionable
+  today, and unscheduled inbox work.
+- **Tasks managed only in source notes.** Cannot provide the cross-vault daily
+  planning workflow.
+- **At most one block per task.** Prevents splitting substantial work across
+  several study sessions.
+- **Copied calendar events.** Creates two independently editable records that
+  can drift apart.
+
+### 8.4 Projects
+
+**R8.4.1** A project is a project note with a stable ID, status, intended
+outcome, dates, and optional parent. Notes, tasks, events, and flashcard decks
+join it through an explicit `project` property. Links and backlinks provide
+context but do not imply project membership.
+
+**R8.4.2** A project home combines the project note's prose with configurable
+declarative sections for outcome, next actions, task groups, upcoming events
+and work blocks, linked notes, and deck/study status. Sections are queries over
+the shared index rather than duplicated data.
+
+**R8.4.3** List and calendar sections ship before an optional Kanban view.
+Kanban is a later presentation over the same project/task records and does not
+define project storage or membership.
+
+Rejected:
+
+- **Folder equals project.** Simple, but a note, task, event, or deck may belong
+  to a project without sharing one directory hierarchy.
+- **Backlinks imply membership.** Conflates reference context with an explicit
+  planning relationship.
+- **Kanban as the project model.** Makes one optional view dictate storage and
+  delays the more important list and calendar workflows.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -2069,8 +2205,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Flashcards, calendar, tasks and projects** as workflow designs, on top of the
-  storage decided in §2.
 - **UI details.**
 
 ### Deferred, each tagged to the milestone that must answer it

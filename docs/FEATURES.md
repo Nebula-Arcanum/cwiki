@@ -64,6 +64,10 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 54. Decided in the follow-up interview: use broad declarative YAML configuration with no embedded scripting or public plugin API. See SPEC.md §7.
 55. Decided in the follow-up interview: keep action/event dispatch internal and expose only specific reviewed external-command integrations, not generic lifecycle hooks. See SPEC.md R7.4.
 56. Resolved by SPEC.md R5.1 and §7: use RRULE plus explicit task recurrence modes; do not add a recurrence expression or scripting language.
+57. Decided in the follow-up interview: author cards only in the deck browser as separate files; a source-note link is optional and selected there. See SPEC.md R8.1.
+58. Decided in the follow-up interview: note types use declarative Markdown field templates with built-in cloze support, not HTML/CSS or scripting. See SPEC.md R8.1.
+59. Decided in the follow-up interview: ship a structured event form and deterministic shorthand first; natural-language quick-add remains optional and later. See SPEC.md R8.2.
+60. Decided in the follow-up interview: task and project dashboards ship list/calendar sections first; Kanban is a later view over the same records. See SPEC.md R8.3–R8.4.
 
 ## Editor — modes & core editing model
 
@@ -381,7 +385,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |c| | L | FSRS scheduler (stability/difficulty/retrievability model, desired retention, optimizable parameters) | anki | Hard — a proper memory model + a parameter-optimization step (needs an optimizer, likely gradient-based, over review history) | c — valuable (it's Anki's modern default) but meaningfully harder than SM-2; ship SM-2 first, consider FSRS as a later milestone once there's real review-history data to optimize against |
 |k| | S | Leech detection (lapse-count threshold → tag/suspend) | anki | Easy once lapse tracking exists | k — cheap, useful |
 |k| | M | Overdue/behind-schedule handling (prioritize longest-overdue, factor in actual delay) | anki | Moderate | k — matters a lot for a "sometimes I don't review for a week" real-life pattern |
-|k| | M | Note types / fields / card templates (Front/Back/Styling, multiple cards per note) | anki | Moderate — a small templating language over named fields | k — needed for anything beyond the most trivial flashcard format |
+|k|58| M | Note types / fields / card templates (Front/Back/Styling, multiple cards per note) | anki | Moderate — a small templating language over named fields | k — needed for anything beyond the most trivial flashcard format |
 |k| | M | Cloze deletion (`{{c1::text}}`, hints, conditional per-cloze template blocks) | anki | Moderate | k — very natural fit for class-note-derived cards (blank out a term in a sentence) |
 |k|33| L | Image Occlusion cards | anki | Hard — needs an image-region editor and mask-based reveal rendering, awkward in a terminal without real image-region drawing tools | d — valuable for some subjects (anatomy-style diagrams) but a poor fit for terminal input; revisit only if there's real demand once TikZ/image rendering exists |
 |k| | M | Rich content in cards: LaTeX/mhchem, code, images | anki, (brief priorities) | Moderate — reuses the render pipeline already planned for notes | k — this is just "cards are notes," reuse the same TeX render pipeline |
@@ -398,7 +402,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |d| | M–L | Import/export: .apkg/.colpkg, text/CSV, strip-scheduling option | anki | Moderate — needs to parse Anki's SQLite-based .apkg format if true Anki interop is wanted | c — worth a one-way "import my existing Anki deck" path (matches the brief's Anki inspiration) even if cwiki's own format differs; full round-trip export is lower priority |
 |d| | M | Third-party importer support (Mnemosyne, SuperMemo) | anki | Moderate | d — not relevant to this user's migration path |
 |k| | — | Sync (AnkiWeb / self-hosted sync server) | anki | N/A — brief already decided flashcard review history syncs via git, merging without conflicts | k — already decided in brief (git-based, not a bespoke sync server); flagged in brief as its own phase-2 index/search topic |
-|d| | M | Obsidian-style flashcards-in-notes syntax (`Q::A`, cloze via markup, whole-note review) | obsidian (plugin ecosystem) | Moderate | c — relevant precedent for tying flashcards to source notes (workflow priority: cards should link back to class notes); consider authoring cards as blocks inside notes rather than a fully separate deck file format |
+|d|57| M | Obsidian-style flashcards-in-notes syntax (`Q::A`, cloze via markup, whole-note review) | obsidian (plugin ecosystem) | Moderate | c — relevant precedent for tying flashcards to source notes (workflow priority: cards should link back to class notes); consider authoring cards as blocks inside notes rather than a fully separate deck file format |
 
 ## Calendar & scheduling (views, recurrence, notifications)
 
@@ -419,7 +423,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | M | iCalendar import/export (VEVENT/VTODO/VALARM mapping) | calcurse | Moderate — a well-defined format, but full RFC 5545 fidelity takes real effort | k — brief explicitly asks "whether events and tasks must reach other devices, e.g. a phone calendar via iCalendar or CalDAV" — export is the cheaper, likely first step |
 |c|49| L | CalDAV two-way sync (separate companion tool, delete+create semantics since no stable IDs) | calcurse (calcurse-caldav) | Hard — a full CalDAV client, auth (including OAuth2 for Google Calendar), conflict handling | c — worth supporting eventually for phone-calendar visibility, but the brief's core sync story is git; treat CalDAV as an optional bridge/companion tool (like calcurse's own approach) rather than core cwiki, and only if the phase-2 interview decides devices must see events |
 |d| | M | Formatted calendar rendering to other outputs (PostScript/PDF/HTML via rem2ps/rem2pdf/rem2html) | remind | Moderate | d — not a stated need; skip |
-|c| | L | Natural-language quick-add ("meeting tomorrow at 11") | wyrd | Hard — an NL date/time parser, and wyrd's own docs admit it's English-biased and imperfect | c — nice ergonomics win but real effort for a parser that's inherently approximate; consider a simpler structured quick-add syntax first, revisit NL parsing later |
+|c|59| L | Natural-language quick-add ("meeting tomorrow at 11") | wyrd | Hard — an NL date/time parser, and wyrd's own docs admit it's English-biased and imperfect | c — nice ergonomics win but real effort for a parser that's inherently approximate; consider a simpler structured quick-add syntax first, revisit NL parsing later |
 |c| | S | CLI quick-add usable from scripts | wyrd | Easy once quick-add exists | c — bundle with quick-add feature |
 |k| | M | Rebindable keymap with duplicate-binding rejection | calcurse, wyrd | Moderate (already costed under UI chrome) | k — same as the general hotkey system |
 |d| | S | Configurable pluggable edit command (not hardwired to `$EDITOR`) | wyrd | Easy | d — cwiki has its own built-in editor per the brief; no need to hand off to an external editor at all |
@@ -439,7 +443,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | M | Global task query/aggregation view across the vault | obsidian (Tasks plugin) | Moderate — reuses the search/query-language work | k — needed for "what's due" / "what's overdue" views; brief's workflow priorities depend on this existing |
 |k| | M | Recurring tasks (next occurrence from schedule vs. from completion) | remind (COMPLETE-THROUGH/MAX-OVERDUE model), calcurse (lacks this — flat todo list only) | Moderate — the "from completion" variant needs different logic than calendar RRULE (completion-relative recurrence, not date-relative) | k — brief explicitly names both flavors as a phase-2 topic ("next occurrence from the schedule or from completion") |
 |k| | M | Scheduled tasks tied to time-blocking calendar | (brief, workflow priority #5, "ties in with previous point") | Moderate — mostly a data-model question of a task referencing/occupying a calendar slot | k — explicit brief requirement linking tasks and calendar |
-|c| | M–L | List / Calendar / Kanban views over tasks | zennotes | Moderate–Hard — Kanban-style board rendering in a terminal is a real layout challenge | c — List and Calendar views are natural reuses of existing UI (query list, calendar view); Kanban is a nicer-to-have, size it separately since board-layout-in-terminal is nontrivial |
+|c|60| M–L | List / Calendar / Kanban views over tasks | zennotes | Moderate–Hard — Kanban-style board rendering in a terminal is a real layout challenge | c — List and Calendar views are natural reuses of existing UI (query list, calendar view); Kanban is a nicer-to-have, size it separately since board-layout-in-terminal is nontrivial |
 |c| | M | Subtask progress rollups (computed, not written back) | zennotes | Moderate — needs a task hierarchy (subtasks) | c — useful for the projects feature (workflow priority #6); consider bundling with that rather than building standalone |
 |k| | S | Archiving hides tasks from active views | zennotes | Easy | k — cheap, standard |
 |d| | S | Flat todo list with simple integer priority and binary completion (no due date in base model) | calcurse | Easy | d — calcurse's own model is simpler than what the brief wants (no due dates); useful only as a reminder of the *minimum* viable task model, not a target to copy |
@@ -450,7 +454,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 | Decision | Notes | Cost | Feature | Sources | Feasibility in terminal | Suggestion |
 |---|---|---|---|---|---|---|
 |k| | M–L | Projects as a note+task+event aggregation layer built on tasks/tasks-views/calendar | (brief, workflow priority #6 — "built on the previous points") | Moderate–Hard — mostly an aggregation/view problem once notes, tasks, and calendar exist, but designing a good project "home" view is real UI/UX work | k — explicit brief requirement, but correctly sequenced last since it depends on tasks+calendar+notes all existing first |
-|c| | L | Project-level Kanban board (project ≈ folder of notes/tasks) | zennotes (Kanban view, folder-as-board) | Hard — same terminal board-layout challenge noted under Tasks | c — plausible shape for the projects feature, but bundle the sizing with the Kanban-view decision above rather than costing twice |
+|c|60| L | Project-level Kanban board (project ≈ folder of notes/tasks) | zennotes (Kanban view, folder-as-board) | Hard — same terminal board-layout challenge noted under Tasks | c — plausible shape for the projects feature, but bundle the sizing with the Kanban-view decision above rather than costing twice |
 
 ## Not applicable / explicitly out of platform scope
 
