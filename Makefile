@@ -8,6 +8,8 @@ CFLAGS = -std=c11 -pedantic -Wall -Wextra -Werror -Wconversion -Wshadow \
 LDFLAGS =
 UTF8PROC_CFLAGS = `pkg-config --cflags libutf8proc`
 UTF8PROC_LIBS = `pkg-config --libs libutf8proc`
+PCRE2_CFLAGS = `pkg-config --cflags libpcre2-8`
+PCRE2_LIBS = `pkg-config --libs libpcre2-8`
 
 BUILD_DIR = build
 SMOKE = $(BUILD_DIR)/cwiki-smoke
@@ -19,16 +21,19 @@ INPUT_TEST = $(BUILD_DIR)/test-input
 BUFFER_TEST = $(BUILD_DIR)/test-buffer
 CAPABILITIES_TEST = $(BUILD_DIR)/test-capabilities
 UNDO_TEST = $(BUILD_DIR)/test-undo
+ZONE_TEST = $(BUILD_DIR)/test-zone
+ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
-	$(CAPABILITIES_TEST) $(UNDO_TEST)
+	$(CAPABILITIES_TEST) $(UNDO_TEST) $(ZONE_TEST) $(ZONE_FUZZ)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	src/durable_write.c tests/io/test_durable_write.c \
 	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
 	tests/buffer/test_buffer.c src/capabilities.c \
-	tests/terminal/capabilities_test.c src/undo.c tests/undo/test_undo.c
+	tests/terminal/capabilities_test.c src/undo.c tests/undo/test_undo.c \
+	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -99,12 +104,29 @@ $(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
 		-Isrc src/buffer.c src/unicode.c src/undo.c tests/undo/test_undo.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) -o $(UNDO_TEST)
 
+$(ZONE_TEST): src/zone.c src/zone.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h tests/zone/test_zone.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/buffer.c src/unicode.c src/zone.c tests/zone/test_zone.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(ZONE_TEST)
+
+$(ZONE_FUZZ): src/zone.c src/zone.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h tests/zone/fuzz_zone.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_ZONE_FUZZ_STANDALONE -Isrc src/buffer.c src/unicode.c \
+		src/zone.c tests/zone/fuzz_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		$(PCRE2_LIBS) -o $(ZONE_FUZZ)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
 	$(BUFFER_TEST)
 	$(CAPABILITIES_TEST)
 	$(UNDO_TEST)
+	$(ZONE_TEST)
+	$(ZONE_FUZZ)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -121,7 +143,7 @@ analyze:
 		--warnings-as-errors='*' \
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
 		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_UNDO_TESTING \
-		$(UTF8PROC_CFLAGS) -Isrc
+		-DCWIKI_ZONE_FUZZ_STANDALONE $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
 
 verify: check sanitize
 
