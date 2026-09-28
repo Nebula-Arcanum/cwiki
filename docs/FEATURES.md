@@ -68,6 +68,14 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 58. Decided in the follow-up interview: note types use declarative Markdown field templates with built-in cloze support, not HTML/CSS or scripting. See SPEC.md R8.1.
 59. Decided in the follow-up interview: ship a structured event form and deterministic shorthand first; natural-language quick-add remains optional and later. See SPEC.md R8.2.
 60. Decided in the follow-up interview: task and project dashboards ship list/calendar sections first; Kanban is a later view over the same records. See SPEC.md R8.3–R8.4.
+61. Decided in the follow-up interview: replace a generic file explorer with one indexed Notes browser with optional preview. See SPEC.md R9.1.
+62. Decided in the follow-up interview: select a vault by explicit path, then nearest `.cwiki/` marker, then configured default or picker. See SPEC.md R9.1.
+63. Decided in the follow-up interview: provide Sync-focused Git status, diff, history, and conflict details, not a full Git client. See SPEC.md R9.2.
+64. Decided in the follow-up interview: automatically follow kitty light/dark background changes with a machine-local override. See SPEC.md R9.3.
+65. Decided in the follow-up interview: cwiki is keyboard-only and does not process mouse input. See SPEC.md R9.3.
+66. Decided in the follow-up interview: drop indentation-scope guides as code-oriented visual noise. See SPEC.md R9.3.
+67. Decided in the follow-up interview: drop threaded note annotations; use ordinary content or comment blocks. See SPEC.md R9.4.
+68. Decided in the follow-up interview: ship curated, overridable math, mhchem, and TikZ snippet sets. See SPEC.md R9.4.
 
 ## Editor — modes & core editing model
 
@@ -106,7 +114,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | S–M | System clipboard yank/paste shortcuts | nvim | Easy (terminal clipboard via OSC 52) to Moderate (native clipboard integration differs per OS) | k — needed to move text in/out of notes; use OSC 52 for terminal-native cross-platform behavior |
 |k| | S | Trim trailing whitespace (on demand + highlight) | nvim (mini.trailspace) | Easy | k — cheap, keeps notes/git diffs clean |
 |k| | M | Fuzzy picker: files/buffers/grep/help/resume, one shared UI pattern | nvim (mini.pick) | Moderate — needs a fuzzy-match algorithm and a live-filtered list widget, but this is directly reusable across cwiki's own search screens | k — brief explicitly calls this out as the interaction pattern cwiki's screens should follow; build once, reuse everywhere |
-|?|8| M | File explorer / directory browser with preview pane | nvim (mini.files) | Moderate | c — a note-tree browser is useful, but should probably be cwiki's own "notes list" screen rather than a generic file browser; fold into that design |
+|c|61| M | File explorer / directory browser with preview pane | nvim (mini.files) | Moderate | c — a note-tree browser is useful, but should probably be cwiki's own "notes list" screen rather than a generic file browser; fold into that design |
 |c| | S–M | Bracketed navigation (`[x`/`]x` across buffers/jumps/etc.); vimtex uses the same convention for document structure — `[[`/`]]` sections, `[m`/`]m` environments, `[n`/`]n` math zones, `[*`/`]*` comment blocks, all count-aware and comment-safe | nvim (mini.bracketed), vimtex | Easy–Moderate per list type | c — keep the mnemonic (`[`/`]` + letter) as a UI convention; only implement the lists cwiki actually has (buffers, notes, headings) |
 |k|9| M | 2D label-based jump (easymotion/hop-style) | nvim (mini.jump2d) | Moderate — needs on-screen label rendering | d — nice but not core; low priority vs. workflow priorities |
 |k| | S | Enhanced f/t char-jump (highlight target, repeat without re-specifying) | nvim (mini.jump) | Easy once f/t exist | k — cheap improvement on a core vim motion |
@@ -117,9 +125,9 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |c| | M | Marks/registers "clue" popups (show contents before completing command) | nvim (mini.clue) | Moderate | c — valuable UX, bundle into the general clue-popup system rather than building separately |
 |c|45| S | Quickfix-list toggle; in vimtex this list *is* the LaTeX diagnostics pane — one key toggles it, it opens itself on errors (optionally on warnings only, optionally without stealing focus) and can auto-close after N cursor movements so it gets out of the way when you resume typing | nvim, vimtex | Easy | d — quickfix is a code-editing concept (compiler errors); low relevance unless cwiki gets a "search results as a list" feature, which should just be the picker |
 |k| | S | Cursor-word highlight (auto-highlight other occurrences) | nvim (mini.cursorword) | Easy | k — cheap, helps spot repeated terms/link targets |
-|?|12| M | Indent-scope visualization (vertical guide) | nvim (mini.indentscope) | Moderate | d — mainly a code-structure aid; low value for prose/markdown |
+|d|66| M | Indent-scope visualization (vertical guide) | nvim (mini.indentscope) | Moderate | d — mainly a code-structure aid; low value for prose/markdown |
 |k| | S | Restore cursor position on reopen | nvim (mini.misc) | Easy | k — cheap and expected |
-|?|13| S | Auto root/vault detection (cwd follows nearest `.git`) | nvim (mini.misc) | Easy | c — relevant concept, but cwiki's "root" is the vault directory, not a generic project root; adapt rather than copy |
+|c|62| S | Auto root/vault detection (cwd follows nearest `.git`) | nvim (mini.misc) | Easy | c — relevant concept, but cwiki's "root" is the vault directory, not a generic project root; adapt rather than copy |
 |k| | M | Buffer delete/wipeout without disturbing window layout | nvim (mini.bufremove) | Moderate | k — needed once splits/tabs exist so closing a note doesn't collapse the layout |
 |k| | S | Alternate-buffer jump (`:b#`) | nvim | Easy | k — cheap, useful "toggle last two notes" |
 |k| | S | Buffer reuse across tabs (`switchbuf=usetab`) | nvim (option) | Easy | k — cheap once tabs/windows exist |
@@ -129,7 +137,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |c|14| S | Start screen / dashboard | nvim (mini.starter) | Easy | c — low priority; a simple "recent notes" list covers most of the value |
 |d| | M | Terminal splits | nvim | Moderate — needs a PTY/subprocess pane | d — out of scope; cwiki is not a terminal multiplexer, and the brief says cwiki never runs inside tmux, implying no ambition to replace it |
 |c| | S | Notification history | nvim (mini.notify) | Easy | c — useful for surfacing background-render/LaTeX-error messages; low cost, bundle with render-status UI |
-|?|15| M | Git command wrappers (diff/stage/commit/log) | nvim (`:Git`) | Moderate — shelling out to git and parsing/displaying output | c — cwiki needs *some* git integration per the brief (sync); scope to what's actually needed (status, commit, pull) rather than a full git client |
+|c|63| M | Git command wrappers (diff/stage/commit/log) | nvim (`:Git`) | Moderate — shelling out to git and parsing/displaying output | c — cwiki needs *some* git integration per the brief (sync); scope to what's actually needed (status, commit, pull) rather than a full git client |
 |d| | M | Inline diff overlay (gutter +/-/~) | nvim (mini.diff) | Moderate | d — nice but not core; revisit after git-sync feature is defined |
 |d| | M | Git blame/show at cursor | nvim (mini.git) | Moderate | d — low priority for a personal single-author-mostly wiki |
 |d| | M | Pickers over git history (commits/hunks) | nvim (mini.pick + extra) | Moderate | d — low priority; the picker infra is worth building for notes/files/grep first |
@@ -140,12 +148,12 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | S | Relative + toggleable line numbers | nvim (option) | Easy | k — cheap, useful in source/editing mode |
 |c| | S | Sign column always reserved | nvim (option) | Easy | c — relevant once there's anything to put in a gutter (diagnostics, render-error markers); decide alongside that feature |
 |k| | S | Popup menu / floating window border styling | nvim (option) | Easy | k — cheap once popups (clue, picker, completion) exist |
-|?|17| S–M | Terminal-background sync | nvim (mini.misc) | Easy — kitty supports background-colour queries (OSC colour queries) directly; one code path, no cross-terminal variance | c — nice polish, cheap now that there's only one terminal's behavior to match |
+|c|64| S–M | Terminal-background sync | nvim (mini.misc) | Easy — kitty supports background-colour queries (OSC colour queries) directly; one code path, no cross-terminal variance | c — nice polish, cheap now that there's only one terminal's behavior to match |
 |k|18| S | Quiet UI / reduced messages | nvim (options) | Easy | k — cheap, matches "no noisy chrome" |
 |k|47| S | No swapfile | nvim (option) | Easy | ? — depends on cwiki's data-safety design (atomic writes may replace swapfile's crash-recovery role); revisit in phase 2 data-safety interview |
 |k| | S | Indentation config (shiftwidth/tabstop/expandtab = 3-space) | nvim (options, per brief) | Trivial | k — brief states this explicitly as the user's preference to carry over |
 |k| | M | No line wrap by default, but soft-wrap available for prose | nvim (options) + brief ("soft wrap for prose") | Moderate — soft-wrap interacting with cursor motions/counts is a real editor-core question | k — brief calls for soft wrap for prose specifically; scope as its own line item (see brief §Interview, editor internals) |
-|?|19| S | Mouse disabled by design | nvim (option) | Trivial (just don't handle mouse events) | c — kitty can report mouse events (including SGR-pixel mode), but the brief's own workflow research (nvim-workflow.md) argues for keyboard-only; decide explicitly rather than defaulting |
+|d|65| S | Mouse disabled by design | nvim (option) | Trivial (just don't handle mouse events) | c — kitty can report mouse events (including SGR-pixel mode), but the brief's own workflow research (nvim-workflow.md) argues for keyboard-only; decide explicitly rather than defaulting |
 |c| | M | Virtual block editing past short lines | nvim (option) | Moderate — ties into block-visual implementation | c — bundle with block-visual mode decision above |
 |d| | M | Spelling: camelCase-aware, toggle | vim/nvim (option) | Moderate — needs a spellcheck dictionary/engine | d — spellcheck is a nice-to-have, likely out of scope for early milestones; revisit later |
 |c| | S | Custom list-continuation pattern for `gw`/`gq` | nvim (option) | Easy once `gq`/`gw` exist | c — bundle with format operators |
@@ -170,7 +178,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | S–M | Postfix/suffix snippets (decoration after an identifier) | latex-snippets | Moderate — anchored regex triggers, same engine as above | k — cheap once regex-trigger engine exists |
 |k| | M | Visual-selection placeholder (wrap existing selection) | latex-snippets | Moderate — needs visual mode + snippet engine to hand off selected text | k — high-value ergonomics (wrap an expression in `\frac{}{}`) |
 |c| | M | Course/subject-scoped snippet sets (layered on a global set) | latex-snippets | Moderate — snippet-file loading/merging logic keyed to note metadata (subject) | c — relevant to workflow priority #1 (chemistry/physics/calc contexts); implement as scoping by note's declared subject/context rather than a symlink hack |
-|?|23| S | Concrete math snippet examples (`//`→frac, `sr`→^2, auto-subscript on letter+digit, `mk`/`dm` math shells, greek mnemonics, `phat`/`zbar`-style postfix decorations, `lim`) | latex-snippets | Easy–Moderate once the engine exists — these are just snippet *definitions* | k — ship a curated default snippet library alongside the engine; low marginal cost once the engine works |
+|k|68| S | Concrete math snippet examples (`//`→frac, `sr`→^2, auto-subscript on letter+digit, `mk`/`dm` math shells, greek mnemonics, `phat`/`zbar`-style postfix decorations, `lim`) | latex-snippets | Easy–Moderate once the engine exists — these are just snippet *definitions* | k — ship a curated default snippet library alongside the engine; low marginal cost once the engine works |
 |k| | S | mhchem-specific snippet examples (analogous to bra-ket `<q\|` domain snippet) | latex-snippets (by extension — brief names mhchem specifically) | Easy once engine + context-awareness exist | k — brief names mhchem as a priority package; needs its own context (`\ce{}`) and its own snippet set |
 |d| | L | SymPy/CAS-evaluated snippet (type expression, get typeset result) | latex-snippets | Hard — needs shelling out to a CAS and trusting/sandboxing that call | d — interesting but speculative; not named in the brief's priorities, defer |
 |k| | S | Filetype/context-scoped snippet loading | latex-snippets | Easy once contexts exist | k — bundled with context-awareness above |
@@ -353,7 +361,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |k| | M | Fully rebindable hotkeys, keyboard-layout-aware capture | obsidian, wyrd (named "operations" bindable to keys), calcurse (rebindable, conflict-rejecting) | Moderate — a keymap data structure + conflict detection (calcurse's approach: reject a duplicate binding rather than silently overriding) | k — brief's referenced prior art (calcurse, wyrd, nvim config) all treat this as core; conflict-rejection is a nice specific behavior to copy |
 |k| | M | Leader-key groups with clue/which-key popups | nvim, zennotes, nvim-workflow.md | Moderate (already costed above under editor conveniences) | k — brief explicitly wants cwiki's screens to follow this pattern; treat as one shared UI primitive, not per-screen |
 |k| | M | One unified fuzzy-picker idiom reused for every "find X" task | nvim, zennotes, nvim-workflow.md | Moderate (already costed above) | k — same component reused for notes/tasks/flashcards/events, per the brief's nvim-workflow summary |
-|?|19| S | No-mouse-by-design philosophy | nvim, nvim-workflow.md | Trivial (a design constraint, not a feature) | c — decide purely on the keyboard-only workflow philosophy in nvim-workflow.md |
+|d|65| S | No-mouse-by-design philosophy | nvim, nvim-workflow.md | Trivial (a design constraint, not a feature) | c — decide purely on the keyboard-only workflow philosophy in nvim-workflow.md |
 |k|31| S–M | Persistent lightweight status line (mode, file, position, sync/render state) | nvim, calcurse (notify-bar), wyrd (status bar) | Easy–Moderate | k — recurring pattern across every terminal tool researched; cheap and valuable |
 |d| | M | Context-sensitive status/help bar listing currently available keys | calcurse | Moderate | c — overlaps with the clue-popup pattern; could be the same mechanism surfaced persistently instead of on-demand |
 |c| | M | In-app contextual help (`?`, `:help <topic>`) | calcurse | Moderate — needs a docs/help-text corpus and a pager/viewer | c — useful, but low priority versus getting the editor/render core done; later milestone |
@@ -374,7 +382,7 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided �
 |d| | XL | Self-hosted web backend / remote-vault access | zennotes | XL — a whole server product | d — explicitly out of scope; brief's sync model is git-only, no client-server mode |
 |d| | — | Official paid sync service | obsidian, zennotes, anki (AnkiWeb) | N/A — brief already decided: git is the sync mechanism | d — superseded by brief's git-sync decision |
 |d| | M | Version history / "restore an earlier state" beyond git | obsidian (Sync feature) | Moderate | d — git itself already provides this; redundant given the sync model |
-|?|32| L | Note-level comment/annotation threads with resolve workflow | zennotes | Moderate–Hard — a whole review/discussion data model | d — solo personal-wiki use case; not named in the brief |
+|d|67| L | Note-level comment/annotation threads with resolve workflow | zennotes | Moderate–Hard — a whole review/discussion data model | d — solo personal-wiki use case; not named in the brief |
 |c| | S | Trash / soft-delete with restore | zennotes | Easy — move-to-folder + a restore command | c — cheap safety net; low priority but inexpensive, consider bundling with atomic-write/data-safety work |
 
 ## Flashcards / spaced repetition

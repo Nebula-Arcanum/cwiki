@@ -2198,14 +2198,97 @@ Rejected:
 
 ---
 
+## 9. Interaction details
+
+### 9.1 Vault and note browsing
+
+**R9.1.1** cwiki has one indexed Notes browser rather than a generic filesystem
+explorer. It supports fuzzy and list navigation by title, path, and properties,
+an optional note preview, and directory grouping. It reuses the shared picker
+and index instead of implementing a second file-navigation system.
+
+**R9.1.2** Vault selection follows this precedence: an explicit CLI path; the
+nearest ancestor containing the `.cwiki/` vault marker; a configured default;
+then a vault picker. An arbitrary Git repository is not automatically a vault.
+
+Rejected:
+
+- **Generic filesystem explorer.** Duplicates picker behavior and exposes file
+  operations unrelated to a note vault.
+- **Fuzzy picker only.** Fast when the target is known, but lacks the browsable
+  hierarchy and preview useful for discovery.
+- **Nearest Git repository as vault.** Can mistake source repositories or nested
+  projects for cwiki data.
+
+### 9.2 Git surfaces
+
+**R9.2.1** In addition to Sync, cwiki shows vault Git status, diffs of authored
+files, recent history, and conflict or retry details. These surfaces explain
+and support the §3.3 workflow.
+
+**R9.2.2** cwiki is not a general Git client. It does not expose arbitrary
+staging, branch management, rebases, or hand-authored commits outside the
+defined vault Sync operation.
+
+Rejected:
+
+- **A full in-app Git client.** Adds broad porcelain UI unrelated to the
+  constrained personal-vault synchronization workflow.
+- **An opaque Sync command.** Leaves the user unable to inspect pending changes
+  or understand a stopped operation.
+
+### 9.3 Terminal theme and input
+
+**R9.3.1** A color theme may define light and dark variants. cwiki queries
+kitty's background at startup and when terminal focus returns, and switches the
+complete variant transactionally when it changes. A machine-local setting may
+override automatic selection.
+
+**R9.3.2** cwiki is keyboard-only and does not enable or interpret terminal
+mouse reporting. Every action is available through keymaps, clue popups,
+pickers, or commands. Kitty may still provide terminal-owned behavior such as
+text selection and opening OSC 8 links.
+
+**R9.3.3** Editing mode does not draw an active indentation-scope guide. Syntax
+highlighting, delimiter matching, and contextual zones provide structure
+without adding a code-oriented vertical guide to prose and LaTeX.
+
+Rejected:
+
+- **Startup-only color detection.** Does not follow a terminal theme changed
+  while cwiki remains open.
+- **Basic or full mouse handling.** Creates a second interaction path contrary
+  to the established keyboard-first workflow.
+- **Indent guides only in code fences.** A bounded variant, but still low value
+  for the short embedded code that cwiki prioritizes.
+
+### 9.4 Defaults and excluded interaction models
+
+**R9.4.1** cwiki ships a curated, fully overridable default snippet library:
+inline and display math shells; fractions; superscript and subscript patterns;
+Greek letters and common operators; postfix accents and decorations; limits,
+sums, integrals, matrices, and environments; plus separate mhchem and TikZ
+sets. Riskier auto-expansions are context-gated and individually disableable.
+
+**R9.4.2** cwiki has no note-level threaded annotation, reply, or resolve data
+model. Private annotations use ordinary note content or comment blocks.
+
+Rejected:
+
+- **No default snippets.** Makes the priority class-note workflow require a
+  large configuration effort before first use.
+- **Only delimiters and Greek letters.** Avoids opinionated defaults but omits
+  the high-value structural snippets that motivated the engine.
+- **Threaded annotation workflow.** Adds collaboration state to a solo personal
+  vault where comment blocks already cover private notes.
+
+---
+
 ## Open questions
 
-Settled topics are the numbered sections above; this section lists only what is
-still open.
-
-### Topics not yet interviewed, in the order the brief sets
-
-- **UI details.**
+All implementation-blocking architecture and first-milestone questions from
+the interview are settled. The remaining questions below are intentionally
+deferred to the milestone that first needs them.
 
 ### Deferred, each tagged to the milestone that must answer it
 
@@ -2216,4 +2299,3 @@ still open.
 | Per-row stale-render marking in the sync sidebar (R1.12.9, off by default) | rendering |
 | Named sessions beyond the implicit one (R1.12.11) | after the editor core is stable |
 | Change list `g;`/`g,` alongside the jump list — kept only if cheap once the jump list exists | editor core |
-| FEATURES.md rows still marked `?` (9 remaining, none of them vimtex) | end-of-interview pass |
