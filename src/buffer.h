@@ -1,6 +1,8 @@
 #ifndef CWIKI_BUFFER_H
 #define CWIKI_BUFFER_H
 
+#include "zone.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -15,6 +17,8 @@ struct cwiki_line {
    char *bytes;
    size_t length;
    size_t capacity;
+   struct cwiki_zone_stack end_zones;
+   bool zone_dirty;
 };
 
 struct cwiki_position {

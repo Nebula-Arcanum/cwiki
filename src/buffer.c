@@ -41,9 +41,7 @@ static void
 line_free(struct cwiki_line *line)
 {
    free(line->bytes);
-   line->bytes = NULL;
-   line->length = 0U;
-   line->capacity = 0U;
+   memset(line, 0, sizeof(*line));
 }
 
 static bool
@@ -77,6 +75,7 @@ cwiki_buffer_init(struct cwiki_buffer *buffer)
    buffer->line_count = 1U;
    buffer->line_capacity = 1U;
    buffer->line_ending = CWIKI_LINE_ENDING_LF;
+   buffer->lines[0].zone_dirty = true;
    return 0;
 }
 
@@ -156,6 +155,7 @@ cwiki_buffer_load(struct cwiki_buffer *buffer, const char *bytes, size_t length)
             }
             memcpy(line->bytes, bytes + start, line->length);
          }
+         line->zone_dirty = true;
          line_count++;
          start = index + 1U;
       }
@@ -315,6 +315,7 @@ cwiki_buffer_insert(struct cwiki_buffer *buffer, size_t line, size_t byte,
        target->length - byte);
    memcpy(target->bytes + byte, bytes, length);
    target->length += length;
+   target->zone_dirty = true;
    for (index = 0U; index < buffer->position_count; index++) {
       struct cwiki_position *position = buffer->positions[index];
 
@@ -350,6 +351,7 @@ cwiki_buffer_delete(struct cwiki_buffer *buffer, size_t line, size_t byte,
    memmove(target->bytes + byte, target->bytes + end,
        target->length - end);
    target->length -= length;
+   target->zone_dirty = true;
    for (index = 0U; index < buffer->position_count; index++) {
       struct cwiki_position *position = buffer->positions[index];
 
@@ -392,6 +394,8 @@ cwiki_buffer_split(struct cwiki_buffer *buffer, size_t line, size_t byte)
    }
    buffer->lines[line + 1U] = tail;
    buffer->lines[line].length = byte;
+   buffer->lines[line].zone_dirty = true;
+   buffer->lines[line + 1U].zone_dirty = true;
    buffer->line_count++;
    for (index = 0U; index < buffer->position_count; index++) {
       struct cwiki_position *position = buffer->positions[index];
@@ -434,6 +438,7 @@ cwiki_buffer_join(struct cwiki_buffer *buffer, size_t line)
       memcpy(first->bytes + first->length, second->bytes, second->length);
    }
    first->length += second->length;
+   first->zone_dirty = true;
    line_free(second);
    if (line + 2U < buffer->line_count) {
       memmove(&buffer->lines[line + 1U], &buffer->lines[line + 2U],
