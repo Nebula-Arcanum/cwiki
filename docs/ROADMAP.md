@@ -52,12 +52,11 @@ implemented.
 Status: **in progress.** The UTF-8 line buffer and position fix-up, in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The incremental zone-stack foundation
-now covers the first Markdown/LaTeX contexts and fuzz smoke, and the shared
-bounded PCRE2 runtime covers interpreter and JIT execution limits. Strict,
-sanitizer, model, protocol, and fault-injection tests cover these slices.
-Application integration, zone migration to the shared regex runtime, and the
-remaining editor, highlighting, snippet, and terminal-lifecycle work are not
-yet implemented.
+now covers the first Markdown/LaTeX contexts, uses the shared bounded PCRE2
+runtime, and visibly marks lines where a regex resource limit makes zone state
+untrustworthy. Strict, sanitizer, model, protocol, fault-injection, and parser
+fuzz tests cover these slices. Application integration and the remaining editor,
+highlighting, snippet, and terminal-lifecycle work are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

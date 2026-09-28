@@ -106,20 +106,21 @@ $(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
 		-Isrc src/buffer.c src/unicode.c src/undo.c tests/undo/test_undo.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) -o $(UNDO_TEST)
 
-$(ZONE_TEST): src/zone.c src/zone.h src/buffer.c src/buffer.h src/unicode.c \
-		src/unicode.h tests/zone/test_zone.c
+$(ZONE_TEST): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
+		src/buffer.h src/unicode.c src/unicode.h tests/zone/test_zone.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
-		src/buffer.c src/unicode.c src/zone.c tests/zone/test_zone.c \
-		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(ZONE_TEST)
+		src/buffer.c src/unicode.c src/regex.c src/zone.c \
+		tests/zone/test_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
+		-o $(ZONE_TEST)
 
-$(ZONE_FUZZ): src/zone.c src/zone.h src/buffer.c src/buffer.h src/unicode.c \
-		src/unicode.h tests/zone/fuzz_zone.c
+$(ZONE_FUZZ): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
+		src/buffer.h src/unicode.c src/unicode.h tests/zone/fuzz_zone.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -Isrc src/buffer.c src/unicode.c \
-		src/zone.c tests/zone/fuzz_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) \
-		$(PCRE2_LIBS) -o $(ZONE_FUZZ)
+		src/regex.c src/zone.c tests/zone/fuzz_zone.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(ZONE_FUZZ)
 
 $(REGEX_TEST): src/regex.c src/regex.h tests/regex/test_regex.c
 	mkdir -p $(BUILD_DIR)
