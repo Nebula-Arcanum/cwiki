@@ -51,7 +51,12 @@ Suggestion: **k** keep, **d** drop, **c** change (see notes), **?** undecided โ€
 41. I may want to cite sources some time in the future, but unlikely.
 42. Clarified in Phase 2: this operates on markdown headings, not LaTeX sectioning. Kept. See SPEC.md R1.15.1.
 43. Clarified in Phase 2: `\\` is the row separator in align/matrix/cases, and the surround action wraps equation lines in an environment - neither is about prose. Both kept. See SPEC.md R1.15.4, R1.15.5.
-44. Decided in Phase 2: conceal on by default, per window, category-configurable, concealcursor default `nc`, runs reveal on approach. See SPEC.md 1.6.
+44. Decided in Phase 2 and before Milestone 1: conceal is on by default, per
+window, category-configurable, with `concealcursor` default `nc` and runs
+revealing on approach. The balanced defaults enable accents, Greek, math
+symbols, ligatures, fractions, size-modified delimiters and simple
+sub/superscripts; structural or invisible categories are opt-in. See SPEC.md
+R1.6.8.
 45. Resolved by SPEC.md ยง6.5: adapt this into the structured TeX diagnostics pane with raw-log fallback; it is not a generic quickfix list.
 46. Resolved by SPEC.md R1.11: implement Vim search syntax through a bounded translator to PCRE2.
 47. Resolved by SPEC.md R1.13.1: do not use swapfiles; use a content-hash-guarded append-only recovery journal outside the vault.

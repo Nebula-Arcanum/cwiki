@@ -445,11 +445,17 @@ desynchronise the screen (R1.3.2).
 **R1.6.7** Conceal applies only where Unicode has the target form. `x^2`
 conceals to `x²`; `x^{2n}` has no superscript form and stays as source.
 
-**R1.6.8** Conceal categories are individually configurable, following
-vimtex's 14-category granularity (accents, greek, math symbols, delimiters,
-fractions, sub/superscripts, styles, environments, `\item` markers, citations
-and the rest). The default enabled set is an open question tagged to the
-editing-mode milestone.
+**R1.6.8** Conceal categories are individually configurable with cwiki's
+14-category table: accents, Greek, math symbols, ligatures, fractions, math
+bounds, size-modified delimiters, sub/superscripts, styles, environments,
+`\item` markers, citations, spacing and sections. By default, accents, Greek,
+math symbols, ligatures, fractions, size-modified delimiters and
+sub/superscripts are enabled. Structural or invisible substitutions — math
+bounds, styles, environments, `\item` markers, citations, spacing and sections
+— are opt-in. This deliberately follows vimtex's granularity as a design
+pattern rather than copying its current keys: current vimtex has no independent
+environment category, groups item markers under `fancy`, and includes a tabular
+row-marker category instead.
 
 **R1.6.9** Horizontal motion reveals a concealed run on approach. Moving into a
 concealed run unconceals **that run only**, leaving the rest of the line
@@ -468,6 +474,15 @@ Rejected:
   or fixing a macro name that is concealed away.
 - **Compiled-image previews inline in editing mode.** Contradicts the brief's
   separation of editing and rendered modes.
+- **Current vimtex category keys and defaults.** They conceal nearly everything
+  except sections, including structural math bounds, styles, spacing and
+  citations; they also lack the independently configurable environment category
+  selected for cwiki.
+- **The broad cwiki profile (everything except citations and sections).** Hides
+  structural and invisible source by default, making editing harder to audit.
+- **The minimal math profile (Greek, symbols, fractions and sub/superscripts
+  only).** Leaves useful, unambiguous accents, ligatures and size-modified
+  delimiter substitutions disabled despite conceal being on by default.
 - **Treating a whole concealed run as one motion step** (better than vim, since
   the screen cursor always visibly moves). Rejected in favour of R1.6.9, which
   keeps source-accurate motion counts inside the run.
@@ -2298,7 +2313,6 @@ deferred to the milestone that first needs them.
 
 | Question | Milestone |
 |---|---|
-| Default enabled conceal categories (R1.6.8) | editing mode |
 | Whether SyncTeX sidecars ship with the first render milestone or the second (R1.8.11 makes this scheduling, not architecture) | rendering |
 | Per-row stale-render marking in the sync sidebar (R1.12.9, off by default) | rendering |
 | Named sessions beyond the implicit one (R1.12.11) | after the editor core is stable |

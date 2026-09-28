@@ -85,8 +85,10 @@ defer block Visual mode and broad Vim parity.
 
 **Effort.** XL, 24–32 focused tasks.
 
-**Decision due before coding.** Choose the default enabled conceal categories
-from R1.6.8. Record the accepted set and rejected alternatives in `docs/SPEC.md`.
+**Decision resolved.** R1.6.8 uses the balanced default conceal profile:
+accents, Greek, math symbols, ligatures, fractions, size-modified delimiters
+and simple sub/superscripts are enabled; structural or invisible categories are
+opt-in. Accepted and rejected alternatives are recorded in `docs/SPEC.md`.
 
 ## Milestone 2 — rendered notes
 
