@@ -65,7 +65,8 @@ sanitize:
 		LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" test
 
 analyze:
-	$(CLANG_TIDY) $(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS)
+	$(CLANG_TIDY) --checks='-*,clang-analyzer-*' --warnings-as-errors='*' \
+		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS)
 
 verify: check sanitize
 
