@@ -12,8 +12,9 @@
 #define CWIKI_TERMINAL_CURSOR_SHOW "\x1b[?25h"
 
 /*
- * The signal handler emits this in one write and cannot recover a partial
- * write. cwiki_terminal_cleanup and cwiki_terminal_reset retry partial writes
+ * Once startup modes are owned, the signal handler emits this in one write and
+ * cannot recover a partial write. During capability probing it restores only
+ * termios. cwiki_terminal_cleanup and cwiki_terminal_reset retry partial writes
  * and EINTR. Keep the ordering synchronized-update, keyboard, paste, alternate
  * screen, cursor.
  */
@@ -43,6 +44,7 @@ struct cwiki_terminal {
    struct termios saved_termios;
    int termios_saved;
    int active;
+   int modes_owned;
 };
 
 struct cwiki_terminal_result cwiki_terminal_start(

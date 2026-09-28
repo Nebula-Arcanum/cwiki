@@ -102,6 +102,25 @@ write_exact(int fd, const char *bytes, size_t length)
    return true;
 }
 
+static bool
+no_pending_output(int fd)
+{
+   int flags = fcntl(fd, F_GETFL);
+   unsigned char byte;
+   ssize_t count;
+   int read_errno;
+
+   if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+      return false;
+   }
+   count = read(fd, &byte, 1U);
+   read_errno = errno;
+   if (fcntl(fd, F_SETFL, flags) != 0) {
+      return false;
+   }
+   return count < 0 && (read_errno == EAGAIN || read_errno == EWOULDBLOCK);
+}
+
 static pid_t
 spawn_reply(int master, int slave, const char *reply, size_t reply_len)
 {
@@ -212,13 +231,23 @@ static enum cwiki_terminal_status
 run_capability_case(const char *reply, size_t reply_len)
 {
    struct pty_pair pair = open_pty();
+   struct termios before;
+   struct termios after;
    struct cwiki_terminal terminal;
    struct cwiki_terminal_result result;
-   pid_t responder = spawn_reply(pair.master, pair.slave, reply, reply_len);
+   pid_t responder;
 
+   check(tcgetattr(pair.slave, &before) == 0,
+       "capture missing-capability termios");
+   responder = spawn_reply(pair.master, pair.slave, reply, reply_len);
    result = cwiki_terminal_start_timeout(&terminal, pair.slave, pair.slave,
        250L);
    wait_ok(responder, "missing-capability responder completes");
+   check(no_pending_output(pair.master),
+       "missing capability emits no unowned restoration bytes");
+   check(tcgetattr(pair.slave, &after) == 0 &&
+       same_termios(&after, &before),
+       "missing capability restores termios");
    (void)close(pair.slave);
    (void)close(pair.master);
    return result.status;
@@ -234,6 +263,7 @@ test_missing_timeout_and_errors(void)
    struct pty_pair pair;
    struct cwiki_terminal terminal;
    struct cwiki_terminal_result result;
+   char observed_queries[sizeof(queries) - 1U];
 
    check(run_capability_case(keyboard_only, sizeof(keyboard_only) - 1U) ==
        CWIKI_TERMINAL_MISSING_GRAPHICS,
@@ -250,6 +280,10 @@ test_missing_timeout_and_errors(void)
        10L);
    check(result.status == CWIKI_TERMINAL_TIMEOUT,
        "silent terminal hits the short test timeout");
+   check(read_exact(pair.master, observed_queries, sizeof(observed_queries)) &&
+       memcmp(observed_queries, queries, sizeof(observed_queries)) == 0 &&
+       no_pending_output(pair.master),
+       "timeout output contains capability queries only");
    (void)close(pair.slave);
    (void)close(pair.master);
 
@@ -386,6 +420,47 @@ test_handled_signal_restores_and_reraises(void)
    (void)close(pair.master);
 }
 
+static void
+test_signal_during_probe_does_not_pop_modes(void)
+{
+   struct pty_pair pair = open_pty();
+   struct termios before;
+   struct termios after;
+   pid_t child;
+   char observed_queries[sizeof(queries) - 1U];
+   int status;
+
+   check(tcgetattr(pair.slave, &before) == 0,
+       "capture probe-signal termios");
+   child = fork();
+   if (child < 0) {
+      (void)perror("fork");
+      exit(2);
+   }
+   if (child == 0) {
+      struct cwiki_terminal terminal;
+
+      (void)close(pair.master);
+      (void)cwiki_terminal_start_timeout(&terminal, pair.slave, pair.slave,
+          5000L);
+      _exit(3);
+   }
+   check(read_exact(pair.master, observed_queries, sizeof(observed_queries)) &&
+       memcmp(observed_queries, queries, sizeof(observed_queries)) == 0,
+       "probe-signal child sends capability queries");
+   check(kill(child, SIGTERM) == 0, "signal child during capability probe");
+   check(waitpid(child, &status, 0) == child && WIFSIGNALED(status) &&
+       WTERMSIG(status) == SIGTERM,
+       "probe signal restores default disposition and re-raises");
+   check(no_pending_output(pair.master),
+       "probe signal emits no unowned restoration bytes");
+   check(tcgetattr(pair.slave, &after) == 0 &&
+       same_termios(&after, &before),
+       "probe signal restores saved termios");
+   (void)close(pair.slave);
+   (void)close(pair.master);
+}
+
 int
 main(void)
 {
@@ -393,6 +468,7 @@ main(void)
    test_missing_timeout_and_errors();
    test_complete_normal_writes_and_reset();
    test_handled_signal_restores_and_reraises();
+   test_signal_during_probe_does_not_pop_modes();
    if (failures != 0) {
       return 1;
    }

@@ -23,6 +23,7 @@ static int signal_output_fd = -1;
 static int signal_input_fd = -1;
 static struct termios signal_termios;
 static volatile sig_atomic_t signal_session_active;
+static volatile sig_atomic_t signal_modes_owned;
 static struct sigaction old_actions[
    sizeof(handled_signals) / sizeof(handled_signals[0])];
 static size_t installed_actions;
@@ -68,7 +69,10 @@ terminal_signal_handler(int signo)
    static const char restoration[] = CWIKI_TERMINAL_RESTORE;
 
    if (signal_session_active != 0) {
-      (void)write(signal_output_fd, restoration, sizeof(restoration) - 1U);
+      if (signal_modes_owned != 0) {
+         (void)write(signal_output_fd, restoration,
+             sizeof(restoration) - 1U);
+      }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
       /* R1.5.9: flush the fixed, pre-opened key-recording ring here. */
    }
@@ -93,9 +97,12 @@ atexit_cleanup(void)
    static const char restoration[] = CWIKI_TERMINAL_RESTORE;
 
    if (signal_session_active != 0) {
-      (void)write_all(signal_output_fd, restoration,
-          sizeof(restoration) - 1U);
+      if (signal_modes_owned != 0) {
+         (void)write_all(signal_output_fd, restoration,
+             sizeof(restoration) - 1U);
+      }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
+      signal_modes_owned = 0;
       signal_session_active = 0;
       restore_handlers();
    }
@@ -110,6 +117,9 @@ install_handlers(void)
    (void)memset(&action, 0, sizeof(action));
    action.sa_handler = terminal_signal_handler;
    (void)sigemptyset(&action.sa_mask);
+   for (i = 0U; i < sizeof(handled_signals) / sizeof(handled_signals[0]); i++) {
+      (void)sigaddset(&action.sa_mask, handled_signals[i]);
+   }
    for (i = 0U; i < sizeof(handled_signals) / sizeof(handled_signals[0]); i++) {
       if (sigaction(handled_signals[i], &action, &old_actions[i]) != 0) {
          restore_handlers();
@@ -152,9 +162,24 @@ set_raw_mode(struct cwiki_terminal *terminal)
 static void
 deactivate(struct cwiki_terminal *terminal)
 {
+   signal_modes_owned = 0;
    signal_session_active = 0;
    restore_handlers();
+   terminal->modes_owned = 0;
    terminal->active = 0;
+}
+
+static int
+set_handled_signal_mask(int how, sigset_t *previous)
+{
+   sigset_t signals;
+   size_t i;
+
+   (void)sigemptyset(&signals);
+   for (i = 0U; i < sizeof(handled_signals) / sizeof(handled_signals[0]); i++) {
+      (void)sigaddset(&signals, handled_signals[i]);
+   }
+   return sigprocmask(how, &signals, previous);
 }
 
 static int64_t
@@ -294,10 +319,27 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
       result.status = CWIKI_TERMINAL_MISSING_KEYBOARD;
    } else if (capabilities.graphics != CWIKI_CAPABILITY_SUPPORTED) {
       result.status = CWIKI_TERMINAL_MISSING_GRAPHICS;
-   } else if (write_all(output_fd, startup, sizeof(startup) - 1U) != 0) {
-      result.status = CWIKI_TERMINAL_SYSTEM_ERROR;
-      result.system_errno = errno;
    } else {
+      sigset_t previous_mask;
+
+      if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+         result.system_errno = errno;
+         cwiki_terminal_cleanup(terminal);
+         return result;
+      }
+      if (write_all(output_fd, startup, sizeof(startup) - 1U) != 0) {
+         result.system_errno = errno;
+         (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+         cwiki_terminal_cleanup(terminal);
+         return result;
+      }
+      terminal->modes_owned = 1;
+      signal_modes_owned = 1;
+      if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0) {
+         result.system_errno = errno;
+         cwiki_terminal_cleanup(terminal);
+         return result;
+      }
       result.status = CWIKI_TERMINAL_SUCCESS;
       return result;
    }
@@ -330,8 +372,10 @@ cwiki_terminal_cleanup(struct cwiki_terminal *terminal)
    if (terminal == NULL || terminal->active == 0) {
       return;
    }
-   (void)write_all(terminal->output_fd, restoration,
-       sizeof(restoration) - 1U);
+   if (terminal->modes_owned != 0) {
+      (void)write_all(terminal->output_fd, restoration,
+          sizeof(restoration) - 1U);
+   }
    if (terminal->termios_saved != 0) {
       (void)tcsetattr(terminal->input_fd, TCSANOW, &terminal->saved_termios);
    }
