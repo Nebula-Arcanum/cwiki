@@ -194,9 +194,11 @@ note, cwiki loads the undo tree only if the stored content hash matches the
 file on disk; on any mismatch the tree is discarded and the note opens with
 empty undo history. A stale tree is never replayed onto changed content.
 
-**R1.2.7** A git pull that changes a note therefore costs that note's undo
-history. This is accepted: replaying recorded offsets against text they were
-not recorded against is the one failure mode that can silently corrupt a note.
+**R1.2.7** When an external change replaces a clean buffer's content, cwiki
+starts a new active undo tree at that content. The old tree is archived as
+recovery metadata but is not reachable through normal undo and is never
+replayed automatically. Replaying recorded offsets against text they were not
+recorded against is the one failure mode that can silently corrupt a note.
 
 Rejected:
 
@@ -1574,6 +1576,85 @@ Rejected:
 
 ---
 
+## 3. Data safety and Git synchronization
+
+### 3.1 Durable writes
+
+**R3.1.1** Saving a note writes a temporary file in the note's directory,
+preserves the relevant permissions, flushes and `fsync`s the file, atomically
+renames it over the destination, then `fsync`s the containing directory. The
+same-directory temporary file keeps the rename on one filesystem.
+
+**R3.1.2** A failed save leaves the original file and dirty buffer intact and
+reports the failed operation. cwiki never truncates the destination before a
+complete replacement is durable.
+
+Rejected:
+
+- **Atomic rename without `fsync`.** Protects against partial content but can
+  report success for data that a power loss removes.
+- **Configurable durability.** Avoids synchronization cost for users willing to
+  lose recent saves, but makes the meaning of a successful save conditional.
+
+### 3.2 External changes and conflicts
+
+**R3.2.1** cwiki detects when Git or another process changes an open note. A
+clean buffer reloads automatically while preserving each window's cursor and
+view as closely as the changed text permits.
+
+**R3.2.2** An external reload starts a new active undo tree under R1.2.7. The
+archived old tree is recovery material only, so normal undo cannot restore and
+later overwrite pre-pull content.
+
+**R3.2.3** If the buffer is dirty, cwiki never overwrites it or the new disk
+content. It starts a three-way merge using the last-read content as the base,
+the in-memory buffer as ours, and the changed disk file as theirs.
+
+**R3.2.4** Conflicts open in a dedicated merge view with base/ours/theirs hunks
+and explicit choose or edit actions. Conflicted regions are not parsed or
+rendered as note content. Existing Git conflict markers on disk enter this same
+view rather than the normal editor.
+
+**R3.2.5** cwiki does not write a partially resolved note. Every conflict hunk
+must be resolved before the durable save in §3.1 replaces the conflicted file.
+
+Rejected:
+
+- **Always prompt before reloading a clean buffer.** Safer-looking but adds a
+  modal interruption when there is no local work to protect.
+- **Treat conflict markers as ordinary note text.** Simple, but lets invalid
+  Markdown/LaTeX enter rendering and makes an accidental partial resolution
+  easy to save.
+- **Make the external reload an ordinary undo step.** Convenient, but normal
+  undo could silently restore stale pre-pull content and later overwrite the
+  integrated file.
+
+### 3.3 Explicit Git synchronization
+
+**R3.3.1** cwiki provides an explicit user-invoked Sync action. It does not
+silently synchronize in the background.
+
+**R3.3.2** Sync durably saves eligible buffers, commits authored vault changes,
+fetches the configured remote, rebases the new unpushed local sync commit onto
+the fetched branch, then pushes. It never rewrites a commit already pushed.
+
+**R3.3.3** A dirty conflicted buffer, failed save, commit failure, fetch failure,
+rebase conflict, or push failure stops Sync and remains visibly actionable.
+Rebase conflicts use the §3.2 merge view; continuing Sync requires every hunk
+to be resolved. No failure discards local work.
+
+Rejected:
+
+- **Automatic background synchronization.** Reduces manual work but introduces
+  network, commit, and merge transitions while the user may be taking notes.
+- **External Git only.** Keeps cwiki smaller but cannot integrate dirty-buffer
+  protection and the conflict UI into the synchronization workflow.
+- **Merge commits for divergence.** Preserve topology without rewriting local
+  commits, but add routine merge noise to a personal vault. Rebase is limited
+  to the new unpushed sync commit.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -1581,8 +1662,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Data safety** — atomic writes, git pulls into open buffers, merge-conflict
-  markers inside notes, whether cwiki runs the git sync itself.
 - **Index and search** — where the index lives so sync cannot conflict in it,
   keeping it out of git and rebuildable, the query language.
 - **Time and scheduling** — recurrence rules, time zones and DST, next
