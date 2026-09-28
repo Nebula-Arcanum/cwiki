@@ -1844,6 +1844,131 @@ Rejected:
 
 ---
 
+## 6. Terminal rendering
+
+### 6.1 TeX and image pipeline
+
+**R6.1.1** LuaLaTeX is the default engine for native Unicode, modern font
+handling, and broad package compatibility. A note may explicitly select
+pdfLaTeX in frontmatter for compatibility; cwiki never guesses or silently
+switches engines.
+
+**R6.1.2** Math, mhchem, and TikZ all use one PDF pipeline. A note render
+produces tightly bounded PDF pages for its changed blocks; cwiki does not
+maintain a separate DVI/dvipng path for simpler formulas.
+
+**R6.1.3** Packaged Poppler `pdftocairo` renders each page directly to a
+transparent PNG at the terminal cell's pixel density. cwiki transfers the PNG
+through kitty shared memory and places it with Unicode placeholders and the
+required z-index.
+
+**R6.1.4** A render-cache key includes source content, engine, effective
+preamble and packages, terminal foreground/background colors, cell pixel
+metrics, and render scale. A changed input cannot reuse a visually incompatible
+artifact.
+
+Rejected:
+
+- **pdfLaTeX as the default.** Faster startup, but weaker native Unicode and
+  font handling for a multilingual plain-text vault.
+- **Automatic engine detection.** Convenient until a heuristic changes or an
+  ambiguous package makes the same note compile differently across machines.
+- **dvipng for simple formulas plus PDF for TikZ.** Can make some formulas
+  faster, but doubles compilation, sizing, diagnostics, and cache paths.
+- **MuPDF `mutool` as the rasterizer.** Viable, but Poppler's direct transparent
+  PDF-to-PNG path is the selected packaged dependency.
+
+### 6.2 Render timing and editing feedback
+
+**R6.2.1** cwiki renders only saved on-disk content, immediately after a write.
+It never compiles unwritten buffer content on an idle timer. This preserves
+R1.12.6: a rendered view shows what Git can synchronize.
+
+**R6.2.2** Switching to rendered mode is always immediate. It shows the newest
+valid prior artifact or a placeholder while the saved version renders in the
+background; it never waits for TeX or displays a half-written artifact.
+
+**R6.2.3** Editing mode retains the conceal behavior in §1.6 and may show gutter
+and status diagnostics from the latest saved render. If the buffer no longer
+matches that render's content hash, those diagnostics are visibly stale. No
+formula image is embedded in editing mode.
+
+Rejected:
+
+- **Debounced rendering of unwritten content.** Makes switching more likely to
+  be warm, but creates a live-preview pipeline and an artifact that differs
+  from the file Git will synchronize.
+- **Manual rendering only.** Predictable, but makes every ordinary write require
+  another action before the rendered view catches up.
+- **Inline formula images in editing mode.** Blurs the source/rendered-mode
+  boundary and complicates source-accurate cursor motion.
+
+### 6.3 Layout and navigation
+
+**R6.3.1** An inline formula taller than one terminal row expands its rendered
+line to enough whole cell rows for the image. Its TeX baseline aligns with the
+surrounding text baseline; extra rows above and below belong to that line box.
+cwiki neither shrinks it to one row nor silently promotes it to display math.
+
+**R6.3.2** Rendered Markdown headings use kitty OSC 66 with a small fixed scale
+table by heading level. Layout measures the scaled text. Editing-mode headings
+remain normal-sized source text.
+
+**R6.3.3** Rendered mode provides viewer-style Vim row and page scrolling, `/`
+search over rendered text with `n`/`N`, Tab and Shift-Tab link focus, Enter to
+follow, and a back stack. It remains a viewer without an insertion cursor;
+source navigation uses the inverse-sync action in §1.8.
+
+Rejected:
+
+- **Scaling every inline formula to one row.** Preserves a simple grid but makes
+  fractions, matrices, and chemistry unreadably small.
+- **Promoting tall inline formulas to display blocks.** Changes authored flow
+  and can substantially alter paragraph layout.
+- **Color or weight only for headings.** Simpler, but leaves an already-required
+  kitty text-sizing capability unused in the view intended to be typeset.
+- **A normal-mode cursor over rendered content.** Adds editing semantics to a
+  viewer and conflicts with per-window editing/rendered separation.
+
+### 6.4 Shell-escape policy
+
+**R6.4.1** TeX runs with `-no-shell-escape` by default. Full shell escape may be
+enabled only for an explicitly trusted vault in machine-local, non-synchronized
+configuration after a warning.
+
+**R6.4.2** Note frontmatter and synchronized vault configuration cannot enable
+shell escape. A note received through Git must never gain command-execution
+authority merely by being opened or rendered.
+
+Rejected:
+
+- **No override.** Safest, but permanently excludes packages whose legitimate
+  workflows require an external command.
+- **A per-note or synced-vault switch.** Convenient, but turns pulled note text
+  into arbitrary command execution.
+
+### 6.5 TeX diagnostics
+
+**R6.5.1** The initial TeX-log parser is stateful and structures errors and
+warnings with included-file attribution, source line and context, and
+continuation lines. Configurable regex filters may hide known-noisy diagnostics.
+
+**R6.5.2** Unclassified output remains available in the raw log. cwiki does not
+need exhaustive package-specific classification before shipping useful inline
+errors.
+
+**R6.5.3** A failed block displays its structured error in place of the formula;
+other successfully rendered blocks from the same note remain usable.
+
+Rejected:
+
+- **Fatal errors only.** Misses actionable warnings and the context needed to
+  locate many TeX failures.
+- **Exhaustive package-specific parsing.** Unbounded scope; raw-log access is the
+  fallback for messages the structured parser does not know.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -1851,10 +1976,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Terminal rendering** — TeX engine and image route, layout of tall inline
-  formulas, pre-rendering while typing, render feedback in editing mode,
-  shell-escape policy, OSC 66 for headings, and the L-sized TeX log parser
-  flagged in §0.
 - **Configuration and extension model** — config format, what is configurable,
   whether any extension mechanism exists beyond config.
 - **Flashcards, calendar, tasks and projects** as workflow designs, on top of the
@@ -1870,4 +1991,4 @@ still open.
 | Per-row stale-render marking in the sync sidebar (R1.12.9, off by default) | rendering |
 | Named sessions beyond the implicit one (R1.12.11) | after the editor core is stable |
 | Change list `g;`/`g,` alongside the jump list — kept only if cheap once the jump list exists | editor core |
-| FEATURES.md rows still marked `?` (10 remaining, none of them vimtex) | end-of-interview pass |
+| FEATURES.md rows still marked `?` (9 remaining, none of them vimtex) | end-of-interview pass |
