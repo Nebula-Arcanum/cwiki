@@ -1605,9 +1605,13 @@ preserves the relevant permissions, flushes and `fsync`s the file, atomically
 renames it over the destination, then `fsync`s the containing directory. The
 same-directory temporary file keeps the rename on one filesystem.
 
-**R3.1.2** A failed save leaves the original file and dirty buffer intact and
-reports the failed operation. cwiki never truncates the destination before a
-complete replacement is durable.
+**R3.1.2** A failure before the atomic rename leaves the original file and
+dirty buffer intact and reports the failed operation. If the rename succeeds
+but the containing-directory `fsync` fails, cwiki reports **durability
+uncertain** and keeps the buffer dirty; the pathname contains either the
+complete old file or the complete new file, never a partial file. cwiki never
+truncates the destination before a complete replacement has been written and
+file-synced.
 
 Rejected:
 
@@ -1615,6 +1619,16 @@ Rejected:
   report success for data that a power loss removes.
 - **Configurable durability.** Avoids synchronization cost for users willing to
   lose recent saves, but makes the meaning of a successful save conditional.
+- **Requiring the old pathname after a post-rename directory-sync failure.**
+  Once atomic rename has succeeded, restoring the old pathname requires another
+  rename and directory sync that can fail for the same reason; no portable
+  implementation can guarantee rollback under continuing filesystem failure.
+- **Treating successful rename as save success when directory sync fails.**
+  Reports durability the system did not establish and permits the user to close
+  a buffer whose latest pathname update may disappear after power loss.
+- **Retaining a backup and attempting rollback.** Adds a second replacement
+  transaction but cannot strengthen the guarantee beyond complete-old-or-new,
+  because rollback and its directory sync may also fail.
 
 ### 3.2 External changes and conflicts
 

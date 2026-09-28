@@ -68,10 +68,12 @@ selection; and plain Markdown load/save through the durable-write path.
 can be entered using context-gated snippets without expansions crossing prose,
 math, `\ce{}`, TikZ, comment, or code zones; source highlighting and conceal
 remain correct after multiline edits; grapheme motion and editing preserve valid
-UTF-8; undo restores the exact prior bytes; a failed injected save leaves both the
-original file and dirty buffer intact; missing kitty capabilities produce the
-specified exit message; model-based buffer tests and parser/regex fuzz targets
-pass under sanitizers.
+UTF-8; undo restores the exact prior bytes; injected failures before rename
+leave both the original file and dirty buffer intact, while a post-rename
+directory-sync failure reports durability uncertain, leaves the buffer dirty,
+and leaves either complete old or complete new bytes on disk; missing kitty
+capabilities produce the specified exit message; model-based buffer tests and
+parser/regex fuzz targets pass under sanitizers.
 
 **Demo.** Replay a short class-note recording into a fixture vault, show source
 highlighting and conceal, exercise snippet tab stops and undo, save, reopen, and
