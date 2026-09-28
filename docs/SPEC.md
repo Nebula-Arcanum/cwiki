@@ -856,8 +856,11 @@ on — "a delimiter not preceded by a backslash" — expressible at all.
 or command entry) and JIT-compiled. Nothing compiles a pattern per keystroke.
 
 **R1.11.3** `pcre2_set_match_limit` and `pcre2_set_depth_limit` are set on every
-compiled pattern, so no pattern can stall the editor through catastrophic
-backtracking.
+compiled pattern. PCRE2's interpreter enforces both. PCRE2 explicitly ignores
+the depth limit when JIT code runs, so every pattern is also assigned a bounded
+JIT stack; exhausting it is a distinct limit result. Together these bound both
+execution paths rather than pretending the interpreter's depth counter applies
+to JIT.
 
 **R1.11.4** Hitting a limit is never silently wrong, and the response differs by
 consumer:
@@ -867,6 +870,11 @@ consumer:
 | Typed search or substitute | abort, message naming the pattern and the limit breached |
 | Zone engine | no-match at that position, continue, mark the line degraded in the gutter so highlighting and snippet gating there are visibly untrustworthy |
 | Snippet trigger | disable that trigger for the session, report once — a trigger that stalls every keystroke is worse than a missing trigger |
+
+The shared runtime distinguishes match-limit, interpreter depth-limit, and JIT
+stack-limit results. This JIT policy was accepted on 2026-09-28 after direct
+implementation showed that unanchored `pcre2_match()` automatically uses JIT,
+while runtime `PCRE2_ANCHORED` falls back to the interpreter.
 
 **R1.11.5** PCRE2 runs in UTF and UCP mode. `.` matches one codepoint; `\w`,
 `\d` and `\b` follow Unicode properties, so Greek and accented letters are
@@ -925,6 +933,12 @@ Rejected:
   demos rather than code, an invisible wrong answer is the worst outcome.
 - **Unloading a pattern on a limit breach.** One pathological line would disable
   a zone rule across the whole vault.
+- **Forcing the interpreter for every match.** It makes depth-limit reporting
+  uniform by disabling the JIT execution R1.11.2 requires; bounded JIT memory is
+  the correct control for the JIT path.
+- **Using JIT's default stack without reporting exhaustion.** This keeps JIT but
+  leaves its memory boundary implicit and turns exhaustion into a generic engine
+  failure instead of the visible limit result R1.11.4 requires.
 - **ASCII-only classes, or byte-mode patterns.** `\w` failing on Greek is
   disqualifying for physics notes, and byte mode lets `:s` produce invalid UTF-8.
 
