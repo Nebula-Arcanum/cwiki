@@ -4,10 +4,9 @@ Decisions from the completed product interview, stated as requirements. Each
 section records the alternatives that were rejected and why, so later work does
 not relitigate them.
 
-Status: **complete; awaiting approval for implementation.** The remaining
+Status: **approved for implementation on 2026-09-28.** The remaining
 [Open questions](#open-questions) are explicitly deferred to their owning
-milestones and do not block approval. Before product implementation starts, the
-user must explicitly approve this file.
+milestones and do not block implementation.
 
 ---
 
