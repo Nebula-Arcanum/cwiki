@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include "zone.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -182,6 +183,38 @@ test_multiline_comments_and_escapes(void)
 }
 
 static void
+test_unicode_boundaries(void)
+{
+   const char text[] =
+       "\xcf\x80\xf0\x9f\x98\x80 prose $\xce\xb1 math "
+       "\\ce{\xce\xb2 chem} \xce\xb3 tailmath$ \xce\xa9 after\n";
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_zone zone;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   check_kind(engine, &buffer, 0U, "prose", CWIKI_ZONE_PROSE,
+       "query after two- and four-byte prose remains prose");
+   check_kind(engine, &buffer, 0U, "math", CWIKI_ZONE_MATH_INLINE,
+       "query after multibyte math content remains math");
+   check_kind(engine, &buffer, 0U, "chem", CWIKI_ZONE_CHEMISTRY,
+       "query after multibyte chemistry content remains chemistry");
+   check_kind(engine, &buffer, 0U, "tailmath", CWIKI_ZONE_MATH_INLINE,
+       "query after chemistry and multibyte math restores math");
+   check_kind(engine, &buffer, 0U, "after", CWIKI_ZONE_PROSE,
+       "query after trailing multibyte prose remains prose");
+   errno = 0;
+   check(cwiki_zone_at(engine, &buffer, 0U, 1U, &zone) == -1 &&
+       errno == EINVAL,
+       "zone query rejects a UTF-8 continuation-byte offset");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
+static void
 test_declarative_skip_and_containment(void)
 {
    const struct cwiki_zone_region regions[] = {
@@ -260,6 +293,7 @@ test_depth_bound_and_malformed_input(void)
    struct cwiki_zone_stack empty = {{{CWIKI_ZONE_PROSE, 0U, 0U}}, 0U};
    struct cwiki_zone_stack end;
    char malformed[257];
+   const char malformed_utf8[] = "\xe2\x28\xa1";
    size_t index;
 
    check(cwiki_zone_engine_init(&engine, &region, 1U,
@@ -278,6 +312,10 @@ test_depth_bound_and_malformed_input(void)
    check(cwiki_zone_scan_line(engine, "<<<<unterminated", 16U, &empty,
        &end) == 0 && end.depth == 4U,
        "unterminated malformed regions remain a bounded end stack");
+   errno = 0;
+   check(cwiki_zone_scan_line(engine, malformed_utf8,
+       sizeof(malformed_utf8) - 1U, &empty, &end) == -1 && errno == EINVAL,
+       "direct line scan deterministically rejects malformed UTF-8");
    cwiki_zone_engine_free(engine);
 }
 
@@ -286,6 +324,7 @@ main(void)
 {
    test_builtin_contexts();
    test_multiline_comments_and_escapes();
+   test_unicode_boundaries();
    test_declarative_skip_and_containment();
    test_incremental_propagation();
    test_depth_bound_and_malformed_input();

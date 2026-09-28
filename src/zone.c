@@ -3,6 +3,7 @@
 #include "zone.h"
 
 #include "buffer.h"
+#include "unicode.h"
 
 #include <errno.h>
 #include <pcre2.h>
@@ -116,6 +117,38 @@ struct match {
    size_t detail_length;
    bool found;
 };
+
+static size_t
+next_codepoint(const char *bytes, size_t length, size_t offset)
+{
+   unsigned char lead = (unsigned char)bytes[offset];
+   size_t width;
+   size_t index;
+
+   if (lead < 0x80U) {
+      return offset + 1U;
+   }
+   if (lead >= 0xc2U && lead <= 0xdfU) {
+      width = 2U;
+   } else if (lead >= 0xe0U && lead <= 0xefU) {
+      width = 3U;
+   } else if (lead >= 0xf0U && lead <= 0xf4U) {
+      width = 4U;
+   } else {
+      return SIZE_MAX;
+   }
+   if (width > length - offset) {
+      return SIZE_MAX;
+   }
+   for (index = 1U; index < width; index++) {
+      unsigned char continuation = (unsigned char)bytes[offset + index];
+
+      if ((continuation & 0xc0U) != 0x80U) {
+         return SIZE_MAX;
+      }
+   }
+   return offset + width;
+}
 
 static void
 compiled_pattern_free(struct compiled_pattern *pattern)
@@ -490,7 +523,11 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
          break;
       }
       if (!consumed) {
-         offset++;
+         offset = next_codepoint(bytes, length, offset);
+         if (offset == SIZE_MAX) {
+            errno = EINVAL;
+            return -1;
+         }
       }
    }
    if (finish_line) {
@@ -508,6 +545,10 @@ cwiki_zone_scan_line(struct cwiki_zone_engine *engine, const char *bytes,
     size_t length, const struct cwiki_zone_stack *start,
     struct cwiki_zone_stack *end)
 {
+   if (!cwiki_utf8_validate(bytes, length)) {
+      errno = EINVAL;
+      return -1;
+   }
    return scan(engine, bytes, length, length, start, end, true);
 }
 
@@ -562,6 +603,8 @@ cwiki_zone_at(struct cwiki_zone_engine *engine,
 
    if (engine == NULL || buffer == NULL || zone == NULL ||
        line >= buffer->line_count || byte > buffer->lines[line].length ||
+       (byte < buffer->lines[line].length &&
+       ((unsigned char)buffer->lines[line].bytes[byte] & 0xc0U) == 0x80U) ||
        buffer->lines[line].zone_dirty ||
        (line != 0U && buffer->lines[line - 1U].zone_dirty)) {
       errno = EINVAL;
