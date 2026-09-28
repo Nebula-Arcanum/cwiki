@@ -1655,6 +1655,100 @@ Rejected:
 
 ---
 
+## 4. Index and search
+
+### 4.1 Index storage and lifecycle
+
+**R4.1.1** Each vault has one SQLite index outside the vault and Git, keyed by
+a stable hash of the vault's canonical path:
+
+| Platform | Location |
+|---|---|
+| Linux, FreeBSD | `$XDG_CACHE_HOME/cwiki/index/`, default `~/.cache/cwiki/index/` |
+| macOS | `~/Library/Caches/cwiki/index/` |
+
+Moving a vault may create a new cache entry; the index is disposable and fully
+rebuildable, so this loses no authored state.
+
+**R4.1.2** SQLite is a packaged dependency on macOS, Arch Linux, and FreeBSD.
+cwiki uses its C library in-process with ordinary tables and transactions; index
+correctness does not depend on an optional SQLite extension or a server.
+
+**R4.1.3** The database stores an index schema version and, for each source
+file, its path, size, modification time, and content hash. Startup compares
+cheap metadata first, hashes changed candidates, and updates changed and
+deleted records in one transaction.
+
+**R4.1.4** cwiki watches the vault while running and applies external changes
+transactionally. Queries see the last complete snapshot while an update is in
+progress, never a partly updated index.
+
+**R4.1.5** A schema change, failed integrity check, impossible snapshot, or
+other validation failure triggers a full rebuild. The old database may be kept
+for diagnostics, but cwiki never treats a known-invalid index as authoritative.
+The user may also request a full rebuild.
+
+Rejected:
+
+- **Custom binary index.** Can reduce installed footprint, but makes cwiki own
+  transactions, crash recovery, schema migration, and corruption handling.
+- **In-memory rebuild on every launch.** Removes a dependency and stale-index
+  states, but makes startup scale with the entire vault and discards useful
+  derived state after every exit.
+- **Trusting timestamps alone.** Fast, but misses content changes when metadata
+  is preserved or has insufficient resolution.
+
+### 4.2 Indexed content
+
+**R4.2.1** The shared index contains searchable note text and structured records
+for note titles, aliases, headings, links and backlinks, frontmatter properties,
+comment TODOs, tasks, flashcards and derived review state, and events.
+
+**R4.2.2** Code and LaTeX source remain full-text searchable, but tokens inside
+their zones do not create false headings, links, tasks, or other structured
+records. Comment TODOs follow the zone rule in R1.9.8.
+
+**R4.2.3** Binary attachments contribute filename, path, media type, and authored
+metadata only. Content extraction and OCR are separate deferred features, not
+implicit indexing behavior.
+
+**R4.2.4** Rebuildable values such as folded flashcard state retain their source
+watermark, as required by R2.4.6. The authored files remain authoritative when
+an indexed value disagrees.
+
+### 4.3 Query language
+
+**R4.3.1** One query language is shared by note search, task aggregation,
+flashcard browsing, event search, and later project views. A view may add an
+implicit type filter but does not define a second language.
+
+**R4.3.2** Plain terms use implicit `AND`. The language supports quoted phrases,
+parentheses, explicit `OR`, unary `-` negation, and typed filters such as
+`type:task`, `path:physics`, `due:<2026-10-01`, and `field:Deck`.
+
+**R4.3.3** Regex is opt-in through an explicit `re:/…/` form and uses the same
+bounded PCRE2 execution policy as R1.11.8–R1.11.10. Invalid, timed-out, or
+resource-limited regexes produce a visible query error rather than partial or
+silently wrong results.
+
+**R4.3.4** Plain-text search uses smart case: it is case-insensitive when the
+query has no uppercase letter and case-sensitive when it does. Filter names are
+case-insensitive; filter values use the semantics of their fields. Link
+resolution remains separately case-sensitive under R2.5.
+
+Rejected:
+
+- **Text and phrase search only.** Simple, but cannot express the task, card,
+  event, and property views already required.
+- **SQL-like user queries.** Flexible, but exposes storage details, is noisy for
+  interactive use, and couples saved queries to the index schema.
+- **Implicit regex interpretation.** Makes punctuation-heavy class notes
+  surprising and exposes every search to regex cost and failure modes.
+- **Extracting every attachment.** Adds format-specific dependencies and OCR
+  policy before a demonstrated need.
+
+---
+
 ## Open questions
 
 Settled topics are the numbered sections above; this section lists only what is
@@ -1662,8 +1756,6 @@ still open.
 
 ### Topics not yet interviewed, in the order the brief sets
 
-- **Index and search** — where the index lives so sync cannot conflict in it,
-  keeping it out of git and rebuildable, the query language.
 - **Time and scheduling** — recurrence rules, time zones and DST, next
   occurrence from schedule versus from completion, reminders while cwiki runs
   and what fires when it does not, whether events must reach other devices.
