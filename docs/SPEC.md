@@ -2365,6 +2365,14 @@ Greek letters and common operators; postfix accents and decorations; limits,
 sums, integrals, matrices, and environments; plus separate mhchem and TikZ
 sets. Riskier auto-expansions are context-gated and individually disableable.
 
+The initial catalog uses VimTeX's 68 ordinary backtick math mappings with their
+exact command spellings, plus the documented Castel structural triggers and
+conservative mnemonic mhchem/TikZ templates. VimTeX's six interactive `#`
+mappings are omitted rather than approximated because they synchronously read an
+arbitrary next key, which is not a suffix snippet. Every entry has a stable name
+for replacement or disabling. This default-source choice was accepted on
+2026-09-29; user overrides remain authoritative.
+
 **R9.4.2** cwiki has no note-level threaded annotation, reply, or resolve data
 model. Private annotations use ordinary note content or comment blocks.
 

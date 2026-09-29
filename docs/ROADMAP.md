@@ -88,8 +88,11 @@ viewport clipping, cursor placement, and the persistent mode/file/position statu
 line into deterministic terminal frames. The executable application loop now
 composes terminal capability setup and restoration, raw recording, event dispatch,
 derived-state refresh, synchronized redraw, viewport following, insert-leave
-saves, and plain-file reopen through fixture-tested PTYs. The builtin snippet
-catalog and reusable picker/clue/configuration surfaces are not yet implemented.
+saves, and plain-file reopen through fixture-tested PTYs. Horizontal motion now
+carries per-run conceal reveal state through the editor into rendered frames.
+The builtin catalog supplies named, overridable VimTeX-compatible symbols and
+math, mhchem, and TikZ templates. Runtime snippet dispatch and reusable
+picker/clue/configuration surfaces are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

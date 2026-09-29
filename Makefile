@@ -33,6 +33,7 @@ CONCEAL_TEST = $(BUILD_DIR)/test-conceal
 LAYOUT_TEST = $(BUILD_DIR)/test-layout
 SNIPPET_TEST = $(BUILD_DIR)/test-snippet
 SNIPPET_FUZZ = $(BUILD_DIR)/fuzz-snippet
+SNIPPET_CATALOG_TEST = $(BUILD_DIR)/test-snippet-catalog
 ACTION_TEST = $(BUILD_DIR)/test-action
 STRUCTURAL_SEARCH_TEST = $(BUILD_DIR)/test-structural-search
 DOCUMENT_TEST = $(BUILD_DIR)/test-document
@@ -53,6 +54,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
+	$(SNIPPET_CATALOG_TEST) \
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
 	$(RENDER_TEST) $(APP_TEST)
@@ -69,7 +71,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/regex/test_regex.c src/vim_regex.c tests/regex/test_vim_regex.c \
 	tests/regex/fuzz_vim_regex.c src/conceal.c tests/conceal/test_conceal.c \
 	src/layout.c tests/layout/test_layout.c src/snippet.c \
-	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c src/action.c \
+	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c \
+	src/snippet_catalog.c tests/snippet/test_snippet_catalog.c src/action.c \
 	tests/action/test_action.c src/structural_search.c \
 	tests/zone/test_structural_search.c src/document.c tests/io/test_document.c \
 	src/keymap.c tests/action/test_keymap.c src/motion.c \
@@ -243,6 +246,16 @@ $(SNIPPET_FUZZ): src/snippet.c src/snippet.h src/buffer.c src/buffer.h \
 		src/snippet.c tests/snippet/fuzz_snippet.c $(LDFLAGS) \
 		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(SNIPPET_FUZZ)
 
+$(SNIPPET_CATALOG_TEST): src/snippet_catalog.c src/snippet_catalog.h \
+		src/snippet.c src/snippet.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h src/undo.c src/undo.h src/regex.c src/regex.h src/zone.c \
+		src/zone.h tests/snippet/test_snippet_catalog.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/buffer.c src/unicode.c src/undo.c src/regex.c src/zone.c \
+		src/snippet.c src/snippet_catalog.c tests/snippet/test_snippet_catalog.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(SNIPPET_CATALOG_TEST)
+
 $(ACTION_TEST): src/action.c src/action.h tests/action/test_action.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_ACTION_TESTING -Isrc src/action.c \
@@ -353,6 +366,7 @@ product-test: $(PRODUCT_TESTS)
 	$(LAYOUT_TEST)
 	$(SNIPPET_TEST)
 	$(SNIPPET_FUZZ)
+	$(SNIPPET_CATALOG_TEST)
 	$(ACTION_TEST)
 	$(STRUCTURAL_SEARCH_TEST)
 	$(DOCUMENT_TEST)
