@@ -2104,6 +2104,22 @@ overriding earlier ones:
 5. note frontmatter for note-scoped keys;
 6. ephemeral per-window runtime toggles.
 
+**R7.2.1a** The global file is named `config.yaml`. On Linux and FreeBSD it is
+`$XDG_CONFIG_HOME/cwiki/config.yaml`, defaulting to
+`$HOME/.config/cwiki/config.yaml`; on macOS it is
+`$HOME/Library/Application Support/cwiki/config.yaml`. The synchronized vault
+file is `<vault>/.cwiki/config.yaml`. A missing file contributes no values; an
+unreadable or invalid file is reported with its path and prevents startup from
+publishing a partial configuration.
+
+**R7.2.1b** Each vault has a synchronized lowercase RFC 4122 UUID in
+`<vault>/.cwiki/vault-id`. Its only accepted representation is the canonical
+36-character hyphenated form followed by an optional single newline. The
+machine-local override is `<OS cwiki configuration directory>/vaults/<UUID>.yaml`.
+The UUID is created only by explicit vault initialization; opening a vault never
+writes or repairs it implicitly. A missing `vault-id` means no machine-local
+override applies, while an invalid one is a visible startup error.
+
 **R7.2.2** Each schema key declares which scopes may set it. Security-sensitive
 values, including trusted-vault shell escape and local reminder-daemon state,
 are machine-local and cannot be enabled by synchronized files or note
@@ -2118,6 +2134,12 @@ Rejected:
   or express machine-local exceptions safely.
 - **One self-contained synchronized vault configuration.** Lets a pulled file
   alter machine trust and host integrations.
+- **Canonical vault path as identity.** Requires no marker data, but moving or
+  mounting the same vault at another path silently loses its local settings.
+- **Git remote as identity.** Not every vault has a remote, and changing remotes
+  is unrelated to configuration identity.
+- **Creating an ID when a vault is opened.** Makes a read/open operation mutate
+  synchronized authored state before the data-safety milestone.
 
 ### 7.3 Declarative surface
 
