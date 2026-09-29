@@ -729,7 +729,7 @@ cwiki_zone_build_line(struct cwiki_zone_engine *engine,
       errno = ENOMEM;
       return -1;
    }
-   result->spans = malloc(source->length * sizeof(*result->spans));
+   result->spans = calloc(source->length, sizeof(*result->spans));
    if (result->spans == NULL) {
       return -1;
    }

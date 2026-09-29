@@ -40,13 +40,15 @@ MOTION_TEST = $(BUILD_DIR)/test-motion
 EDITOR_TEST = $(BUILD_DIR)/test-editor
 EDITOR_INPUT_TEST = $(BUILD_DIR)/test-editor-input
 HIGHLIGHT_TEST = $(BUILD_DIR)/test-highlight
+RENDER_TEST = $(BUILD_DIR)/test-render
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
-	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST)
+	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
+	$(RENDER_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -66,7 +68,7 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/keymap.c tests/action/test_keymap.c src/motion.c \
 	tests/editor/test_motion.c src/editor.c tests/editor/test_editor.c \
 	src/editor_input.c tests/editor/test_editor_input.c src/highlight.c \
-	tests/highlight/test_highlight.c
+	tests/highlight/test_highlight.c src/render.c tests/ui/test_render.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -304,6 +306,16 @@ $(HIGHLIGHT_TEST): src/highlight.c src/highlight.h src/buffer.c src/buffer.h \
 		tests/highlight/test_highlight.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(HIGHLIGHT_TEST)
 
+$(RENDER_TEST): src/render.c src/render.h src/editor.h src/terminal.h \
+		src/highlight.c src/highlight.h src/layout.c src/layout.h src/conceal.c \
+		src/conceal.h src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
+		src/zone.c src/zone.h src/regex.c src/regex.h tests/ui/test_render.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/buffer.c src/unicode.c src/regex.c src/zone.c src/conceal.c \
+		src/layout.c src/highlight.c src/render.c tests/ui/test_render.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(RENDER_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -329,6 +341,7 @@ product-test: $(PRODUCT_TESTS)
 	$(EDITOR_TEST)
 	$(EDITOR_INPUT_TEST)
 	$(HIGHLIGHT_TEST)
+	$(RENDER_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)

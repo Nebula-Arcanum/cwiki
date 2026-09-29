@@ -97,7 +97,10 @@ style(enum cwiki_highlight_role role)
    static const char *const styles[CWIKI_HIGHLIGHT_ROLE_COUNT] = {
       "\x1b[0m", "\x1b[0;36m", "\x1b[0;33m", "\x1b[0;33m",
       "\x1b[0;32m", "\x1b[0m", "\x1b[0;34m", "\x1b[0;35m",
-      "\x1b[0;35m", "\x1b[0;90m", "\x1b[0;36m", "\x1b[0;31m"
+      "\x1b[0;35m", "\x1b[0;90m", "\x1b[0;36m", "\x1b[0;31m",
+      "\x1b[1;36m", "\x1b[1;33m", "\x1b[1;33m", "\x1b[1;32m",
+      "\x1b[1m", "\x1b[1;34m", "\x1b[1;35m", "\x1b[1;35m",
+      "\x1b[1;90m", "\x1b[1;36m"
    };
 
    return styles[role];

@@ -152,8 +152,9 @@ unicode_conceal(void)
 
    init(&f, "é界é $\\alpha$!", 2U, 24U);
    f.editor.motion.cursor.byte = strlen("é界é $\\alpha");
-   expect(&f, START "\x1b[1;1H" RESET "é界é $" "\x1b[0;33m𝛼$"
-       RESET "!" RESET "               " "\x1b[2;1H" STATUS
+   expect(&f, START "\x1b[1;1H" RESET "é界é " "\x1b[1;33m$"
+       "\x1b[0;33m𝛼" "\x1b[1;33m$" RESET "!" RESET "               "
+       "\x1b[2;1H" STATUS
        "NORMAL n.md 1:13        " RESET "\x1b[1;8H" SHOW);
    finish(&f);
 }

@@ -5,8 +5,8 @@ Status: **specification approved; Milestone 0 verification harness complete.**
 The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
 rows remain unassigned. Milestones are ordered first by dependency and data
-safety, then by the workflow priorities in `docs/PRODUCT.md`. No product-code
-implementation has started.
+safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 1
+product-code implementation is in progress.
 
 Effort uses focused implementation tasks: **S** = under one task, **M** = 1–3,
 **L** = 4–10, and **XL** = more than 10. A milestone total is a planning range,
@@ -81,9 +81,12 @@ yank and `p`/`P`, dirty-state-preserving saves, and the bounded `:w`/`:q`/`:wq`
 surface. Parser events now route through the shared physical-key keymap and named
 action registry, including prefix sequences, associated text, and literal paste.
 Source highlighting now maps every cached zone kind to immutable, grapheme-safe
-semantic runs with raw fallback for untrusted lines; exact Markdown and LaTeX
-delimiter-token roles still require parser span events. The application loop,
-builtin snippet catalog, and that parser-span extension are not yet implemented.
+semantic runs with raw fallback for untrusted lines. Parser-owned spans now give
+complete Markdown and LaTeX delimiters distinct roles without a second parser.
+The single-window source renderer composes those roles with conceal, wrap,
+viewport clipping, cursor placement, and the persistent mode/file/position status
+line into deterministic terminal frames. The application loop and builtin snippet
+catalog are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
