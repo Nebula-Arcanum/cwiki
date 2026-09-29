@@ -104,13 +104,15 @@ empty-result rendering. A live clue overlay now derives every multi-key-prefix
 continuation from shared keymap and named-action metadata, including action
 availability, and is composed into application redraws. The bounded libyaml
 configuration foundation strictly validates physical-key bindings, unbindings,
-and clue-group labels with source locations, then builds a complete candidate
-keymap without mutating its base. Validated configuration bytes now replace the
-live keymap transactionally before terminal startup, and configured clue-group
-labels title the live popup. Read-only startup discovery composes existing
-global, synchronized-vault, and UUID-keyed machine-local files without creating
-vault metadata. The remaining declarative schemas and concrete picker providers
-are not yet implemented.
+clue-group labels, conceal/display options, and save policy with source
+locations, then builds a complete candidate keymap without mutating its base.
+Validated configuration bytes now replace the live keymap transactionally
+before terminal startup; configured clue-group labels title the live popup;
+layered display settings reach layout; and manual, insert-leave, and idle save
+policies drive writes. Read-only startup discovery composes existing global,
+synchronized-vault, and UUID-keyed machine-local files without creating vault
+metadata. The remaining snippet and zone declarative schemas, note-scope
+composition, and concrete picker providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

@@ -1072,6 +1072,9 @@ policies:
 makes the write boundary coincide with the undo-step boundary (R1.2.3), so "a
 change" means one thing throughout the program, and because it keeps a rendered
 view fresh at every natural pause without anything re-rendering while typing.
+The Milestone 1 idle period is one second, measured from the most recent input
+event with `CLOCK_MONOTONIC`; a failed idle write remains dirty and is retried
+only after another full idle period rather than in a tight loop.
 
 **R1.12.11 (startup)** Startup behaviour is configurable, with all three of:
 

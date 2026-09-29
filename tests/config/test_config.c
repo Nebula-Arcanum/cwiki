@@ -184,9 +184,15 @@ expect_error(const char *yaml, enum cwiki_config_status wanted,
    struct cwiki_action_registry *registry = actions();
    struct cwiki_config *config = (struct cwiki_config *)(uintptr_t)1U;
    struct cwiki_config_error error = {0};
+   enum cwiki_config_status status;
 
-   assert(cwiki_config_parse(&config, (const unsigned char *)yaml, strlen(yaml),
-       registry, &error) == wanted);
+   status = cwiki_config_parse(&config, (const unsigned char *)yaml,
+       strlen(yaml), registry, &error);
+   if (status != wanted) {
+      (void)fprintf(stderr, "expected status %d, got %d for:\n%s", wanted,
+          status, yaml);
+   }
+   assert(status == wanted);
    assert(config == NULL && error.line != 0U && error.column != 0U);
    if (strstr(error.message, message) == NULL) {
       (void)fprintf(stderr, "expected [%s], got [%s] for:\n%s", message,
@@ -223,6 +229,73 @@ strict_schema_errors(void)
    expect_error("clue-groups:\n  normal:\n    - prefix: [g]\n      label: Go\n"
        "    - prefix: [g]\n      label: Again\n",
        CWIKI_CONFIG_SCHEMA_ERROR, "duplicate clue group");
+   expect_error("display: false\n", CWIKI_CONFIG_SCHEMA_ERROR, "mapping");
+   expect_error("display:\n  conceal: 'true'\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "true or false");
+   expect_error("display:\n  conceal-categories: [greek, greek]\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "duplicate conceal category");
+   expect_error("display:\n  conceal-categories: [unknown]\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "unknown conceal category");
+   expect_error("display:\n  conceal-cursor: nn\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "duplicate mode");
+   expect_error("display:\n  conceal-cursor: nx\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "only n, i, v and c");
+   expect_error("display:\n  continuation-marker: \"\\t\"\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "display text");
+   expect_error("save-policy: often\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "insert-leave, manual or idle");
+}
+
+static void
+scalar_settings_and_precedence(void)
+{
+   static const char global[] =
+       "display:\n"
+       "  conceal: false\n"
+       "  conceal-categories: [greek, sections]\n"
+       "  conceal-cursor: iv\n"
+       "  wrap: false\n"
+       "  break-indent: false\n"
+       "  continuation-marker: '↪ '\n"
+       "save-policy: manual\n";
+   static const char local[] =
+       "display:\n"
+       "  conceal: true\n"
+       "  wrap: true\n"
+       "save-policy: idle\n";
+   struct cwiki_action_registry *registry = actions();
+   struct cwiki_config *first = NULL;
+   struct cwiki_config *second = NULL;
+   struct cwiki_config_error error = {0};
+   struct cwiki_config_settings settings;
+
+   cwiki_config_settings_defaults(&settings);
+   assert(settings.conceal && settings.wrap && settings.break_indent &&
+       settings.conceal_categories == CWIKI_CONCEAL_DEFAULT_MASK &&
+       settings.concealcursor_modes == CWIKI_CONCEALCURSOR_DEFAULT &&
+       strcmp(settings.continuation_marker, "") == 0 &&
+       settings.save_policy == CWIKI_SAVE_INSERT_LEAVE);
+   assert(cwiki_config_parse(&first, (const unsigned char *)global,
+       sizeof(global) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   assert(cwiki_config_parse(&second, (const unsigned char *)local,
+       sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   cwiki_config_apply_settings(first, &settings);
+   assert(!settings.conceal && !settings.wrap && !settings.break_indent &&
+       settings.conceal_categories ==
+       (CWIKI_CONCEAL_CATEGORY_BIT(CWIKI_CONCEAL_GREEK) |
+       CWIKI_CONCEAL_CATEGORY_BIT(CWIKI_CONCEAL_SECTIONS)) &&
+       settings.concealcursor_modes ==
+       (CWIKI_CONCEAL_MODE_BIT(CWIKI_CONCEAL_MODE_INSERT) |
+       CWIKI_CONCEAL_MODE_BIT(CWIKI_CONCEAL_MODE_VISUAL)) &&
+       strcmp(settings.continuation_marker, "↪ ") == 0 &&
+       settings.save_policy == CWIKI_SAVE_MANUAL);
+   cwiki_config_apply_settings(second, &settings);
+   assert(settings.conceal && settings.wrap && !settings.break_indent &&
+       strcmp(settings.continuation_marker, "↪ ") == 0 &&
+       settings.save_policy == CWIKI_SAVE_IDLE);
+   cwiki_config_free(second);
+   cwiki_config_free(first);
+   cwiki_action_registry_free(registry);
 }
 
 static void
@@ -246,6 +319,7 @@ main(void)
    valid_transaction();
    transactional_failure();
    strict_schema_errors();
+   scalar_settings_and_precedence();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;

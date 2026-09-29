@@ -2,8 +2,11 @@
 #define CWIKI_CONFIG_H
 
 #include "action.h"
+#include "conceal.h"
 #include "keymap.h"
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 
 struct cwiki_config;
@@ -22,6 +25,22 @@ struct cwiki_config_error {
    char message[160];
 };
 
+enum cwiki_save_policy {
+   CWIKI_SAVE_INSERT_LEAVE,
+   CWIKI_SAVE_MANUAL,
+   CWIKI_SAVE_IDLE
+};
+
+struct cwiki_config_settings {
+   bool conceal;
+   uint32_t conceal_categories;
+   uint32_t concealcursor_modes;
+   bool wrap;
+   bool break_indent;
+   const char *continuation_marker;
+   enum cwiki_save_policy save_policy;
+};
+
 /*
  * M1 schema:
  *
@@ -33,6 +52,14 @@ struct cwiki_config_error {
  *   normal:
  *     - prefix: [g]
  *       label: Go
+ * display:
+ *   conceal: true
+ *   conceal-categories: [accents, greek, math-symbols]
+ *   conceal-cursor: nc
+ *   wrap: true
+ *   break-indent: true
+ *   continuation-marker: ""
+ * save-policy: insert-leave
  */
 enum cwiki_config_status cwiki_config_parse(struct cwiki_config **config,
     const unsigned char *bytes, size_t length,
@@ -48,5 +75,10 @@ enum cwiki_config_status cwiki_config_build_keymap(
 const char *cwiki_config_clue_group(const struct cwiki_config *config,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,
     size_t prefix_count);
+
+void cwiki_config_settings_defaults(struct cwiki_config_settings *settings);
+/* Apply only values explicitly present in config. String storage is config-owned. */
+void cwiki_config_apply_settings(const struct cwiki_config *config,
+    struct cwiki_config_settings *settings);
 
 #endif

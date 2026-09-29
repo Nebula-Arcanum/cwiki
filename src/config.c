@@ -39,6 +39,20 @@ struct cwiki_config {
    size_t binding_count;
    struct clue_group *groups;
    size_t group_count;
+   char *continuation_marker;
+   uint32_t conceal_categories;
+   uint32_t concealcursor_modes;
+   enum cwiki_save_policy save_policy;
+   bool conceal;
+   bool wrap;
+   bool break_indent;
+   bool has_conceal;
+   bool has_conceal_categories;
+   bool has_concealcursor_modes;
+   bool has_wrap;
+   bool has_break_indent;
+   bool has_continuation_marker;
+   bool has_save_policy;
 };
 
 static void
@@ -109,6 +123,144 @@ copy_scalar(const yaml_node_t *node)
       copy[length] = '\0';
    }
    return copy;
+}
+
+static enum cwiki_config_status
+parse_boolean(const yaml_node_t *node, bool *value,
+    struct cwiki_config_error *error)
+{
+   if (node != NULL && node->type == YAML_SCALAR_NODE &&
+       node->data.scalar.style == YAML_PLAIN_SCALAR_STYLE &&
+       scalar_is(node, "true")) {
+      *value = true;
+      return CWIKI_CONFIG_OK;
+   }
+   if (node != NULL && node->type == YAML_SCALAR_NODE &&
+       node->data.scalar.style == YAML_PLAIN_SCALAR_STYLE &&
+       scalar_is(node, "false")) {
+      *value = false;
+      return CWIKI_CONFIG_OK;
+   }
+   {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column, "expected true or false");
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+static bool
+conceal_category(const yaml_node_t *node, enum cwiki_conceal_category *category)
+{
+   static const char *const names[CWIKI_CONCEAL_CATEGORY_COUNT] = {
+      "accents", "greek", "math-symbols", "ligatures", "fractions",
+      "math-bounds", "size-modified-delimiters", "sub-superscripts",
+      "styles", "environments", "item-markers", "citations", "spacing",
+      "sections"
+   };
+   size_t i;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE) {
+      return false;
+   }
+   for (i = 0U; i < CWIKI_CONCEAL_CATEGORY_COUNT; i++) {
+      if (scalar_is(node, names[i])) {
+         *category = (enum cwiki_conceal_category)i;
+         return true;
+      }
+   }
+   return false;
+}
+
+static enum cwiki_config_status
+parse_conceal_categories(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_item_t *item;
+   uint32_t mask = 0U;
+
+   if (node == NULL || node->type != YAML_SEQUENCE_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "conceal-categories must be a sequence");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   for (item = node->data.sequence.items.start;
+       item < node->data.sequence.items.top; item++) {
+      yaml_node_t *value = yaml_document_get_node(document, *item);
+      enum cwiki_conceal_category category;
+      uint32_t bit;
+
+      if (!conceal_category(value, &category)) {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line, at.column, "unknown conceal category");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      bit = CWIKI_CONCEAL_CATEGORY_BIT(category);
+      if ((mask & bit) != 0U) {
+         struct source_mark at = mark(value);
+
+         set_error(error, at.line, at.column, "duplicate conceal category");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      mask |= bit;
+   }
+   config->conceal_categories = mask;
+   config->has_conceal_categories = true;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_concealcursor(struct cwiki_config *config, const yaml_node_t *node,
+    struct cwiki_config_error *error)
+{
+   uint32_t modes = 0U;
+   size_t i;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       memchr(node->data.scalar.value, '\0', node->data.scalar.length) != NULL) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "conceal-cursor must contain only n, i, v and c");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   for (i = 0U; i < node->data.scalar.length; i++) {
+      enum cwiki_conceal_mode mode;
+      uint32_t bit;
+
+      switch (node->data.scalar.value[i]) {
+      case 'n': mode = CWIKI_CONCEAL_MODE_NORMAL; break;
+      case 'i': mode = CWIKI_CONCEAL_MODE_INSERT; break;
+      case 'v': mode = CWIKI_CONCEAL_MODE_VISUAL; break;
+      case 'c': mode = CWIKI_CONCEAL_MODE_COMMAND; break;
+      default:
+         {
+            struct source_mark at = mark(node);
+
+            set_error(error, at.line, at.column,
+                "conceal-cursor must contain only n, i, v and c");
+         }
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      bit = CWIKI_CONCEAL_MODE_BIT(mode);
+      if ((modes & bit) != 0U) {
+         struct source_mark at = mark(node);
+
+         set_error(error, at.line, at.column,
+             "conceal-cursor contains a duplicate mode");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      modes |= bit;
+   }
+   config->concealcursor_modes = modes;
+   config->has_concealcursor_modes = true;
+   return CWIKI_CONFIG_OK;
 }
 
 static enum cwiki_config_status
@@ -188,6 +340,138 @@ mapping_get(yaml_document_t *document, const yaml_node_t *mapping,
       }
    }
    return NULL;
+}
+
+static enum cwiki_config_status
+parse_marker(struct cwiki_config *config, const yaml_node_t *node,
+    struct cwiki_config_error *error)
+{
+   size_t offset = 0U;
+   size_t i;
+   char *value;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.length > CONFIG_MAX_TEXT ||
+       memchr(node->data.scalar.value, '\0', node->data.scalar.length) != NULL ||
+       !cwiki_utf8_validate((const char *)node->data.scalar.value,
+       node->data.scalar.length)) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "continuation-marker must be valid UTF-8 display text");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   for (i = 0U; i < node->data.scalar.length; i++) {
+      if (node->data.scalar.value[i] < 0x20U ||
+          node->data.scalar.value[i] == 0x7fU) {
+         struct source_mark at = mark(node);
+
+         set_error(error, at.line, at.column,
+             "continuation-marker must be valid UTF-8 display text");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+   }
+   while (offset < node->data.scalar.length) {
+      size_t next = cwiki_grapheme_next((const char *)node->data.scalar.value,
+          node->data.scalar.length, offset);
+
+      if (next == SIZE_MAX || cwiki_grapheme_width(
+          (const char *)node->data.scalar.value + offset, next - offset) < 0) {
+         struct source_mark at = mark(node);
+
+         set_error(error, at.line, at.column,
+             "continuation-marker must be valid UTF-8 display text");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      offset = next;
+   }
+   value = copy_scalar(node);
+   if (value == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   free(config->continuation_marker);
+   config->continuation_marker = value;
+   config->has_continuation_marker = true;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_display(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   static const char *const allowed[] = {"conceal", "conceal-categories",
+       "conceal-cursor", "wrap", "break-indent", "continuation-marker"};
+   yaml_node_t *value;
+   enum cwiki_config_status status;
+
+   status = mapping_check(document, node, allowed,
+       sizeof(allowed) / sizeof(allowed[0]), error);
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "conceal");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->conceal, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_conceal = true;
+   }
+   value = mapping_get(document, node, "conceal-categories");
+   if (value != NULL && (status = parse_conceal_categories(document, config,
+       value, error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "conceal-cursor");
+   if (value != NULL && (status = parse_concealcursor(config, value, error)) !=
+       CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "wrap");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->wrap, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_wrap = true;
+   }
+   value = mapping_get(document, node, "break-indent");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->break_indent, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_break_indent = true;
+   }
+   value = mapping_get(document, node, "continuation-marker");
+   if (value != NULL && (status = parse_marker(config, value, error)) !=
+       CWIKI_CONFIG_OK) {
+      return status;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_save_policy(struct cwiki_config *config, const yaml_node_t *node,
+    struct cwiki_config_error *error)
+{
+   if (scalar_is(node, "insert-leave")) {
+      config->save_policy = CWIKI_SAVE_INSERT_LEAVE;
+   } else if (scalar_is(node, "manual")) {
+      config->save_policy = CWIKI_SAVE_MANUAL;
+   } else if (scalar_is(node, "idle")) {
+      config->save_policy = CWIKI_SAVE_IDLE;
+   } else {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "save-policy must be insert-leave, manual or idle");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   config->has_save_policy = true;
+   return CWIKI_CONFIG_OK;
 }
 
 static bool
@@ -636,6 +920,7 @@ cwiki_config_free(struct cwiki_config *config)
    }
    free(config->bindings);
    free(config->groups);
+   free(config->continuation_marker);
    free(config);
 }
 
@@ -644,7 +929,8 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     size_t length, const struct cwiki_action_registry *actions,
     struct cwiki_config_error *error)
 {
-   static const char *const allowed[] = {"keymaps", "clue-groups"};
+   static const char *const allowed[] = {"keymaps", "clue-groups", "display",
+       "save-policy"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -653,6 +939,8 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    yaml_node_t *root;
    yaml_node_t *keymaps;
    yaml_node_t *groups;
+   yaml_node_t *display;
+   yaml_node_t *save_policy;
    enum cwiki_config_status status;
    bool parser_ready = false;
    bool document_ready = false;
@@ -700,6 +988,8 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    keymaps = mapping_get(&document, root, "keymaps");
    groups = mapping_get(&document, root, "clue-groups");
+   display = mapping_get(&document, root, "display");
+   save_policy = mapping_get(&document, root, "save-policy");
    if (keymaps != NULL) {
       status = parse_keymaps(&document, created, keymaps, actions, error);
       if (status != CWIKI_CONFIG_OK) {
@@ -708,6 +998,18 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    if (groups != NULL) {
       status = parse_groups(&document, created, groups, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (display != NULL) {
+      status = parse_display(&document, created, display, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (save_policy != NULL) {
+      status = parse_save_policy(created, save_policy, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -847,4 +1149,46 @@ cwiki_config_clue_group(const struct cwiki_config *config,
       }
    }
    return NULL;
+}
+
+void
+cwiki_config_settings_defaults(struct cwiki_config_settings *settings)
+{
+   if (settings == NULL) {
+      return;
+   }
+   *settings = (struct cwiki_config_settings){
+      true, CWIKI_CONCEAL_DEFAULT_MASK, CWIKI_CONCEALCURSOR_DEFAULT,
+      true, true, "", CWIKI_SAVE_INSERT_LEAVE
+   };
+}
+
+void
+cwiki_config_apply_settings(const struct cwiki_config *config,
+    struct cwiki_config_settings *settings)
+{
+   if (config == NULL || settings == NULL) {
+      return;
+   }
+   if (config->has_conceal) {
+      settings->conceal = config->conceal;
+   }
+   if (config->has_conceal_categories) {
+      settings->conceal_categories = config->conceal_categories;
+   }
+   if (config->has_concealcursor_modes) {
+      settings->concealcursor_modes = config->concealcursor_modes;
+   }
+   if (config->has_wrap) {
+      settings->wrap = config->wrap;
+   }
+   if (config->has_break_indent) {
+      settings->break_indent = config->break_indent;
+   }
+   if (config->has_continuation_marker) {
+      settings->continuation_marker = config->continuation_marker;
+   }
+   if (config->has_save_policy) {
+      settings->save_policy = config->save_policy;
+   }
 }

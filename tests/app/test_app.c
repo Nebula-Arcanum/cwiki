@@ -15,6 +15,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #define ESCAPE "\x1b[27u"
@@ -437,6 +438,63 @@ main(void)
        "%siX" ESCAPE "0RY" ESCAPE ":q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: byte-exact reopen, Insert/Replace leave saves, one redraw per drain passed");
+
+   {
+      static const char manual[] = "save-policy: manual\n";
+
+      session = start_config(path, supported, false, manual);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("iM" ESCAPE));
+      frame(&session, output, sizeof(output));
+      quiet(&session);
+      content(path, "Yfirst\r\nsecond", CWIKI_LINE_ENDING_CRLF);
+      send_bytes(session.master, wire(":q" ENTER));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(ESCAPE ":wq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%siM" ESCAPE ":q" ENTER ESCAPE ":wq" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, ":q refused");
+      content(path, "MYfirst\r\nsecond", CWIKI_LINE_ENDING_CRLF);
+      (void)puts("app: manual save policy suppresses insert-leave writes passed");
+   }
+
+   {
+      static const char idle[] = "save-policy: idle\n";
+      const struct timespec delay = {1, 200000000L};
+
+      session = start_config(path, supported, false, idle);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("iI"));
+      frame(&session, output, sizeof(output));
+      content(path, "MYfirst\r\nsecond", CWIKI_LINE_ENDING_CRLF);
+      assert(nanosleep(&delay, NULL) == 0);
+      content(path, "IMYfirst\r\nsecond", CWIKI_LINE_ENDING_CRLF);
+      send_bytes(session.master, wire(ESCAPE ":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%siI" ESCAPE ":q" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      (void)puts("app: idle save policy waits then writes in insert mode passed");
+   }
+
+   {
+      static const char source[] = "$\\alpha$";
+      static const char no_conceal[] = "display:\n  conceal: false\n";
+
+      write_note(path, source);
+      session = start_config(path, supported, false, no_conceal);
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "\\alpha") != NULL &&
+          strstr(output, "𝛼") == NULL);
+      send_bytes(session.master, wire(":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript), "%s:q" ENTER,
+          supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      (void)puts("app: configured conceal disable reaches layout passed");
+      write_note(path, "Yfirst\r\nsecond");
+   }
 
    session = start(path, supported, false);
    frame(&session, output, sizeof(output));

@@ -105,6 +105,7 @@ enum cwiki_editor_status cwiki_editor_command_insert(
     struct cwiki_editor *editor, const char *bytes, size_t length);
 enum cwiki_editor_status cwiki_editor_command_backspace(
     struct cwiki_editor *editor);
+enum cwiki_editor_status cwiki_editor_save(struct cwiki_editor *editor);
 enum cwiki_editor_status cwiki_editor_execute_command(
     struct cwiki_editor *editor);
 

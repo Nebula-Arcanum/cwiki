@@ -21,6 +21,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define SAVE_IDLE_NS UINT64_C(1000000000)
+
 struct app {
    struct cwiki_document document;
    struct cwiki_editor editor;
@@ -30,11 +32,13 @@ struct app {
    struct cwiki_layout_window layout;
    struct cwiki_render_viewport viewport;
    struct cwiki_motion_viewport motion_viewport;
+   struct cwiki_config_settings settings;
    struct cwiki_config *configs[CWIKI_CONFIG_SOURCE_MAX];
    size_t config_count;
    struct cwiki_config_error config_error;
    enum cwiki_config_status config_status;
    const char *config_path;
+   uint64_t last_input_ns;
    int error;
    unsigned int statuses;
 };
@@ -60,11 +64,12 @@ refresh(struct app *app)
    size_t height = app->viewport.rows > 1U ? app->viewport.rows - 1U : 1U;
 
    options.content_width = app->viewport.columns;
-   options.wrap = true;
-   options.break_indent = true;
-   options.continuation_marker = "";
-   options.conceal_categories = CWIKI_CONCEAL_DEFAULT_MASK;
-   options.concealcursor_modes = CWIKI_CONCEALCURSOR_DEFAULT;
+   options.wrap = app->settings.wrap;
+   options.break_indent = app->settings.break_indent;
+   options.continuation_marker = app->settings.continuation_marker;
+   options.conceal_categories = app->settings.conceal ?
+       app->settings.conceal_categories : 0U;
+   options.concealcursor_modes = app->settings.concealcursor_modes;
    options.mode = app->editor.mode == CWIKI_EDITOR_COMMAND ?
        CWIKI_CONCEAL_MODE_COMMAND :
        (app->editor.mode == CWIKI_EDITOR_NORMAL ? CWIKI_CONCEAL_MODE_NORMAL :
@@ -124,26 +129,55 @@ event(const struct cwiki_input_event *event_value, void *context)
    input_context.viewport = &app->motion_viewport;
    input_context.timestamp = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
        (uint64_t)now.tv_nsec;
+   app->last_input_ns = input_context.timestamp;
    status = cwiki_editor_input_handle(app->input, event_value, &input_context);
    if (status == CWIKI_EDITOR_OK &&
        (before == CWIKI_EDITOR_INSERT || before == CWIKI_EDITOR_REPLACE) &&
-       app->editor.mode == CWIKI_EDITOR_NORMAL && app->document.dirty) {
-      status = cwiki_editor_begin_command(&app->editor);
-      if (status == CWIKI_EDITOR_OK) {
-         status = cwiki_editor_command_insert(&app->editor, "w", 1U);
-      }
-      if (status == CWIKI_EDITOR_OK) {
-         status = cwiki_editor_execute_command(&app->editor);
-      }
-      if (status != CWIKI_EDITOR_OK) {
-         (void)cwiki_editor_escape(&app->editor);
-      }
+       app->editor.mode == CWIKI_EDITOR_NORMAL && app->document.dirty &&
+       app->settings.save_policy == CWIKI_SAVE_INSERT_LEAVE) {
+      status = cwiki_editor_save(&app->editor);
    }
    app->statuses |= 1U << (unsigned int)status;
    if (status == CWIKI_EDITOR_NO_MEMORY) {
       app->error = ENOMEM;
    } else if (refresh(app) != 0) {
       app->error = errno;
+   }
+}
+
+static bool
+idle_save_due(const struct app *app, uint64_t now)
+{
+   bool eligible = app->settings.save_policy == CWIKI_SAVE_IDLE ||
+       (app->settings.save_policy == CWIKI_SAVE_INSERT_LEAVE &&
+       (app->editor.mode == CWIKI_EDITOR_INSERT ||
+       app->editor.mode == CWIKI_EDITOR_REPLACE));
+
+   return eligible && app->document.dirty && now >= app->last_input_ns &&
+       now - app->last_input_ns >= SAVE_IDLE_NS;
+}
+
+static void
+save_if_idle(struct app *app)
+{
+   struct timespec now;
+   enum cwiki_editor_status status;
+   uint64_t timestamp;
+
+   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+      app->error = errno;
+      return;
+   }
+   timestamp = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
+       (uint64_t)now.tv_nsec;
+   if (!idle_save_due(app, timestamp)) {
+      return;
+   }
+   app->last_input_ns = timestamp;
+   status = cwiki_editor_save(&app->editor);
+   app->statuses |= 1U << (unsigned int)status;
+   if (status == CWIKI_EDITOR_NO_MEMORY) {
+      app->error = ENOMEM;
    }
 }
 
@@ -293,6 +327,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    record = options->record == NULL ? &local_record : options->record;
    cwiki_input_parser_init(&parser);
    cwiki_layout_window_init(&app.layout);
+   cwiki_config_settings_defaults(&app.settings);
    if ((options->record == NULL && cwiki_key_record_init(record, NULL, 0U) != 0) ||
        (cwiki_document_load(&app.document, path) != 0 &&
        (errno != ENOENT || cwiki_document_init(&app.document, path) != 0))) {
@@ -326,6 +361,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
              cwiki_editor_input_actions(app.input), &app.config_error);
          if (app.config_status == CWIKI_CONFIG_OK) {
             app.config_count++;
+            cwiki_config_apply_settings(app.configs[i], &app.settings);
             app.config_status = cwiki_config_build_keymap(app.configs[i], base,
                 &next, &app.config_error);
          }
@@ -417,6 +453,10 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
          }
          redraw = true;
          continue;
+      }
+      save_if_idle(&app);
+      if (app.error != 0) {
+         break;
       }
       if (redraw && draw(&app, &terminal) != 0) {
          goto system_error;

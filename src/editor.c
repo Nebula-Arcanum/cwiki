@@ -886,6 +886,26 @@ command_is(const struct cwiki_editor *editor, const char *command)
 }
 
 enum cwiki_editor_status
+cwiki_editor_save(struct cwiki_editor *editor)
+{
+   uint64_t sequence;
+
+   if (editor == NULL) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (cwiki_document_save(editor->document).status !=
+       CWIKI_DURABLE_WRITE_SUCCESS) {
+      return CWIKI_EDITOR_SAVE_FAILED;
+   }
+   if (!current_sequence(&editor->undo, &sequence)) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   editor->saved_sequence = sequence;
+   editor->savepoint_valid = true;
+   return CWIKI_EDITOR_OK;
+}
+
+enum cwiki_editor_status
 cwiki_editor_execute_command(struct cwiki_editor *editor)
 {
    bool save;
@@ -899,18 +919,12 @@ cwiki_editor_execute_command(struct cwiki_editor *editor)
    if (!save && !quit) {
       return CWIKI_EDITOR_INVALID;
    }
-   if (save && cwiki_document_save(editor->document).status !=
-       CWIKI_DURABLE_WRITE_SUCCESS) {
-      return CWIKI_EDITOR_SAVE_FAILED;
-   }
    if (save) {
-      uint64_t sequence;
+      enum cwiki_editor_status status = cwiki_editor_save(editor);
 
-      if (!current_sequence(&editor->undo, &sequence)) {
-         return CWIKI_EDITOR_INVALID;
+      if (status != CWIKI_EDITOR_OK) {
+         return status;
       }
-      editor->saved_sequence = sequence;
-      editor->savepoint_valid = true;
    }
    if (quit && editor->document->dirty) {
       return CWIKI_EDITOR_DIRTY;
