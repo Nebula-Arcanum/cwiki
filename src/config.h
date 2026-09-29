@@ -23,6 +23,7 @@ enum cwiki_config_status {
 struct cwiki_config_error {
    size_t line;
    size_t column;
+   size_t source_index;
    char message[160];
 };
 
@@ -40,6 +41,12 @@ struct cwiki_config_settings {
    bool break_indent;
    const char *continuation_marker;
    enum cwiki_save_policy save_policy;
+};
+
+struct cwiki_config_zone_table {
+   struct cwiki_zone_region *regions;
+   size_t count;
+   uint64_t top_level;
 };
 
 /*
@@ -73,6 +80,14 @@ struct cwiki_config_settings {
  *       math-inline: '\\frac{d$1}{d$2}$0'
  *       math-display: '\\frac{d$1}{d$2}$0'
  *   vimtex.alpha: null  # disable a builtin
+ * zones:
+ *   custom.my-math:
+ *     kind: math-display
+ *     start: '\\begin\\{my-math\\}'
+ *     end: '\\end\\{my-math\\}'
+ *     top-level: true
+ *     parents: [latex-environment]
+ *     contains: [note-inline-comment, latex-line-comment]
  */
 enum cwiki_config_status cwiki_config_parse(struct cwiki_config **config,
     const unsigned char *bytes, size_t length,
@@ -90,6 +105,13 @@ enum cwiki_config_status cwiki_config_build_snippets(
     const struct cwiki_config *const *configs, size_t config_count,
     struct cwiki_snippet_registry **candidate,
     struct cwiki_config_error *error);
+
+/* Builtins plus effective custom regions. The engine borrows this table. */
+enum cwiki_config_status cwiki_config_build_zones(
+    const struct cwiki_config *const *configs, size_t config_count,
+    struct cwiki_config_zone_table *table,
+    struct cwiki_config_error *error);
+void cwiki_config_zone_table_free(struct cwiki_config_zone_table *table);
 
 const char *cwiki_config_clue_group(const struct cwiki_config *config,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,

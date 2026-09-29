@@ -729,6 +729,15 @@ language named by the block's own argument** — so ```` ```python ```` and
 `\begin{minted}{python}` both select a nested syntax from the block header rather
 than from a hard-coded list.
 
+Custom regions are keyed by stable lowercase dot-separated names and declare a
+zone kind, bounded start/end/skip PCRE2 patterns, optional start/end detail
+captures, top-level eligibility, and named parent/child regions. Detail captures
+carry hosted-language names from block headers. Later configuration scopes may
+replace or disable custom names. Builtin regions have fixed stable identifiers
+and may be referenced as parents or children, but cannot be replaced or disabled:
+R7.3.3 forbids configuration from changing core file-format meanings. A custom
+region has no children unless they are explicitly named.
+
 **R1.9.6a (escape- and comment-aware position idiom)** Two reusable patterns are
 defined once and used by every structural search and region rule: "this position
 is not escaped" (not preceded by an odd number of backslashes) and "this position

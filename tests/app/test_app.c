@@ -327,6 +327,22 @@ config_error_before_terminal(const char *path)
    assert(strstr(diagnostic, "/scope/vault.yaml:1:1") != NULL &&
        strstr(diagnostic, "unknown configuration key") != NULL);
    assert(fclose(errors) == 0);
+
+   configs[0].bytes = (unsigned char *)
+       "zones:\n  custom.bad:\n    kind: custom\n    start: A\n"
+       "    end: B\n    parents: [missing.parent]\n";
+   configs[0].length = strlen((const char *)configs[0].bytes);
+   configs[1].bytes = (unsigned char *)"display: {}\n";
+   configs[1].length = strlen((const char *)configs[1].bytes);
+   errors = tmpfile();
+   assert(errors != NULL);
+   options.error_fd = fileno(errors);
+   assert(cwiki_app_run(path, &options) == 1);
+   assert(fseek(errors, 0L, SEEK_SET) == 0);
+   assert(fgets(diagnostic, sizeof(diagnostic), errors) != NULL);
+   assert(strstr(diagnostic, "/scope/global.yaml:2:3") != NULL &&
+       strstr(diagnostic, "unknown parent") != NULL);
+   assert(fclose(errors) == 0);
 }
 
 int
@@ -516,6 +532,29 @@ main(void)
       finish(&session, 0, true, transcript, NULL);
       (void)puts("app: configured conceal disable reaches layout passed");
       write_note(path, "Yfirst\r\nsecond");
+   }
+
+   {
+      static const char custom_zone[] =
+          "zones:\n"
+          "  custom.hosted:\n"
+          "    kind: latex\n"
+          "    start: 'BEGIN ([a-z]+)'\n"
+          "    end: 'END ([a-z]+)'\n"
+          "    start-detail-capture: 1\n"
+          "    end-detail-capture: 1\n";
+
+      write_note(path, "BEGIN python\n\\alpha\nEND python");
+      session = start_config(path, supported, false, custom_zone);
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "𝛼") != NULL && strstr(output, "\\alpha") == NULL);
+      send_bytes(session.master, wire(":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript), "%s:q" ENTER,
+          supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      write_note(path, "Yfirst\r\nsecond");
+      (void)puts("app: configured hosted-language zone reaches conceal passed");
    }
 
    session = start(path, supported, false);

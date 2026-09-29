@@ -19,6 +19,13 @@
 #define CONFIG_MAX_KEY_TOKEN 64U
 #define CONFIG_MAX_TEXT 1024U
 
+static const char *const builtin_zone_ids[] = {
+   "code-fence", "note-block-comment", "note-inline-comment", "html-comment",
+   "display-math-dollar", "display-math-bracket", "inline-math-dollar",
+   "inline-math-paren", "tikz-environment", "latex-environment", "chemistry",
+   "math-text", "math-intertext", "reference", "latex-line-comment"
+};
+
 struct source_mark {
    size_t line;
    size_t column;
@@ -44,6 +51,21 @@ struct config_snippet {
    bool disabled;
 };
 
+struct config_names {
+   char **values;
+   size_t count;
+};
+
+struct config_zone {
+   char *id;
+   struct cwiki_zone_region region;
+   struct config_names parents;
+   struct config_names contains;
+   struct source_mark mark;
+   bool top_level;
+   bool disabled;
+};
+
 struct cwiki_config {
    struct config_binding *bindings;
    size_t binding_count;
@@ -51,6 +73,8 @@ struct cwiki_config {
    size_t group_count;
    struct config_snippet *snippets;
    size_t snippet_count;
+   struct config_zone *zones;
+   size_t zone_count;
    char *continuation_marker;
    uint32_t conceal_categories;
    uint32_t concealcursor_modes;
@@ -902,6 +926,326 @@ parse_snippets(yaml_document_t *document, struct cwiki_config *config,
 }
 
 static bool
+builtin_zone_id(const char *id)
+{
+   size_t i;
+
+   for (i = 0U; i < sizeof(builtin_zone_ids) / sizeof(builtin_zone_ids[0]); i++) {
+      if (strcmp(id, builtin_zone_ids[i]) == 0) {
+         return true;
+      }
+   }
+   return false;
+}
+
+static enum cwiki_config_status
+parse_names(yaml_document_t *document, struct config_names *names,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_item_t *item;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_SEQUENCE_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column, "region names must be a sequence");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.sequence.items.top -
+       node->data.sequence.items.start);
+   if (count > CWIKI_ZONE_MAX_REGIONS) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many region names");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      names->values = calloc(count, sizeof(*names->values));
+      if (names->values == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (item = node->data.sequence.items.start;
+       item < node->data.sequence.items.top; item++) {
+      yaml_node_t *value = yaml_document_get_node(document, *item);
+      size_t i;
+
+      if (!snippet_name_valid(value)) {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line, at.column,
+             "region references must be lowercase identifiers");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (i = 0U; i < used; i++) {
+         if (scalar_is(value, names->values[i])) {
+            struct source_mark at = mark(value);
+
+            set_error(error, at.line, at.column, "duplicate region reference");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      names->values[used] = copy_scalar(value);
+      if (names->values[used] == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      used++;
+      names->count = used;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_capture(const yaml_node_t *node, uint8_t *capture,
+    struct cwiki_config_error *error)
+{
+   char *text;
+   char *end;
+   unsigned long value;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.style != YAML_PLAIN_SCALAR_STYLE ||
+       node->data.scalar.length == 0U || node->data.scalar.length > 3U) {
+      goto invalid;
+   }
+   text = copy_scalar(node);
+   if (text == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   errno = 0;
+   value = strtoul(text, &end, 10);
+   if (errno != 0 || *end != '\0' || value > UINT8_MAX) {
+      free(text);
+      goto invalid;
+   }
+   free(text);
+   *capture = (uint8_t)value;
+   return CWIKI_CONFIG_OK;
+invalid:
+   {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "detail capture must be an integer from 0 to 255");
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+static enum cwiki_config_status
+parse_pattern(const yaml_node_t *node, char **pattern, bool required,
+    uint8_t detail_capture, struct cwiki_config_error *error)
+{
+   struct cwiki_regex *compiled = NULL;
+   struct cwiki_regex_compile_error regex_error;
+   enum cwiki_regex_compile_status status;
+
+   if (node == NULL) {
+      if (!required) {
+         return CWIKI_CONFIG_OK;
+      }
+      set_error(error, 1U, 1U, "region pattern is required");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (node->type != YAML_SCALAR_NODE || node->data.scalar.length == 0U ||
+       node->data.scalar.length > CONFIG_MAX_TEXT ||
+       memchr(node->data.scalar.value, '\0', node->data.scalar.length) != NULL ||
+       !cwiki_utf8_validate((const char *)node->data.scalar.value,
+       node->data.scalar.length)) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column,
+          "region pattern must be non-empty UTF-8 text");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   status = cwiki_regex_compile(&compiled, (const char *)node->data.scalar.value,
+       node->data.scalar.length, 0U, CWIKI_ZONE_DEFAULT_MATCH_LIMIT,
+       CWIKI_ZONE_DEFAULT_DEPTH_LIMIT, &regex_error);
+   if (status != CWIKI_REGEX_COMPILE_OK || (detail_capture != 0U &&
+       (size_t)detail_capture >= cwiki_regex_capture_count(compiled))) {
+      struct source_mark at = mark(node);
+
+      cwiki_regex_free(compiled);
+      if (status == CWIKI_REGEX_COMPILE_NO_MEMORY) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      set_error(error, at.line, at.column,
+          "region pattern or detail capture is invalid");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   cwiki_regex_free(compiled);
+   *pattern = copy_scalar(node);
+   return *pattern == NULL ? CWIKI_CONFIG_NO_MEMORY : CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_zone_definition(yaml_document_t *document, struct config_zone *zone,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   static const char *const allowed[] = {"kind", "start", "end", "skip",
+       "contains", "parents", "top-level", "ends-at-line",
+       "start-detail-capture", "end-detail-capture"};
+   yaml_node_t *value;
+   yaml_node_t *start;
+   yaml_node_t *end;
+   yaml_node_t *skip;
+   enum cwiki_config_status status;
+
+   status = mapping_check(document, node, allowed,
+       sizeof(allowed) / sizeof(allowed[0]), error);
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "kind");
+   if (!parse_zone(value, &zone->region.kind)) {
+      struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+      set_error(error, at.line, at.column, "unknown region zone kind");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   zone->top_level = true;
+   value = mapping_get(document, node, "top-level");
+   if (value != NULL && (status = parse_boolean(value, &zone->top_level,
+       error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "ends-at-line");
+   if (value != NULL && (status = parse_boolean(value,
+       &zone->region.ends_at_line, error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "start-detail-capture");
+   if (value != NULL && (status = parse_capture(value,
+       &zone->region.start_detail_capture, error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "end-detail-capture");
+   if (value != NULL && (status = parse_capture(value,
+       &zone->region.end_detail_capture, error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   start = mapping_get(document, node, "start");
+   end = mapping_get(document, node, "end");
+   skip = mapping_get(document, node, "skip");
+   if ((zone->region.ends_at_line && end != NULL) ||
+       (zone->region.ends_at_line && zone->region.end_detail_capture != 0U)) {
+      struct source_mark at = end == NULL ? mark(node) : mark(end);
+
+      set_error(error, at.line, at.column,
+          "line-ending regions cannot define an end pattern or capture");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   status = parse_pattern(start, (char **)&zone->region.start, true,
+       zone->region.start_detail_capture, error);
+   if (status == CWIKI_CONFIG_OK) {
+      status = parse_pattern(end, (char **)&zone->region.end,
+          !zone->region.ends_at_line, zone->region.end_detail_capture, error);
+   }
+   if (status == CWIKI_CONFIG_OK) {
+      status = parse_pattern(skip, (char **)&zone->region.skip, false, 0U, error);
+   }
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "contains");
+   if (value != NULL && (status = parse_names(document, &zone->contains, value,
+       error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "parents");
+   if (value != NULL && (status = parse_names(document, &zone->parents, value,
+       error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   zone->region.name = zone->id;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_zones(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_pair_t *pair;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_MAPPING_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column, "zones must be a mapping");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.mapping.pairs.top -
+       node->data.mapping.pairs.start);
+   if (count > CWIKI_ZONE_MAX_REGIONS) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many custom zones");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      config->zones = calloc(count, sizeof(*config->zones));
+      if (config->zones == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (pair = node->data.mapping.pairs.start;
+       pair < node->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(document, pair->key);
+      yaml_node_t *value = yaml_document_get_node(document, pair->value);
+      struct config_zone *zone = &config->zones[used];
+      yaml_node_pair_t *earlier;
+      enum cwiki_config_status status;
+
+      if (!snippet_name_valid(key)) {
+         struct source_mark at = key == NULL ? mark(node) : mark(key);
+
+         set_error(error, at.line, at.column,
+             "zone names must be lowercase dot-separated identifiers");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (earlier = node->data.mapping.pairs.start; earlier < pair; earlier++) {
+         yaml_node_t *previous = yaml_document_get_node(document, earlier->key);
+
+         if (previous != NULL && previous->type == YAML_SCALAR_NODE &&
+             previous->data.scalar.length == key->data.scalar.length &&
+             memcmp(previous->data.scalar.value, key->data.scalar.value,
+             key->data.scalar.length) == 0) {
+            struct source_mark at = mark(key);
+
+            set_error(error, at.line, at.column, "duplicate custom zone name");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      zone->id = copy_scalar(key);
+      if (zone->id == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      config->zone_count = used + 1U;
+      if (builtin_zone_id(zone->id)) {
+         struct source_mark at = mark(key);
+
+         set_error(error, at.line, at.column,
+             "builtin zones cannot be replaced or disabled");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      zone->mark = mark(key);
+      zone->disabled = null_node(value);
+      if (!zone->disabled) {
+         status = parse_zone_definition(document, zone, value, error);
+         if (status != CWIKI_CONFIG_OK) {
+            return status;
+         }
+      }
+      used++;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static bool
 parse_mode(const yaml_node_t *node, enum cwiki_keymap_mode *mode)
 {
    static const char *const names[] = {"normal", "insert", "replace", "command"};
@@ -1357,9 +1701,26 @@ cwiki_config_free(struct cwiki_config *config)
       free((struct cwiki_snippet_body_spec *)
           config->snippets[i].spec.bodies);
    }
+   for (i = 0U; i < config->zone_count; i++) {
+      size_t j;
+
+      free(config->zones[i].id);
+      free((char *)config->zones[i].region.start);
+      free((char *)config->zones[i].region.end);
+      free((char *)config->zones[i].region.skip);
+      for (j = 0U; j < config->zones[i].parents.count; j++) {
+         free(config->zones[i].parents.values[j]);
+      }
+      for (j = 0U; j < config->zones[i].contains.count; j++) {
+         free(config->zones[i].contains.values[j]);
+      }
+      free(config->zones[i].parents.values);
+      free(config->zones[i].contains.values);
+   }
    free(config->bindings);
    free(config->groups);
    free(config->snippets);
+   free(config->zones);
    free(config->continuation_marker);
    free(config);
 }
@@ -1370,7 +1731,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     struct cwiki_config_error *error)
 {
    static const char *const allowed[] = {"keymaps", "clue-groups", "display",
-       "save-policy", "snippets"};
+       "save-policy", "snippets", "zones"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -1382,6 +1743,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    yaml_node_t *display;
    yaml_node_t *save_policy;
    yaml_node_t *snippets;
+   yaml_node_t *zones;
    enum cwiki_config_status status;
    bool parser_ready = false;
    bool document_ready = false;
@@ -1432,6 +1794,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    display = mapping_get(&document, root, "display");
    save_policy = mapping_get(&document, root, "save-policy");
    snippets = mapping_get(&document, root, "snippets");
+   zones = mapping_get(&document, root, "zones");
    if (keymaps != NULL) {
       status = parse_keymaps(&document, created, keymaps, actions, error);
       if (status != CWIKI_CONFIG_OK) {
@@ -1458,6 +1821,12 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    if (snippets != NULL) {
       status = parse_snippets(&document, created, snippets, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (zones != NULL) {
+      status = parse_zones(&document, created, zones, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -1701,6 +2070,209 @@ done:
    cwiki_snippet_registry_free(created);
    free(overrides);
    return status;
+}
+
+static const struct config_zone *
+last_zone(const struct cwiki_config *const *configs, size_t config_count,
+    const char *id)
+{
+   size_t i;
+
+   for (i = config_count; i != 0U; i--) {
+      size_t j;
+
+      for (j = configs[i - 1U]->zone_count; j != 0U; j--) {
+         const struct config_zone *zone = &configs[i - 1U]->zones[j - 1U];
+
+         if (strcmp(zone->id, id) == 0) {
+            return zone;
+         }
+      }
+   }
+   return NULL;
+}
+
+static size_t
+zone_index(const struct config_zone *const *effective, size_t effective_count,
+    const char *id)
+{
+   size_t builtin_count = sizeof(builtin_zone_ids) /
+       sizeof(builtin_zone_ids[0]);
+   size_t i;
+
+   for (i = 0U; i < builtin_count; i++) {
+      if (strcmp(builtin_zone_ids[i], id) == 0) {
+         return i;
+      }
+   }
+   for (i = 0U; i < effective_count; i++) {
+      if (strcmp(effective[i]->id, id) == 0) {
+         return builtin_count + i;
+      }
+   }
+   return SIZE_MAX;
+}
+
+static enum cwiki_config_status
+set_zone_reference_error(const struct cwiki_config *const *configs,
+    size_t config_count, const struct config_zone *zone,
+    struct cwiki_config_error *error, const char *message)
+{
+   size_t i;
+
+   set_error(error, zone->mark.line, zone->mark.column, message);
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+
+      for (j = 0U; j < configs[i]->zone_count; j++) {
+         if (&configs[i]->zones[j] == zone) {
+            if (error != NULL) {
+               error->source_index = i;
+            }
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+static enum cwiki_config_status
+resolve_zone_names(struct cwiki_config_zone_table *table,
+    const struct config_zone *const *effective, size_t effective_count,
+    const struct cwiki_config *const *configs, size_t config_count,
+    struct cwiki_config_error *error)
+{
+   size_t builtin_count = sizeof(builtin_zone_ids) /
+       sizeof(builtin_zone_ids[0]);
+   size_t i;
+
+   for (i = 0U; i < effective_count; i++) {
+      const struct config_zone *zone = effective[i];
+      size_t region_index = builtin_count + i;
+      size_t j;
+
+      if (zone->top_level) {
+         table->top_level |= CWIKI_ZONE_REGION_BIT(region_index);
+      }
+      for (j = 0U; j < zone->contains.count; j++) {
+         size_t child = zone_index(effective, effective_count,
+             zone->contains.values[j]);
+
+         if (child == SIZE_MAX) {
+            return set_zone_reference_error(configs, config_count, zone, error,
+                "custom zone contains an unknown region name");
+         }
+         table->regions[region_index].contains |=
+             CWIKI_ZONE_REGION_BIT(child);
+      }
+      for (j = 0U; j < zone->parents.count; j++) {
+         size_t parent = zone_index(effective, effective_count,
+             zone->parents.values[j]);
+
+         if (parent == SIZE_MAX) {
+            return set_zone_reference_error(configs, config_count, zone, error,
+                "custom zone has an unknown parent region name");
+         }
+         table->regions[parent].contains |=
+             CWIKI_ZONE_REGION_BIT(region_index);
+      }
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+enum cwiki_config_status
+cwiki_config_build_zones(const struct cwiki_config *const *configs,
+    size_t config_count, struct cwiki_config_zone_table *table,
+    struct cwiki_config_error *error)
+{
+   const struct cwiki_zone_region *builtins;
+   const struct config_zone **effective = NULL;
+   struct cwiki_zone_engine *validation = NULL;
+   size_t builtin_count;
+   size_t effective_count = 0U;
+   size_t i;
+   enum cwiki_config_status status;
+
+   if (table == NULL || (configs == NULL && config_count != 0U)) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *table = (struct cwiki_config_zone_table){0};
+   if (error != NULL) {
+      *error = (struct cwiki_config_error){0};
+   }
+   for (i = 0U; i < config_count; i++) {
+      if (configs[i] == NULL) {
+         return CWIKI_CONFIG_INVALID;
+      }
+   }
+   builtins = cwiki_zone_builtin_regions(&builtin_count, &table->top_level);
+   effective = calloc(CWIKI_ZONE_MAX_REGIONS, sizeof(*effective));
+   if (effective == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+
+      for (j = 0U; j < configs[i]->zone_count; j++) {
+         const struct config_zone *zone = &configs[i]->zones[j];
+
+         if (last_zone(configs, config_count, zone->id) == zone &&
+             !zone->disabled) {
+            if (builtin_count + effective_count >= CWIKI_ZONE_MAX_REGIONS) {
+               set_error(error, zone->mark.line, zone->mark.column,
+                   "builtin and custom zones exceed the 64-region limit");
+               status = CWIKI_CONFIG_SCHEMA_ERROR;
+               goto done;
+            }
+            effective[effective_count++] = zone;
+         }
+      }
+   }
+   table->count = builtin_count + effective_count;
+   table->regions = calloc(table->count, sizeof(*table->regions));
+   if (table->regions == NULL) {
+      status = CWIKI_CONFIG_NO_MEMORY;
+      goto done;
+   }
+   memcpy(table->regions, builtins, builtin_count * sizeof(*table->regions));
+   for (i = 0U; i < effective_count; i++) {
+      table->regions[builtin_count + i] = effective[i]->region;
+      table->regions[builtin_count + i].contains = 0U;
+   }
+   status = resolve_zone_names(table, effective, effective_count, configs,
+       config_count, error);
+   if (status != CWIKI_CONFIG_OK) {
+      goto done;
+   }
+   if (cwiki_zone_engine_init(&validation, table->regions, table->count,
+       table->top_level) != 0) {
+      status = errno == ENOMEM ? CWIKI_CONFIG_NO_MEMORY :
+          CWIKI_CONFIG_SCHEMA_ERROR;
+      if (status == CWIKI_CONFIG_SCHEMA_ERROR) {
+         set_error(error, effective_count == 0U ? 1U :
+             effective[0]->mark.line, effective_count == 0U ? 1U :
+             effective[0]->mark.column, "invalid composed zone table");
+      }
+      goto done;
+   }
+   status = CWIKI_CONFIG_OK;
+done:
+   cwiki_zone_engine_free(validation);
+   free(effective);
+   if (status != CWIKI_CONFIG_OK) {
+      cwiki_config_zone_table_free(table);
+   }
+   return status;
+}
+
+void
+cwiki_config_zone_table_free(struct cwiki_config_zone_table *table)
+{
+   if (table == NULL) {
+      return;
+   }
+   free(table->regions);
+   *table = (struct cwiki_config_zone_table){0};
 }
 
 const char *

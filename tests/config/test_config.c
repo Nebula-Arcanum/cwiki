@@ -261,6 +261,107 @@ strict_schema_errors(void)
    expect_error("snippets:\n  custom.x:\n    trigger: '[invalid'\n"
        "    kind: regex\n    bodies: {prose: '$0'}\n",
        CWIKI_CONFIG_SCHEMA_ERROR, "regex failed to compile");
+   expect_error("zones: []\n", CWIKI_CONFIG_SCHEMA_ERROR, "mapping");
+   expect_error("zones:\n  code-fence: null\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "builtin zones cannot");
+   expect_error("zones:\n  custom.x:\n    kind: latex\n    start: X\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "region pattern is required");
+   expect_error("zones:\n  custom.x:\n    kind: latex\n"
+       "    start: '[bad'\n    end: X\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "pattern or detail capture");
+   expect_error("zones:\n  custom.x:\n    kind: latex\n"
+       "    start: '(X)'\n    end: Y\n    start-detail-capture: 2\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "pattern or detail capture");
+   expect_error("zones:\n  custom.x:\n    kind: comment-percent\n"
+       "    start: X\n    end: Y\n    ends-at-line: true\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "cannot define an end");
+}
+
+static void
+zone_settings_and_precedence(void)
+{
+   static const char global[] =
+       "zones:\n"
+       "  custom.outer:\n"
+       "    kind: code\n"
+       "    start: 'OLD ([a-z]+)'\n"
+       "    end: 'STOP ([a-z]+)'\n"
+       "    start-detail-capture: 1\n"
+       "    end-detail-capture: 1\n"
+       "  custom.disabled:\n"
+       "    kind: text\n"
+       "    start: OPEN\n"
+       "    end: CLOSE\n";
+   static const char local[] =
+       "zones:\n"
+       "  custom.outer:\n"
+       "    kind: latex\n"
+       "    start: 'BEGIN ([a-z]+)'\n"
+       "    end: 'END ([a-z]+)'\n"
+       "    start-detail-capture: 1\n"
+       "    end-detail-capture: 1\n"
+       "    contains: [note-inline-comment]\n"
+       "  custom.inner:\n"
+       "    kind: chemistry\n"
+       "    start: '\\['\n"
+       "    end: '\\]'\n"
+       "    top-level: false\n"
+       "    parents: [custom.outer]\n"
+       "  custom.disabled: null\n";
+   static const char bad[] =
+       "zones:\n"
+       "  custom.bad:\n"
+       "    kind: custom\n"
+       "    start: A\n"
+       "    end: B\n"
+       "    parents: [missing.parent]\n";
+   struct cwiki_action_registry *registry = actions();
+   struct cwiki_config *first = NULL;
+   struct cwiki_config *second = NULL;
+   struct cwiki_config *invalid = NULL;
+   const struct cwiki_config *configs[2];
+   struct cwiki_config_zone_table table = {0};
+   struct cwiki_zone_engine *zones = NULL;
+   struct cwiki_buffer buffer;
+   struct cwiki_zone zone;
+   struct cwiki_config_error error = {0};
+   const char text[] = "BEGIN python\n[H2O]\nEND python";
+
+   assert(cwiki_config_parse(&first, (const unsigned char *)global,
+       sizeof(global) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   assert(cwiki_config_parse(&second, (const unsigned char *)local,
+       sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   configs[0] = first;
+   configs[1] = second;
+   assert(cwiki_config_build_zones(configs, 2U, &table, &error) ==
+       CWIKI_CONFIG_OK);
+   assert(table.count == 17U);
+   assert(cwiki_zone_engine_init(&zones, table.regions, table.count,
+       table.top_level) == 0);
+   assert(cwiki_buffer_init(&buffer) == 0 &&
+       cwiki_buffer_load(&buffer, text, sizeof(text) - 1U) == 0 &&
+       cwiki_zone_recompute(zones, &buffer, 0U, NULL) == 0);
+   assert(cwiki_zone_at(zones, &buffer, 0U, buffer.lines[0].length, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_LATEX &&
+       strcmp(cwiki_zone_detail(zones, zone.detail), "python") == 0);
+   assert(cwiki_zone_at(zones, &buffer, 1U, 2U, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_CHEMISTRY);
+   assert(cwiki_zone_at(zones, &buffer, 2U, buffer.lines[2].length, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_PROSE);
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(zones);
+   cwiki_config_zone_table_free(&table);
+
+   assert(cwiki_config_parse(&invalid, (const unsigned char *)bad,
+       sizeof(bad) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   configs[0] = invalid;
+   assert(cwiki_config_build_zones(configs, 1U, &table, &error) ==
+       CWIKI_CONFIG_SCHEMA_ERROR && table.regions == NULL &&
+       strstr(error.message, "unknown parent") != NULL);
+   cwiki_config_free(invalid);
+   cwiki_config_free(second);
+   cwiki_config_free(first);
+   cwiki_action_registry_free(registry);
 }
 
 static bool
@@ -427,6 +528,7 @@ main(void)
    strict_schema_errors();
    scalar_settings_and_precedence();
    snippet_settings_and_precedence();
+   zone_settings_and_precedence();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;

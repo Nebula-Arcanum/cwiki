@@ -313,9 +313,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    struct cwiki_key_record *record;
    struct cwiki_input_parser parser;
    struct cwiki_terminal_result start = {0};
-   const struct cwiki_zone_region *regions;
-   size_t region_count;
-   uint64_t top_level;
+   struct cwiki_config_zone_table zone_table = {0};
    bool activated = false;
    bool redraw = true;
    int result = 1;
@@ -411,8 +409,29 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
          goto done;
       }
    }
-   regions = cwiki_zone_builtin_regions(&region_count, &top_level);
-   if (cwiki_zone_engine_init(&app.zones, regions, region_count, top_level) != 0 ||
+   {
+      const struct cwiki_config *ordered[CWIKI_CONFIG_SOURCE_MAX];
+
+      for (size_t i = 0U; i < app.config_count; i++) {
+         ordered[i] = app.configs[i];
+      }
+      app.config_status = cwiki_config_build_zones(ordered, app.config_count,
+          &zone_table, &app.config_error);
+      if (app.config_status != CWIKI_CONFIG_OK &&
+          options->configs != NULL &&
+          app.config_error.source_index < app.config_count) {
+         app.config_path = options->configs[app.config_error.source_index].path;
+      }
+      if (app.config_status == CWIKI_CONFIG_NO_MEMORY) {
+         errno = ENOMEM;
+         goto system_error;
+      }
+      if (app.config_status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (cwiki_zone_engine_init(&app.zones, zone_table.regions, zone_table.count,
+       zone_table.top_level) != 0 ||
        cwiki_conceal_table_init_builtin(&app.conceal) != 0) {
       goto system_error;
    }
@@ -521,13 +540,14 @@ done:
       (void)dprintf(options->error_fd, "cwiki: unsupported command or input\n");
    }
    cwiki_input_parser_destroy(&parser);
-   for (size_t i = 0U; i < app.config_count; i++) {
-      cwiki_config_free(app.configs[i]);
-   }
    cwiki_editor_input_free(app.input);
    cwiki_layout_window_free(&app.layout);
    cwiki_conceal_table_free(&app.conceal);
    cwiki_zone_engine_free(app.zones);
+   cwiki_config_zone_table_free(&zone_table);
+   for (size_t i = 0U; i < app.config_count; i++) {
+      cwiki_config_free(app.configs[i]);
+   }
    cwiki_editor_free(&app.editor);
    cwiki_document_free(&app.document);
    if (options->record == NULL) {
