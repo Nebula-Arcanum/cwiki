@@ -83,7 +83,8 @@ part of this milestone.
 **Scope.** The C application skeleton; kitty capability and keyboard protocols;
 synchronized redraw; the UTF-8 line buffer and position fix-up; basic
 Normal/Insert/Replace/Command-line operation; the first `d`/`c`/`y` operator
-slice over character, word, and line motions; in-session undo; source highlighting
+slice over the approved M1 grapheme, word/WORD, display/source-line, document,
+viewport, line, paragraph, and sentence motions; in-session undo; source highlighting
 from the incremental zone stack; conceal; prose soft-wrap; the PCRE2 policy and
 Vim-pattern translator needed by regex snippets; snippet tab stops, mirrors,
 contexts, named transforms, subject layering, and the curated math/mhchem/TikZ
@@ -110,7 +111,8 @@ show the authored Markdown.
 
 **Risks.** The zone stack, display/source mapping, operator grammar, and undo are
 the first schedule-dominating components. Keep the operator slice narrow and
-defer block Visual mode and broad Vim parity.
+defer counts, text objects, block Visual mode, additional operators, and broad
+Vim parity.
 
 **Effort.** XL, 24–32 focused tasks.
 

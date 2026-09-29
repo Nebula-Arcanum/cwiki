@@ -529,6 +529,17 @@ back.
 covers, and with `gj`/`gk` on whole source lines. `dd` remains source-line-wise
 regardless.
 
+**R1.7.7 (Milestone 1 motion scope)** The first usable editor includes the
+broader navigation vocabulary retained in `docs/FEATURES.md`: grapheme motions
+`h`/`l`; word motions `w`/`W`/`b`/`B`/`e`/`E`; wrapped-display and source-line
+motions `j`/`k` and `gj`/`gk`; document and viewport motions
+`gg`/`G`/`H`/`M`/`L`; line motions `0`/`^`/`$`/`-`/`+`/`_`; and paragraph and
+sentence motions `{`/`}`/`(`/`)`. The Milestone 1 `d`/`c`/`y` operator slice
+composes with this motion set as well as `dd`/`cc`/`yy`. Numeric counts, text
+objects, Visual modes, additional operators, and the complete register model
+remain deferred to Milestone 5. This broader motion scope was selected over the
+narrow `h`/`l`, `w`/`b`/`e`, row-motion-only alternative on 2026-09-29.
+
 Rejected:
 
 - **Wrap off by default** (matching the nvim config). That config also edits
