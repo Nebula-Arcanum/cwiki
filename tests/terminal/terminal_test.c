@@ -2,6 +2,7 @@
 
 #include "capabilities.h"
 #include "input.h"
+#include "key_record.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -189,22 +190,29 @@ test_success_raw_handoff_and_cleanup(void)
    struct termios after;
    struct cwiki_terminal terminal;
    struct cwiki_terminal_result result;
+   struct cwiki_key_record record;
+   unsigned char record_storage[512];
    pid_t responder;
 
    (void)memcpy(reply, supported_reply, sizeof(supported_reply) - 1U);
    (void)memcpy(reply + sizeof(supported_reply) - 1U, typed,
        sizeof(typed) - 1U);
    check(tcgetattr(pair.slave, &before) == 0, "capture original tty flags");
+   check(cwiki_key_record_init(&record, record_storage,
+       sizeof(record_storage)) == 0, "initialize startup key recorder");
    responder = spawn_reply(pair.master, pair.slave, reply,
        sizeof(supported_reply) - 1U + sizeof(typed) - 1U);
-   result = cwiki_terminal_start_timeout(&terminal, pair.slave, pair.slave,
-       250L);
+   result = cwiki_terminal_start_recording_timeout(&terminal, pair.slave,
+       pair.slave, &record, 250L);
    wait_ok(responder, "capability responder observes exact query ordering");
    check(result.status == CWIKI_TERMINAL_SUCCESS,
        "supported terminal starts successfully");
    check(result.pending_input_len == sizeof(typed) - 1U &&
        memcmp(result.pending_input, typed, sizeof(typed) - 1U) == 0,
        "bytes after DA1 are handed to the caller");
+   check(record.length == sizeof(supported_reply) - 1U + sizeof(typed) - 1U &&
+       record.head == 0U && memcmp(record.storage, reply, record.length) == 0,
+       "capability replies and post-DA1 input are recorded exactly once");
    check(tcgetattr(pair.slave, &raw) == 0 &&
        (raw.c_lflag & (ECHO | ECHONL | ICANON | IEXTEN | ISIG)) == 0U &&
        (raw.c_iflag & (IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR |
@@ -223,6 +231,7 @@ test_success_raw_handoff_and_cleanup(void)
    check(tcgetattr(pair.slave, &after) == 0 &&
        same_termios(&after, &before),
        "normal cleanup restores the saved termios");
+   cwiki_key_record_destroy(&record);
    (void)close(pair.slave);
    (void)close(pair.master);
 }
@@ -434,6 +443,9 @@ test_complete_normal_writes_and_reset(void)
 static void
 test_handled_signal_restores_and_reraises(void)
 {
+   unsigned char recording[CWIKI_KEY_RECORD_HEADER_SIZE +
+       sizeof(supported_reply) - 1U];
+   struct cwiki_key_recording_view recording_view;
    struct pty_pair pair = open_pty();
    struct termios before;
    struct termios after;
@@ -443,9 +455,17 @@ test_handled_signal_restores_and_reraises(void)
    char observed_startup[sizeof(startup) - 1U];
    char observed_restore[sizeof(CWIKI_TERMINAL_RESTORE) - 1U];
    char ready;
+   char crash_path[] = "/tmp/cwiki-terminal-record-XXXXXX";
+   int crash_fd;
    int status;
 
    check(tcgetattr(pair.slave, &before) == 0, "capture signal-test termios");
+   crash_fd = mkstemp(crash_path);
+   check(crash_fd >= 0, "create signal-test crash recording");
+   if (crash_fd < 0) {
+      exit(2);
+   }
+   (void)unlink(crash_path);
    if (pipe(ready_pipe) != 0) {
       (void)perror("pipe");
       exit(2);
@@ -458,11 +478,18 @@ test_handled_signal_restores_and_reraises(void)
    if (child == 0) {
       struct cwiki_terminal terminal;
       struct cwiki_terminal_result result;
+      struct cwiki_key_record record;
+      unsigned char record_storage[512];
 
       (void)close(pair.master);
       (void)close(ready_pipe[0]);
-      result = cwiki_terminal_start_timeout(&terminal, pair.slave, pair.slave,
-          500L);
+      if (cwiki_key_record_init(&record, record_storage,
+          sizeof(record_storage)) != 0 ||
+          cwiki_terminal_key_record_activate(&record, crash_fd) != 0) {
+         _exit(4);
+      }
+      result = cwiki_terminal_start_recording_timeout(&terminal, pair.slave,
+          pair.slave, &record, 500L);
       if (result.status != CWIKI_TERMINAL_SUCCESS ||
           write(ready_pipe[1], "x", 1U) != 1) {
          _exit(3);
@@ -492,6 +519,14 @@ test_handled_signal_restores_and_reraises(void)
    check(tcgetattr(pair.slave, &after) == 0 &&
        same_termios(&after, &before),
        "signal handler restores saved termios");
+   check(lseek(crash_fd, 0, SEEK_SET) == 0 &&
+       read_exact(crash_fd, (char *)recording, sizeof(recording)) &&
+       cwiki_key_record_read(recording, sizeof(recording), &recording_view) ==
+       0 && recording_view.length == sizeof(supported_reply) - 1U &&
+       memcmp(recording_view.bytes, supported_reply,
+       sizeof(supported_reply) - 1U) == 0,
+       "signal handler flushes the exact recorded capability input");
+   (void)close(crash_fd);
    (void)close(ready_pipe[0]);
    (void)close(pair.slave);
    (void)close(pair.master);

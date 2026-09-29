@@ -18,6 +18,7 @@ FIXTURE_VAULT_TEST = $(BUILD_DIR)/test-fixture-vault
 REFERENCE_BUFFER_TEST = $(BUILD_DIR)/test-reference-buffer
 DURABLE_WRITE_TEST = $(BUILD_DIR)/test-durable-write
 INPUT_TEST = $(BUILD_DIR)/test-input
+KEY_RECORD_TEST = $(BUILD_DIR)/test-key-record
 BUFFER_TEST = $(BUILD_DIR)/test-buffer
 CAPABILITIES_TEST = $(BUILD_DIR)/test-capabilities
 TERMINAL_TEST = $(BUILD_DIR)/test-terminal
@@ -29,7 +30,7 @@ VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
 CONCEAL_TEST = $(BUILD_DIR)/test-conceal
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
-PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
+PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST)
@@ -37,7 +38,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	src/durable_write.c tests/io/test_durable_write.c \
-	src/input.c tests/input/input_test.c src/buffer.c src/unicode.c \
+	src/input.c tests/input/input_test.c src/key_record.c \
+	tests/input/key_record_test.c src/buffer.c src/unicode.c \
 	tests/buffer/test_buffer.c src/capabilities.c \
 	tests/terminal/capabilities_test.c src/terminal.c \
 	tests/terminal/terminal_test.c src/undo.c tests/undo/test_undo.c \
@@ -94,6 +96,13 @@ $(INPUT_TEST): src/input.c src/input.h tests/input/input_test.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/input.c tests/input/input_test.c \
 		$(LDFLAGS) -o $(INPUT_TEST)
 
+$(KEY_RECORD_TEST): src/key_record.c src/key_record.h src/input.c src/input.h \
+		tests/input/key_record_test.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_KEY_RECORD_TESTING -Isrc \
+		src/input.c src/key_record.c tests/input/key_record_test.c $(LDFLAGS) \
+		-o $(KEY_RECORD_TEST)
+
 $(BUFFER_TEST): src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
 		tests/buffer/test_buffer.c
 	mkdir -p $(BUILD_DIR)
@@ -108,11 +117,13 @@ $(CAPABILITIES_TEST): src/capabilities.c src/capabilities.h \
 		tests/terminal/capabilities_test.c $(LDFLAGS) -o $(CAPABILITIES_TEST)
 
 $(TERMINAL_TEST): src/terminal.c src/terminal.h src/capabilities.c \
-		src/capabilities.h src/input.h tests/terminal/terminal_test.c
+		src/capabilities.h src/input.c src/input.h src/key_record.c \
+		src/key_record.h tests/terminal/terminal_test.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_TERMINAL_TESTING -Isrc \
-		src/capabilities.c src/terminal.c tests/terminal/terminal_test.c \
-		$(LDFLAGS) -o $(TERMINAL_TEST)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_TERMINAL_TESTING \
+		-DCWIKI_KEY_RECORD_TESTING -Isrc src/capabilities.c src/input.c \
+		src/key_record.c src/terminal.c tests/terminal/terminal_test.c $(LDFLAGS) \
+		-o $(TERMINAL_TEST)
 
 $(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
 		src/unicode.h tests/undo/test_undo.c
@@ -169,6 +180,7 @@ $(CONCEAL_TEST): src/conceal.c src/conceal.h src/buffer.c src/buffer.h \
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
+	$(KEY_RECORD_TEST)
 	$(BUFFER_TEST)
 	$(CAPABILITIES_TEST)
 	$(TERMINAL_TEST)
@@ -195,6 +207,7 @@ analyze:
 		--warnings-as-errors='*' \
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
 		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_TERMINAL_TESTING \
+		-DCWIKI_KEY_RECORD_TESTING \
 		-DCWIKI_UNDO_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc

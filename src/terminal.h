@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <termios.h>
 
+struct cwiki_key_record;
+
 #define CWIKI_TERMINAL_SYNC_BEGIN "\x1b[?2026h"
 #define CWIKI_TERMINAL_SYNC_END "\x1b[?2026l"
 #define CWIKI_TERMINAL_ALT_ENTER "\x1b[?1049h"
@@ -45,10 +47,20 @@ struct cwiki_terminal {
    int termios_saved;
    int active;
    int modes_owned;
+   struct cwiki_key_record *key_record;
 };
 
 struct cwiki_terminal_result cwiki_terminal_start(
     struct cwiki_terminal *terminal, int input_fd, int output_fd);
+struct cwiki_terminal_result cwiki_terminal_start_recording(
+    struct cwiki_terminal *terminal, int input_fd, int output_fd,
+    struct cwiki_key_record *record);
+int cwiki_terminal_record_input(struct cwiki_terminal *terminal,
+    const unsigned char *bytes, size_t length);
+int cwiki_terminal_key_record_activate(struct cwiki_key_record *record,
+    int crash_fd);
+int cwiki_terminal_key_record_deactivate(struct cwiki_key_record *record);
+int cwiki_terminal_key_record_rotate(struct cwiki_key_record *record);
 void cwiki_terminal_cleanup(struct cwiki_terminal *terminal);
 int cwiki_terminal_begin_update(const struct cwiki_terminal *terminal);
 int cwiki_terminal_end_update(const struct cwiki_terminal *terminal);
@@ -67,6 +79,9 @@ typedef ssize_t (*cwiki_terminal_test_write_fn)(int, const void *, size_t);
 struct cwiki_terminal_result cwiki_terminal_start_timeout(
     struct cwiki_terminal *terminal, int input_fd, int output_fd,
     long timeout_ms);
+struct cwiki_terminal_result cwiki_terminal_start_recording_timeout(
+    struct cwiki_terminal *terminal, int input_fd, int output_fd,
+    struct cwiki_key_record *record, long timeout_ms);
 void cwiki_terminal_test_set_write(cwiki_terminal_test_write_fn write_fn);
 #endif
 

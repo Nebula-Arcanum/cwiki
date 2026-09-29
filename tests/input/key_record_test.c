@@ -457,13 +457,22 @@ test_replay_equivalence(void)
    struct event_capture replayed = {0};
    size_t i;
 
-   check(cwiki_key_record_init(&record, storage, sizeof(storage)) == 0 &&
-       cwiki_key_record_append(&record, raw, sizeof(raw) - 1U) == 0,
-       "record replay-equivalence raw bytes");
+   if (cwiki_key_record_init(&record, storage, sizeof(storage)) != 0) {
+      check(false, "initialize replay-equivalence recording");
+      return;
+   }
+   if (cwiki_key_record_append(&record, raw, sizeof(raw) - 1U) != 0) {
+      check(false, "record replay-equivalence raw bytes");
+      cwiki_key_record_destroy(&record);
+      return;
+   }
    reset_writer(WRITER_COMPLETE);
-   check(cwiki_key_record_flush(&record, 14) == 0 &&
-       cwiki_key_record_read(output, output_length, &view) == 0,
-       "read replay-equivalence recording");
+   if (cwiki_key_record_flush(&record, 14) != 0 ||
+       cwiki_key_record_read(output, output_length, &view) != 0) {
+      check(false, "read replay-equivalence recording");
+      cwiki_key_record_destroy(&record);
+      return;
+   }
    parse_events(raw, sizeof(raw) - 1U, false, &direct);
    parse_events(view.bytes, view.length, true, &replayed);
    check(view.length == sizeof(raw) - 1U &&

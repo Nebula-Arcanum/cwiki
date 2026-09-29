@@ -2,6 +2,7 @@
 
 #include "capabilities.h"
 #include "input.h"
+#include "key_record.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -24,6 +25,7 @@ static int signal_input_fd = -1;
 static struct termios signal_termios;
 static volatile sig_atomic_t signal_session_active;
 static volatile sig_atomic_t signal_modes_owned;
+static struct cwiki_key_record *volatile signal_key_record;
 static struct sigaction old_actions[
    sizeof(handled_signals) / sizeof(handled_signals[0])];
 static size_t installed_actions;
@@ -74,7 +76,7 @@ terminal_signal_handler(int signo)
              sizeof(restoration) - 1U);
       }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
-      /* R1.5.9: flush the fixed, pre-opened key-recording ring here. */
+      cwiki_key_record_crash_flush(signal_key_record);
    }
    (void)signal(signo, SIG_DFL);
    (void)raise(signo);
@@ -102,6 +104,7 @@ atexit_cleanup(void)
              sizeof(restoration) - 1U);
       }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
+      signal_key_record = NULL;
       signal_modes_owned = 0;
       signal_session_active = 0;
       restore_handlers();
@@ -159,14 +162,24 @@ set_raw_mode(struct cwiki_terminal *terminal)
    return tcsetattr(terminal->input_fd, TCSAFLUSH, &raw);
 }
 
+static int set_handled_signal_mask(int how, sigset_t *previous);
+
 static void
 deactivate(struct cwiki_terminal *terminal)
 {
+   sigset_t previous_mask;
+   int mask_changed = set_handled_signal_mask(SIG_BLOCK, &previous_mask) == 0;
+
+   signal_key_record = NULL;
    signal_modes_owned = 0;
    signal_session_active = 0;
    restore_handlers();
    terminal->modes_owned = 0;
    terminal->active = 0;
+   terminal->key_record = NULL;
+   if (mask_changed != 0) {
+      (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+   }
 }
 
 static int
@@ -204,7 +217,7 @@ result_with(enum cwiki_terminal_status status, int system_errno)
 
 static struct cwiki_terminal_result
 start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
-    long timeout_ms)
+    struct cwiki_key_record *record, long timeout_ms)
 {
    static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
        CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
@@ -223,6 +236,7 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
    (void)memset(terminal, 0, sizeof(*terminal));
    terminal->input_fd = input_fd;
    terminal->output_fd = output_fd;
+   terminal->key_record = record;
    if (set_raw_mode(terminal) != 0) {
       result.system_errno = errno;
       return result;
@@ -230,6 +244,7 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
    signal_input_fd = input_fd;
    signal_output_fd = output_fd;
    signal_termios = terminal->saved_termios;
+   signal_key_record = record;
    signal_session_active = 1;
    if (install_handlers() != 0) {
       result.system_errno = errno;
@@ -299,6 +314,11 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
             cwiki_terminal_cleanup(terminal);
             return result;
          }
+         if (cwiki_terminal_record_input(terminal, bytes, (size_t)count) != 0) {
+            result.system_errno = errno;
+            cwiki_terminal_cleanup(terminal);
+            return result;
+         }
          consumed = cwiki_capabilities_parser_feed(&parser, bytes,
              (size_t)count);
          capabilities = cwiki_capabilities_parser_result(&parser);
@@ -358,7 +378,15 @@ struct cwiki_terminal_result
 cwiki_terminal_start(struct cwiki_terminal *terminal, int input_fd,
     int output_fd)
 {
-   return start_with_timeout(terminal, input_fd, output_fd,
+   return start_with_timeout(terminal, input_fd, output_fd, NULL,
+       TERMINAL_TIMEOUT_MS);
+}
+
+struct cwiki_terminal_result
+cwiki_terminal_start_recording(struct cwiki_terminal *terminal, int input_fd,
+    int output_fd, struct cwiki_key_record *record)
+{
+   return start_with_timeout(terminal, input_fd, output_fd, record,
        TERMINAL_TIMEOUT_MS);
 }
 
@@ -367,9 +395,87 @@ struct cwiki_terminal_result
 cwiki_terminal_start_timeout(struct cwiki_terminal *terminal, int input_fd,
     int output_fd, long timeout_ms)
 {
-   return start_with_timeout(terminal, input_fd, output_fd, timeout_ms);
+   return start_with_timeout(terminal, input_fd, output_fd, NULL, timeout_ms);
+}
+
+struct cwiki_terminal_result
+cwiki_terminal_start_recording_timeout(struct cwiki_terminal *terminal,
+    int input_fd, int output_fd, struct cwiki_key_record *record,
+    long timeout_ms)
+{
+   return start_with_timeout(terminal, input_fd, output_fd, record, timeout_ms);
 }
 #endif
+
+int
+cwiki_terminal_record_input(struct cwiki_terminal *terminal,
+    const unsigned char *bytes, size_t length)
+{
+   sigset_t previous_mask;
+   int result;
+   int saved_errno;
+
+   if (terminal == NULL || terminal->active == 0) {
+      errno = EINVAL;
+      return -1;
+   }
+   if (terminal->key_record == NULL) {
+      return 0;
+   }
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   result = cwiki_key_record_append(terminal->key_record, bytes, length);
+   saved_errno = errno;
+   if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0 && result == 0) {
+      return -1;
+   }
+   errno = saved_errno;
+   return result;
+}
+
+int
+cwiki_terminal_key_record_activate(struct cwiki_key_record *record, int crash_fd)
+{
+   sigset_t previous_mask;
+   int result;
+   int saved_errno;
+
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   result = cwiki_key_record_activate_crash_fd(record, crash_fd);
+   saved_errno = errno;
+   if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0 && result == 0) {
+      return -1;
+   }
+   errno = saved_errno;
+   return result;
+}
+
+int
+cwiki_terminal_key_record_deactivate(struct cwiki_key_record *record)
+{
+   sigset_t previous_mask;
+
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   cwiki_key_record_deactivate_crash_fd(record);
+   return sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+}
+
+int
+cwiki_terminal_key_record_rotate(struct cwiki_key_record *record)
+{
+   sigset_t previous_mask;
+
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   cwiki_key_record_rotate(record);
+   return sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+}
 
 void
 cwiki_terminal_cleanup(struct cwiki_terminal *terminal)

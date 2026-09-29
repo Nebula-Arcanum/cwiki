@@ -53,6 +53,8 @@ Status: **in progress.** The UTF-8 line buffer and position fix-up, in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The terminal lifecycle now provides raw
 mode, capability probing, synchronized updates, and signal-safe restoration.
+Its always-on bounded raw-input recorder captures bytes before parsing and can
+flush a valid replay artifact through the terminal crash path.
 The incremental zone-stack foundation covers the first Markdown/LaTeX contexts,
 uses the shared bounded PCRE2 runtime, and visibly marks lines where a regex
 resource limit makes zone state untrustworthy. Typed Vim patterns translate
