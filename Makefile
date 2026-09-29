@@ -44,6 +44,7 @@ EDITOR_INPUT_TEST = $(BUILD_DIR)/test-editor-input
 HIGHLIGHT_TEST = $(BUILD_DIR)/test-highlight
 RENDER_TEST = $(BUILD_DIR)/test-render
 LINE_EDIT_TEST = $(BUILD_DIR)/test-line-edit
+PICKER_TEST = $(BUILD_DIR)/test-picker
 APP_TEST = $(BUILD_DIR)/test-app
 APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/conceal.c src/layout.c src/highlight.c src/render.c src/input.c \
@@ -58,7 +59,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(SNIPPET_CATALOG_TEST) \
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
-	$(RENDER_TEST) $(LINE_EDIT_TEST) $(APP_TEST)
+	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(APP_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -80,8 +81,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/editor/test_motion.c src/editor.c tests/editor/test_editor.c \
 	src/editor_input.c tests/editor/test_editor_input.c src/highlight.c \
 	tests/highlight/test_highlight.c src/render.c tests/ui/test_render.c \
-	src/line_edit.c tests/ui/test_line_edit.c src/app.c src/main.c \
-	tests/app/test_app.c
+	src/line_edit.c tests/ui/test_line_edit.c src/picker.c \
+	tests/ui/test_picker.c src/app.c src/main.c tests/app/test_app.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -355,6 +356,13 @@ $(LINE_EDIT_TEST): src/line_edit.c src/line_edit.h src/unicode.c src/unicode.h \
 		-Isrc src/unicode.c src/line_edit.c tests/ui/test_line_edit.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) -o $(LINE_EDIT_TEST)
 
+$(PICKER_TEST): src/picker.c src/picker.h src/line_edit.c src/line_edit.h \
+		src/unicode.c src/unicode.h tests/ui/test_picker.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) -Isrc src/unicode.c \
+		src/line_edit.c src/picker.c tests/ui/test_picker.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) -o $(PICKER_TEST)
+
 $(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
@@ -389,6 +397,7 @@ product-test: $(PRODUCT_TESTS)
 	$(HIGHLIGHT_TEST)
 	$(RENDER_TEST)
 	$(LINE_EDIT_TEST)
+	$(PICKER_TEST)
 	$(APP_TEST)
 
 test: smoke replay-test support-test product-test

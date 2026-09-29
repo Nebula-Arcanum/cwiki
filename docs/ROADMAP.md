@@ -94,10 +94,12 @@ The builtin catalog supplies named, overridable VimTeX-compatible symbols and
 math, mhchem, and TikZ templates. Insert-mode dispatch now performs automatic
 and Tab-requested expansion, nested forward/backward tab-stop navigation,
 transactional mirror updates, paste suppression, and the specified separate
-undo steps for trigger text, expansion, and subsequent stop fills. Reusable
-prompt text input now has a reusable Unicode/grapheme-safe line editor with the
-approved Emacs-style controls. Picker/clue/configuration surfaces are not yet
-implemented.
+undo steps for trigger text, expansion, and subsequent stop fills. Prompt text
+input now has a reusable Unicode/grapheme-safe line editor with the
+approved Emacs-style controls. The shared picker model owns stable item metadata,
+live-filters and deterministically ranks Unicode case-insensitive fuzzy matches,
+and preserves selection across query changes. Floating picker rendering,
+clue/configuration surfaces, and concrete picker providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
