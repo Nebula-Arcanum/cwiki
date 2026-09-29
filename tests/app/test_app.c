@@ -403,6 +403,31 @@ main(void)
    content(path, "second", CWIKI_LINE_ENDING_LF);
    (void)puts("app: dirty q refusal and later durable wq passed");
 
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   {
+      struct winsize size = {10U, 40U, 0U, 0U};
+      assert(ioctl(session.slave, TIOCSWINSZ, &size) == 0);
+   }
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("g"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "Older state") != NULL);
+   assert(strstr(output, "Newer state") != NULL);
+   assert(strstr(output, "First line") != NULL);
+   assert(strstr(output, "Source line down") != NULL);
+   assert(strstr(output, "Source line up") != NULL);
+   assert(strstr(output, "┌") != NULL && strstr(output, "┘") != NULL);
+   send_bytes(session.master, wire(ESCAPE));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "Source line down") == NULL);
+   send_bytes(session.master, wire(":q" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript),
+       "%sg" ESCAPE ":q" ENTER, supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   (void)puts("app: live clues derive from pending keymap/action metadata passed");
+
    write_note(path, "one\ntwo\nthree\nfour\nfive\nsix\nseven");
    session = start(path, supported, false);
    frame(&session, output, sizeof(output));

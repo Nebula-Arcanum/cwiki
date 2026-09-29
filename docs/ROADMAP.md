@@ -100,8 +100,11 @@ approved Emacs-style controls. The shared picker model owns stable item metadata
 live-filters and deterministically ranks Unicode case-insensitive fuzzy matches,
 and preserves selection across query changes. A bounded float-placement primitive
 and picker overlay add configurable anchoring, borders, scrolling, clipping, and
-empty-result rendering. Clue/configuration surfaces, application dispatch, and
-concrete picker providers are not yet implemented.
+empty-result rendering. A live clue overlay now derives every multi-key-prefix
+continuation from shared keymap and named-action metadata, including action
+availability, and is composed into application redraws. Configuration surfaces,
+configurable clue-group labels, and concrete picker providers are not yet
+implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

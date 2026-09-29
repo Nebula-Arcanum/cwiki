@@ -1,7 +1,9 @@
 #include "app.h"
 
+#include "clue_render.h"
 #include "conceal.h"
 #include "editor_input.h"
+#include "float.h"
 #include "highlight.h"
 #include "key_record.h"
 #include "layout.h"
@@ -166,7 +168,12 @@ draw(struct app *app, struct cwiki_terminal *terminal)
 {
    size_t count = app->document.buffer.line_count;
    struct cwiki_highlight_line *highlights = calloc(count, sizeof(*highlights));
+   const struct cwiki_input_event *pending;
+   struct cwiki_float_area clue_area = {0};
    char *bytes = NULL;
+   size_t pending_count;
+   size_t frame_length = 0U;
+   size_t clue_length = 0U;
    size_t length = 0U;
    size_t offset = 0U;
    int error_number = 0;
@@ -180,13 +187,45 @@ draw(struct app *app, struct cwiki_terminal *terminal)
          goto fail;
       }
    }
+   pending = cwiki_editor_input_pending(app->input, &pending_count);
+   if (pending_count != 0U && app->viewport.rows >= 4U &&
+       app->viewport.columns >= 5U) {
+      size_t continuation_count = cwiki_keymap_continuation_count(
+          cwiki_editor_input_keymap(app->input), CWIKI_KEYMAP_NORMAL, pending,
+          pending_count);
+      struct cwiki_float_options clue_options = {
+         {1U, 1U, app->viewport.rows - 1U, app->viewport.columns},
+         continuation_count + 2U, 36U, CWIKI_FLOAT_SOUTH_EAST, 0, 0
+      };
+
+      if (continuation_count != 0U &&
+          cwiki_float_place(&clue_options, &clue_area) != 0) {
+         goto fail;
+      }
+      if (continuation_count != 0U && clue_area.rows >= 3U &&
+          clue_area.columns >= 5U &&
+          cwiki_clue_render_overlay(cwiki_editor_input_keymap(app->input),
+          cwiki_editor_input_actions(app->input), CWIKI_KEYMAP_NORMAL, pending,
+          pending_count, &clue_area, CWIKI_FLOAT_BORDER_SINGLE, NULL, 0U,
+          &clue_length) != 0) {
+         goto fail;
+      }
+   }
    if (cwiki_render_frame(&app->layout, highlights, &app->editor,
-       &app->viewport, NULL, 0U, &length) != 0 ||
-       (bytes = malloc(length + 1U)) == NULL ||
+       &app->viewport, NULL, 0U, &frame_length) != 0 ||
+       clue_length == SIZE_MAX ||
+       frame_length > SIZE_MAX - clue_length - 1U ||
+       (bytes = malloc(frame_length + clue_length + 1U)) == NULL ||
        cwiki_render_frame(&app->layout, highlights, &app->editor,
-       &app->viewport, bytes, length + 1U, &length) != 0) {
+       &app->viewport, bytes, frame_length + 1U, &frame_length) != 0 ||
+       (clue_length != 0U &&
+       cwiki_clue_render_overlay(cwiki_editor_input_keymap(app->input),
+       cwiki_editor_input_actions(app->input), CWIKI_KEYMAP_NORMAL, pending,
+       pending_count, &clue_area, CWIKI_FLOAT_BORDER_SINGLE,
+       bytes + frame_length, clue_length + 1U, &clue_length) != 0)) {
       goto fail;
    }
+   length = frame_length + clue_length;
    if (cwiki_terminal_begin_update(terminal) != 0) {
       error_number = errno;
    } else {

@@ -662,3 +662,14 @@ cwiki_editor_input_keymap(struct cwiki_editor_input *input)
 {
    return input == NULL ? NULL : input->keymap;
 }
+
+const struct cwiki_input_event *
+cwiki_editor_input_pending(const struct cwiki_editor_input *input,
+    size_t *count)
+{
+   if (count == NULL) {
+      return NULL;
+   }
+   *count = input == NULL ? 0U : input->pending_count;
+   return input == NULL || input->pending_count == 0U ? NULL : input->pending;
+}

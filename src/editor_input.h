@@ -30,5 +30,8 @@ enum cwiki_editor_status cwiki_editor_input_handle(
 struct cwiki_action_registry *cwiki_editor_input_actions(
     struct cwiki_editor_input *input);
 struct cwiki_keymap *cwiki_editor_input_keymap(struct cwiki_editor_input *input);
+/* Returned events remain owned by input and valid until its next handle call. */
+const struct cwiki_input_event *cwiki_editor_input_pending(
+    const struct cwiki_editor_input *input, size_t *count);
 
 #endif
