@@ -2151,6 +2151,15 @@ transforms, themes, conceal and display options, parser and index rule tables,
 package and environment tables, save/render/index policies, and workflow
 defaults.
 
+Snippet configuration is one mapping keyed by stable lowercase dot-separated
+names. A mapping value supplies the complete trigger, literal/regex kind,
+expansion modes, boundary flags, priority, optional subject, and one or more
+zone-keyed bodies; body text uses the closed transform syntax from R1.10.7. A
+`null` value disables that name. The same form defines a custom snippet or
+replaces a builtin, and later configuration scopes replace earlier entries by
+name. Match/depth limits remain bounded engine policy rather than configurable
+values under R7.3.3.
+
 **R7.3.2** Every bindable operation remains a named action under R1.14.1.
 Configuration may bind, unbind, group, label, or parameterize exposed actions;
 it cannot inject a new implementation.

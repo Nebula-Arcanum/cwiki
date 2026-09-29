@@ -1,7 +1,10 @@
 #include "config.h"
 
+#include "snippet_catalog.h"
 #include "unicode.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,11 +37,20 @@ struct clue_group {
    char *label;
 };
 
+struct config_snippet {
+   char *name;
+   struct cwiki_snippet_spec spec;
+   struct source_mark mark;
+   bool disabled;
+};
+
 struct cwiki_config {
    struct config_binding *bindings;
    size_t binding_count;
    struct clue_group *groups;
    size_t group_count;
+   struct config_snippet *snippets;
+   size_t snippet_count;
    char *continuation_marker;
    uint32_t conceal_categories;
    uint32_t concealcursor_modes;
@@ -471,6 +483,421 @@ parse_save_policy(struct cwiki_config *config, const yaml_node_t *node,
       return CWIKI_CONFIG_SCHEMA_ERROR;
    }
    config->has_save_policy = true;
+   return CWIKI_CONFIG_OK;
+}
+
+static bool
+snippet_name_valid(const yaml_node_t *node)
+{
+   size_t i;
+   bool segment = false;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.length == 0U ||
+       node->data.scalar.length > CONFIG_MAX_TEXT) {
+      return false;
+   }
+   for (i = 0U; i < node->data.scalar.length; i++) {
+      unsigned char value = node->data.scalar.value[i];
+
+      if ((value >= 'a' && value <= 'z') || (value >= '0' && value <= '9') ||
+          value == '-') {
+         segment = true;
+      } else if (value == '.' && segment &&
+          i + 1U < node->data.scalar.length) {
+         segment = false;
+      } else {
+         return false;
+      }
+   }
+   return segment;
+}
+
+static bool
+parse_zone(const yaml_node_t *node, enum cwiki_zone_kind *zone)
+{
+   static const char *const names[] = {"prose", "code", "math-inline",
+       "math-display", "chemistry", "text", "reference", "latex", "tikz",
+       "comment-percent", "comment-note", "comment-html", "custom"};
+   size_t i;
+
+   for (i = 0U; i < sizeof(names) / sizeof(names[0]); i++) {
+      if (scalar_is(node, names[i])) {
+         *zone = (enum cwiki_zone_kind)i;
+         return true;
+      }
+   }
+   return false;
+}
+
+static enum cwiki_config_status
+parse_snippet_bodies(yaml_document_t *document, struct config_snippet *snippet,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_pair_t *pair;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_MAPPING_NODE ||
+       node->data.mapping.pairs.start == node->data.mapping.pairs.top) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "snippet bodies must be a non-empty zone mapping");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.mapping.pairs.top -
+       node->data.mapping.pairs.start);
+   if (count > CWIKI_ZONE_CUSTOM + 1U) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many snippet bodies");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   snippet->spec.bodies = calloc(count, sizeof(*snippet->spec.bodies));
+   if (snippet->spec.bodies == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   for (pair = node->data.mapping.pairs.start;
+       pair < node->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(document, pair->key);
+      yaml_node_t *value = yaml_document_get_node(document, pair->value);
+      struct cwiki_snippet_body_spec *body =
+          (struct cwiki_snippet_body_spec *)&snippet->spec.bodies[used];
+      enum cwiki_zone_kind zone;
+      size_t i;
+
+      if (!parse_zone(key, &zone)) {
+         struct source_mark at = key == NULL ? mark(node) : mark(key);
+
+         set_error(error, at.line, at.column, "unknown snippet body zone");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (i = 0U; i < used; i++) {
+         if (snippet->spec.bodies[i].zone == zone) {
+            struct source_mark at = mark(key);
+
+            set_error(error, at.line, at.column, "duplicate snippet body zone");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      if (value == NULL || value->type != YAML_SCALAR_NODE ||
+          value->data.scalar.length > CONFIG_MAX_TEXT ||
+          memchr(value->data.scalar.value, '\0',
+          value->data.scalar.length) != NULL ||
+          !cwiki_utf8_validate((const char *)value->data.scalar.value,
+          value->data.scalar.length)) {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line, at.column,
+             "snippet body must be valid UTF-8 text");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      body->body = copy_scalar(value);
+      if (body->body == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      body->zone = zone;
+      body->body_length = value->data.scalar.length;
+      used++;
+      snippet->spec.body_count = used;
+   }
+   snippet->spec.required_zone = snippet->spec.bodies[0].zone;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_expand(yaml_document_t *document, struct config_snippet *snippet,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_item_t *item;
+   uint32_t flags = 0U;
+
+   if (node == NULL || node->type != YAML_SEQUENCE_NODE ||
+       node->data.sequence.items.start == node->data.sequence.items.top) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "snippet expand must be a non-empty sequence");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   for (item = node->data.sequence.items.start;
+       item < node->data.sequence.items.top; item++) {
+      yaml_node_t *value = yaml_document_get_node(document, *item);
+      uint32_t flag;
+
+      if (scalar_is(value, "auto")) {
+         flag = CWIKI_SNIPPET_TRIGGER_AUTO;
+      } else if (scalar_is(value, "explicit")) {
+         flag = CWIKI_SNIPPET_TRIGGER_EXPLICIT;
+      } else {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line, at.column,
+             "snippet expand accepts auto and explicit");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      if ((flags & flag) != 0U) {
+         struct source_mark at = mark(value);
+
+         set_error(error, at.line, at.column, "duplicate snippet expand mode");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      flags |= flag;
+   }
+   snippet->spec.flags |= flags;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_priority(const yaml_node_t *node, int *priority,
+    struct cwiki_config_error *error)
+{
+   char *text;
+   char *end;
+   long value;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.style != YAML_PLAIN_SCALAR_STYLE ||
+       node->data.scalar.length == 0U || node->data.scalar.length > 32U) {
+      goto invalid;
+   }
+   text = copy_scalar(node);
+   if (text == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   errno = 0;
+   value = strtol(text, &end, 10);
+   if (errno != 0 || *end != '\0' || value < INT_MIN || value > INT_MAX) {
+      free(text);
+      goto invalid;
+   }
+   free(text);
+   *priority = (int)value;
+   return CWIKI_CONFIG_OK;
+invalid:
+   {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "snippet priority must be an integer");
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+static enum cwiki_config_status
+parse_snippet_definition(yaml_document_t *document,
+    struct config_snippet *snippet, const yaml_node_t *node,
+    struct cwiki_config_error *error)
+{
+   static const char *const allowed[] = {"trigger", "kind", "expand",
+       "word-boundary", "beginning-of-line", "priority", "subject", "bodies"};
+   yaml_node_t *value;
+   enum cwiki_config_status status;
+   struct cwiki_snippet_registry *validation = NULL;
+   enum cwiki_snippet_status snippet_status;
+   bool enabled;
+
+   status = mapping_check(document, node, allowed,
+       sizeof(allowed) / sizeof(allowed[0]), error);
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "trigger");
+   if (value == NULL || value->type != YAML_SCALAR_NODE ||
+       value->data.scalar.length == 0U ||
+       value->data.scalar.length > CONFIG_MAX_TEXT ||
+       memchr(value->data.scalar.value, '\0', value->data.scalar.length) != NULL ||
+       !cwiki_utf8_validate((const char *)value->data.scalar.value,
+       value->data.scalar.length)) {
+      struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+      set_error(error, at.line, at.column,
+          "snippet trigger must be non-empty UTF-8 text");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   snippet->spec.trigger = copy_scalar(value);
+   if (snippet->spec.trigger == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   snippet->spec.trigger_length = value->data.scalar.length;
+   snippet->spec.kind = CWIKI_SNIPPET_LITERAL;
+   value = mapping_get(document, node, "kind");
+   if (value != NULL) {
+      if (scalar_is(value, "literal")) {
+         snippet->spec.kind = CWIKI_SNIPPET_LITERAL;
+      } else if (scalar_is(value, "regex")) {
+         snippet->spec.kind = CWIKI_SNIPPET_REGEX;
+      } else {
+         struct source_mark at = mark(value);
+
+         set_error(error, at.line, at.column,
+             "snippet kind must be literal or regex");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+   }
+   snippet->spec.flags = CWIKI_SNIPPET_TRIGGER_EXPLICIT;
+   value = mapping_get(document, node, "expand");
+   if (value != NULL) {
+      snippet->spec.flags = 0U;
+      status = parse_expand(document, snippet, value, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+   }
+   value = mapping_get(document, node, "word-boundary");
+   if (value != NULL) {
+      status = parse_boolean(value, &enabled, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      if (enabled) {
+         snippet->spec.flags |= CWIKI_SNIPPET_TRIGGER_WORD_BOUNDARY;
+      }
+   }
+   value = mapping_get(document, node, "beginning-of-line");
+   if (value != NULL) {
+      status = parse_boolean(value, &enabled, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      if (enabled) {
+         snippet->spec.flags |= CWIKI_SNIPPET_TRIGGER_BEGINNING_OF_LINE;
+      }
+   }
+   value = mapping_get(document, node, "priority");
+   if (value != NULL && (status = parse_priority(value, &snippet->spec.priority,
+       error)) != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "subject");
+   if (value != NULL) {
+      if (value->type != YAML_SCALAR_NODE ||
+          value->data.scalar.length == 0U ||
+          value->data.scalar.length > CONFIG_MAX_TEXT ||
+          memchr(value->data.scalar.value, '\0',
+          value->data.scalar.length) != NULL ||
+          !cwiki_utf8_validate((const char *)value->data.scalar.value,
+          value->data.scalar.length)) {
+         struct source_mark at = mark(value);
+
+         set_error(error, at.line, at.column,
+             "snippet subject must be non-empty UTF-8 text");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      snippet->spec.subject = copy_scalar(value);
+      if (snippet->spec.subject == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      snippet->spec.subject_length = value->data.scalar.length;
+   }
+   value = mapping_get(document, node, "bodies");
+   if (value == NULL) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "snippet bodies are required");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   status = parse_snippet_bodies(document, snippet, value, error);
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   snippet->spec.match_limit = CWIKI_SNIPPET_DEFAULT_MATCH_LIMIT;
+   snippet->spec.depth_limit = CWIKI_SNIPPET_DEFAULT_DEPTH_LIMIT;
+   snippet_status = cwiki_snippet_registry_init(&validation);
+   if (snippet_status == CWIKI_SNIPPET_OK) {
+      snippet_status = cwiki_snippet_registry_add(validation, &snippet->spec);
+   }
+   cwiki_snippet_registry_free(validation);
+   if (snippet_status == CWIKI_SNIPPET_NO_MEMORY) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   if (snippet_status != CWIKI_SNIPPET_OK) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column,
+          snippet_status == CWIKI_SNIPPET_REGEX_ERROR ?
+          "snippet regex failed to compile" : "invalid snippet definition");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_snippets(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_pair_t *pair;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_MAPPING_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column, "snippets must be a mapping");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.mapping.pairs.top -
+       node->data.mapping.pairs.start);
+   if (count > CONFIG_MAX_ENTRIES) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many snippets");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      config->snippets = calloc(count, sizeof(*config->snippets));
+      if (config->snippets == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (pair = node->data.mapping.pairs.start;
+       pair < node->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(document, pair->key);
+      yaml_node_t *value = yaml_document_get_node(document, pair->value);
+      struct config_snippet *snippet = &config->snippets[used];
+      yaml_node_pair_t *earlier;
+      enum cwiki_config_status status;
+
+      if (!snippet_name_valid(key)) {
+         struct source_mark at = key == NULL ? mark(node) : mark(key);
+
+         set_error(error, at.line, at.column,
+             "snippet names must be lowercase dot-separated identifiers");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (earlier = node->data.mapping.pairs.start; earlier < pair; earlier++) {
+         yaml_node_t *previous = yaml_document_get_node(document, earlier->key);
+
+         if (previous != NULL && previous->type == YAML_SCALAR_NODE &&
+             previous->data.scalar.length == key->data.scalar.length &&
+             memcmp(previous->data.scalar.value, key->data.scalar.value,
+             key->data.scalar.length) == 0) {
+            struct source_mark at = mark(key);
+
+            set_error(error, at.line, at.column, "duplicate snippet name");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      snippet->name = copy_scalar(key);
+      if (snippet->name == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      config->snippet_count = used + 1U;
+      snippet->mark = mark(key);
+      snippet->disabled = null_node(value);
+      if (!snippet->disabled) {
+         status = parse_snippet_definition(document, snippet, value, error);
+         if (status != CWIKI_CONFIG_OK) {
+            return status;
+         }
+      }
+      used++;
+   }
    return CWIKI_CONFIG_OK;
 }
 
@@ -918,8 +1345,21 @@ cwiki_config_free(struct cwiki_config *config)
    for (i = 0U; i < config->group_count; i++) {
       free(config->groups[i].label);
    }
+   for (i = 0U; i < config->snippet_count; i++) {
+      size_t j;
+
+      free(config->snippets[i].name);
+      free((char *)config->snippets[i].spec.trigger);
+      free((char *)config->snippets[i].spec.subject);
+      for (j = 0U; j < config->snippets[i].spec.body_count; j++) {
+         free((char *)config->snippets[i].spec.bodies[j].body);
+      }
+      free((struct cwiki_snippet_body_spec *)
+          config->snippets[i].spec.bodies);
+   }
    free(config->bindings);
    free(config->groups);
+   free(config->snippets);
    free(config->continuation_marker);
    free(config);
 }
@@ -930,7 +1370,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     struct cwiki_config_error *error)
 {
    static const char *const allowed[] = {"keymaps", "clue-groups", "display",
-       "save-policy"};
+       "save-policy", "snippets"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -941,6 +1381,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    yaml_node_t *groups;
    yaml_node_t *display;
    yaml_node_t *save_policy;
+   yaml_node_t *snippets;
    enum cwiki_config_status status;
    bool parser_ready = false;
    bool document_ready = false;
@@ -990,6 +1431,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    groups = mapping_get(&document, root, "clue-groups");
    display = mapping_get(&document, root, "display");
    save_policy = mapping_get(&document, root, "save-policy");
+   snippets = mapping_get(&document, root, "snippets");
    if (keymaps != NULL) {
       status = parse_keymaps(&document, created, keymaps, actions, error);
       if (status != CWIKI_CONFIG_OK) {
@@ -1010,6 +1452,12 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    if (save_policy != NULL) {
       status = parse_save_policy(created, save_policy, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (snippets != NULL) {
+      status = parse_snippets(&document, created, snippets, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -1113,6 +1561,146 @@ cwiki_config_build_keymap(const struct cwiki_config *config,
    }
    *candidate = created;
    return CWIKI_CONFIG_OK;
+}
+
+static const struct config_snippet *
+last_snippet(const struct cwiki_config *const *configs, size_t config_count,
+    const char *name)
+{
+   size_t i;
+
+   for (i = config_count; i != 0U; i--) {
+      size_t j;
+
+      for (j = configs[i - 1U]->snippet_count; j != 0U; j--) {
+         const struct config_snippet *snippet =
+             &configs[i - 1U]->snippets[j - 1U];
+
+         if (strcmp(snippet->name, name) == 0) {
+            return snippet;
+         }
+      }
+   }
+   return NULL;
+}
+
+static bool
+builtin_snippet(const char *name)
+{
+   const struct cwiki_snippet_catalog_entry *entries;
+   size_t count;
+   size_t i;
+
+   entries = cwiki_snippet_catalog_entries(&count);
+   for (i = 0U; i < count; i++) {
+      if (strcmp(entries[i].name, name) == 0) {
+         return true;
+      }
+   }
+   return false;
+}
+
+static enum cwiki_config_status
+snippet_build_error(enum cwiki_snippet_status status,
+    const struct config_snippet *snippet, struct cwiki_config_error *error)
+{
+   if (status == CWIKI_SNIPPET_NO_MEMORY) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   if (snippet != NULL) {
+      set_error(error, snippet->mark.line, snippet->mark.column,
+          status == CWIKI_SNIPPET_REGEX_ERROR ?
+          "snippet regex failed to compile" : "invalid snippet definition");
+   } else {
+      set_error(error, 1U, 1U, "failed to install builtin snippets");
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+enum cwiki_config_status
+cwiki_config_build_snippets(const struct cwiki_config *const *configs,
+    size_t config_count, struct cwiki_snippet_registry **candidate,
+    struct cwiki_config_error *error)
+{
+   const struct cwiki_snippet_catalog_entry *entries;
+   struct cwiki_snippet_catalog_override *overrides = NULL;
+   struct cwiki_snippet_registry *created = NULL;
+   size_t builtin_count;
+   size_t override_count = 0U;
+   size_t i;
+   enum cwiki_snippet_status snippet_status;
+   enum cwiki_config_status status = CWIKI_CONFIG_OK;
+
+   if (candidate == NULL || (configs == NULL && config_count != 0U)) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *candidate = NULL;
+   if (error != NULL) {
+      *error = (struct cwiki_config_error){0};
+   }
+   for (i = 0U; i < config_count; i++) {
+      if (configs[i] == NULL) {
+         return CWIKI_CONFIG_INVALID;
+      }
+   }
+   entries = cwiki_snippet_catalog_entries(&builtin_count);
+   if (builtin_count != 0U) {
+      overrides = calloc(builtin_count, sizeof(*overrides));
+      if (overrides == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (i = 0U; i < builtin_count; i++) {
+      const struct config_snippet *snippet = last_snippet(configs, config_count,
+          entries[i].name);
+
+      if (snippet != NULL) {
+         overrides[override_count].name = entries[i].name;
+         overrides[override_count].replacement = snippet->disabled ? NULL :
+             &snippet->spec;
+         override_count++;
+      }
+   }
+   snippet_status = cwiki_snippet_registry_init(&created);
+   if (snippet_status == CWIKI_SNIPPET_OK) {
+      snippet_status = cwiki_snippet_catalog_install(created, overrides,
+          override_count);
+   }
+   if (snippet_status != CWIKI_SNIPPET_OK) {
+      const struct config_snippet *failed = NULL;
+
+      for (i = 0U; i < override_count && failed == NULL; i++) {
+         if (overrides[i].replacement != NULL) {
+            failed = last_snippet(configs, config_count, overrides[i].name);
+         }
+      }
+      status = snippet_build_error(snippet_status, failed, error);
+      goto done;
+   }
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+
+      for (j = 0U; j < configs[i]->snippet_count; j++) {
+         const struct config_snippet *snippet = &configs[i]->snippets[j];
+
+         if (builtin_snippet(snippet->name) ||
+             last_snippet(configs, config_count, snippet->name) != snippet ||
+             snippet->disabled) {
+            continue;
+         }
+         snippet_status = cwiki_snippet_registry_add(created, &snippet->spec);
+         if (snippet_status != CWIKI_SNIPPET_OK) {
+            status = snippet_build_error(snippet_status, snippet, error);
+            goto done;
+         }
+      }
+   }
+   *candidate = created;
+   created = NULL;
+done:
+   cwiki_snippet_registry_free(created);
+   free(overrides);
+   return status;
 }
 
 const char *

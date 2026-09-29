@@ -109,10 +109,13 @@ locations, then builds a complete candidate keymap without mutating its base.
 Validated configuration bytes now replace the live keymap transactionally
 before terminal startup; configured clue-group labels title the live popup;
 layered display settings reach layout; and manual, insert-leave, and idle save
-policies drive writes. Read-only startup discovery composes existing global,
-synchronized-vault, and UUID-keyed machine-local files without creating vault
-metadata. The remaining snippet and zone declarative schemas, note-scope
-composition, and concrete picker providers are not yet implemented.
+policies drive writes. Name-keyed snippet configuration transactionally composes
+builtin replacement/disabling and custom literal or bounded-regex definitions,
+zone-dependent bodies, trigger flags, priorities, and subject layers. Read-only
+startup discovery composes existing global, synchronized-vault, and UUID-keyed
+machine-local files without creating vault metadata. The remaining zone
+declarative schema, note-scope composition, and concrete picker providers are
+not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

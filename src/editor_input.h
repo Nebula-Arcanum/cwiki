@@ -10,6 +10,7 @@
 
 struct cwiki_editor_input;
 struct cwiki_layout_window;
+struct cwiki_snippet_registry;
 struct cwiki_zone_engine;
 
 struct cwiki_editor_input_context {
@@ -25,6 +26,10 @@ void cwiki_editor_input_free(struct cwiki_editor_input *input);
 /* Takes ownership of a complete candidate keymap. */
 enum cwiki_editor_status cwiki_editor_input_replace_keymap(
     struct cwiki_editor_input *input, struct cwiki_keymap *candidate);
+/* Takes ownership of a complete candidate snippet registry. */
+enum cwiki_editor_status cwiki_editor_input_replace_snippets(
+    struct cwiki_editor_input *input,
+    struct cwiki_snippet_registry *candidate);
 
 enum cwiki_editor_status cwiki_editor_input_handle(
     struct cwiki_editor_input *input, const struct cwiki_input_event *event,

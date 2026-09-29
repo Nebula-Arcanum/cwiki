@@ -346,6 +346,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    }
    if (options->config_count != 0U) {
       struct cwiki_keymap *candidate = NULL;
+      struct cwiki_snippet_registry *snippet_candidate = NULL;
       const struct cwiki_keymap *base = cwiki_editor_input_keymap(app.input);
 
       for (size_t i = 0U; i < options->config_count; i++) {
@@ -373,20 +374,40 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
          candidate = next;
          base = candidate;
       }
-      if (app.config_status == CWIKI_CONFIG_OK &&
-          cwiki_editor_input_replace_keymap(app.input, candidate) !=
-          CWIKI_EDITOR_OK) {
-         cwiki_keymap_free(candidate);
+      if (app.config_status == CWIKI_CONFIG_OK) {
+         const struct cwiki_config *ordered[CWIKI_CONFIG_SOURCE_MAX];
+
+         for (size_t i = 0U; i < app.config_count; i++) {
+            ordered[i] = app.configs[i];
+         }
+         app.config_status = cwiki_config_build_snippets(ordered,
+             app.config_count, &snippet_candidate, &app.config_error);
+      }
+      if (app.config_status == CWIKI_CONFIG_OK) {
+         if (cwiki_editor_input_replace_keymap(app.input, candidate) !=
+             CWIKI_EDITOR_OK) {
+            cwiki_keymap_free(candidate);
+            app.config_status = CWIKI_CONFIG_INVALID;
+         }
          candidate = NULL;
-         app.config_status = CWIKI_CONFIG_INVALID;
+      }
+      if (app.config_status == CWIKI_CONFIG_OK) {
+         if (cwiki_editor_input_replace_snippets(app.input, snippet_candidate) !=
+             CWIKI_EDITOR_OK) {
+            cwiki_snippet_registry_free(snippet_candidate);
+            app.config_status = CWIKI_CONFIG_INVALID;
+         }
+         snippet_candidate = NULL;
       }
       if (app.config_status == CWIKI_CONFIG_NO_MEMORY) {
          cwiki_keymap_free(candidate);
+         cwiki_snippet_registry_free(snippet_candidate);
          errno = ENOMEM;
          goto system_error;
       }
       if (app.config_status != CWIKI_CONFIG_OK) {
          cwiki_keymap_free(candidate);
+         cwiki_snippet_registry_free(snippet_candidate);
          goto done;
       }
    }

@@ -395,6 +395,28 @@ main(void)
    (void)puts("app: explicit snippet expansion, stop fill and autosave passed");
    assert(unlink(path) == 0);
 
+   {
+      static const char custom_snippet[] =
+          "snippets:\n"
+          "  custom.greet:\n"
+          "    trigger: zz\n"
+          "    bodies: {prose: 'HELLO$0'}\n";
+
+      session = start_config(path, supported, false, custom_snippet);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("izz" TAB ESCAPE));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "HELLO") != NULL && strstr(output, "zz") == NULL);
+      send_bytes(session.master, wire(":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%sizz" TAB ESCAPE ":q" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      content(path, "HELLO", CWIKI_LINE_ENDING_LF);
+      assert(unlink(path) == 0);
+      (void)puts("app: layered custom snippet registry reaches insert dispatch passed");
+   }
+
    /* Pending startup input, new LF file, edits and motions in a single drain.
     * j must see the newly inserted second line; dw must see its latest bytes. */
    assert(snprintf(transcript, sizeof(transcript),

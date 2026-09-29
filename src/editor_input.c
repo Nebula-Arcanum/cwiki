@@ -384,6 +384,19 @@ cwiki_editor_input_replace_keymap(struct cwiki_editor_input *input,
    return CWIKI_EDITOR_OK;
 }
 
+enum cwiki_editor_status
+cwiki_editor_input_replace_snippets(struct cwiki_editor_input *input,
+    struct cwiki_snippet_registry *candidate)
+{
+   if (input == NULL || candidate == NULL ||
+       cwiki_snippet_session_depth(input->snippets) != 0U) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   cwiki_snippet_registry_free(input->snippet_registry);
+   input->snippet_registry = candidate;
+   return CWIKI_EDITOR_OK;
+}
+
 static enum cwiki_editor_status
 dispatch_match(struct cwiki_editor_input *input,
     const struct cwiki_keymap_match *match)

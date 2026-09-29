@@ -244,6 +244,112 @@ strict_schema_errors(void)
        CWIKI_CONFIG_SCHEMA_ERROR, "display text");
    expect_error("save-policy: often\n", CWIKI_CONFIG_SCHEMA_ERROR,
        "insert-leave, manual or idle");
+   expect_error("snippets: []\n", CWIKI_CONFIG_SCHEMA_ERROR, "mapping");
+   expect_error("snippets:\n  Bad Name: null\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "lowercase dot-separated");
+   expect_error("snippets:\n  custom.x:\n    trigger: x\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "bodies are required");
+   expect_error("snippets:\n  custom.x:\n    trigger: x\n"
+       "    kind: guess\n    bodies: {prose: '$0'}\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "literal or regex");
+   expect_error("snippets:\n  custom.x:\n    trigger: x\n"
+       "    expand: [auto, auto]\n    bodies: {prose: '$0'}\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "duplicate snippet expand");
+   expect_error("snippets:\n  custom.x:\n    trigger: x\n"
+       "    bodies: {unknown: '$0'}\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "unknown snippet body zone");
+   expect_error("snippets:\n  custom.x:\n    trigger: '[invalid'\n"
+       "    kind: regex\n    bodies: {prose: '$0'}\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "regex failed to compile");
+}
+
+static bool
+snippet_matches(struct cwiki_snippet_registry *registry, const char *text,
+    enum cwiki_snippet_expand_kind kind)
+{
+   const struct cwiki_zone_region *regions;
+   struct cwiki_zone_engine *zones = NULL;
+   struct cwiki_buffer buffer;
+   struct cwiki_snippet_match match = {0};
+   struct cwiki_position cursor;
+   enum cwiki_snippet_status status;
+   uint64_t top_level;
+   size_t count;
+
+   regions = cwiki_zone_builtin_regions(&count, &top_level);
+   assert(cwiki_zone_engine_init(&zones, regions, count, top_level) == 0);
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, text, strlen(text)) == 0);
+   assert(cwiki_zone_recompute(zones, &buffer, 0U, NULL) == 0);
+   cursor.line = buffer.line_count - 1U;
+   cursor.byte = buffer.lines[cursor.line].length;
+   status = cwiki_snippet_match(registry, zones, &buffer, cursor, kind,
+       CWIKI_SNIPPET_INPUT_NONE, &match);
+   cwiki_snippet_match_free(&match);
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(zones);
+   return status == CWIKI_SNIPPET_OK;
+}
+
+static void
+snippet_settings_and_precedence(void)
+{
+   static const char global[] =
+       "snippets:\n"
+       "  custom.greet:\n"
+       "    trigger: qq\n"
+       "    expand: [explicit]\n"
+       "    word-boundary: true\n"
+       "    priority: 7\n"
+       "    bodies: {prose: 'GLOBAL$0'}\n"
+       "  vimtex.alpha: null\n"
+       "  custom.subject:\n"
+       "    trigger: sub\n"
+       "    subject: chemistry\n"
+       "    bodies: {prose: 'SUBJECT$0'}\n";
+   static const char local[] =
+       "snippets:\n"
+       "  custom.greet:\n"
+       "    trigger: zz\n"
+       "    beginning-of-line: true\n"
+       "    bodies: {prose: 'LOCAL$0'}\n"
+       "  math.square:\n"
+       "    trigger: sq\n"
+       "    expand: [auto, explicit]\n"
+       "    bodies:\n"
+       "      math-inline: '^2$0'\n"
+       "      math-display: '^2$0'\n"
+       "  custom.regex:\n"
+       "    trigger: '(x+)z'\n"
+       "    kind: regex\n"
+       "    bodies: {prose: '${capture:1}$0'}\n";
+   struct cwiki_action_registry *registry = actions();
+   struct cwiki_config *first = NULL;
+   struct cwiki_config *second = NULL;
+   const struct cwiki_config *configs[2];
+   struct cwiki_snippet_registry *snippets = NULL;
+   struct cwiki_config_error error = {0};
+
+   assert(cwiki_config_parse(&first, (const unsigned char *)global,
+       sizeof(global) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   assert(cwiki_config_parse(&second, (const unsigned char *)local,
+       sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   configs[0] = first;
+   configs[1] = second;
+   assert(cwiki_config_build_snippets(configs, 2U, &snippets, &error) ==
+       CWIKI_CONFIG_OK);
+   assert(!snippet_matches(snippets, "qq", CWIKI_SNIPPET_EXPLICIT));
+   assert(snippet_matches(snippets, "zz", CWIKI_SNIPPET_EXPLICIT));
+   assert(!snippet_matches(snippets, "$`a", CWIKI_SNIPPET_EXPLICIT));
+   assert(snippet_matches(snippets, "$//", CWIKI_SNIPPET_EXPLICIT));
+   assert(!snippet_matches(snippets, "$sr", CWIKI_SNIPPET_EXPLICIT));
+   assert(snippet_matches(snippets, "$sq", CWIKI_SNIPPET_AUTO));
+   assert(snippet_matches(snippets, "xxxz", CWIKI_SNIPPET_EXPLICIT));
+   assert(!snippet_matches(snippets, "sub", CWIKI_SNIPPET_EXPLICIT));
+   cwiki_snippet_registry_free(snippets);
+   cwiki_config_free(second);
+   cwiki_config_free(first);
+   cwiki_action_registry_free(registry);
 }
 
 static void
@@ -320,6 +426,7 @@ main(void)
    transactional_failure();
    strict_schema_errors();
    scalar_settings_and_precedence();
+   snippet_settings_and_precedence();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;

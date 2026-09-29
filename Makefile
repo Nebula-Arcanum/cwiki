@@ -396,12 +396,16 @@ $(CLUE_RENDER_TEST): src/clue_render.c src/clue_render.h src/float.c src/float.h
 
 $(CONFIG_TEST): src/config.c src/config.h src/action.c src/action.h \
 		src/keymap.c src/keymap.h src/input.h src/unicode.c src/unicode.h \
+		src/buffer.c src/buffer.h src/undo.c src/undo.h src/regex.c src/regex.h \
+		src/zone.c src/zone.h src/snippet.c \
+		src/snippet.h src/snippet_catalog.c src/snippet_catalog.h \
 		tests/config/test_config.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(YAML_CFLAGS) -Isrc \
-		src/unicode.c src/action.c src/keymap.c src/config.c \
-		tests/config/test_config.c $(LDFLAGS) $(UTF8PROC_LIBS) $(YAML_LIBS) \
-		-o $(CONFIG_TEST)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		$(YAML_CFLAGS) -Isrc src/buffer.c src/unicode.c src/undo.c src/regex.c \
+		src/zone.c src/snippet.c src/snippet_catalog.c src/action.c src/keymap.c \
+		src/config.c tests/config/test_config.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		$(PCRE2_LIBS) $(YAML_LIBS) -o $(CONFIG_TEST)
 
 $(CONFIG_FILES_TEST): src/config_files.c src/config_files.h \
 		tests/config/test_config_files.c

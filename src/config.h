@@ -4,6 +4,7 @@
 #include "action.h"
 #include "conceal.h"
 #include "keymap.h"
+#include "snippet.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -60,6 +61,18 @@ struct cwiki_config_settings {
  *   break-indent: true
  *   continuation-marker: ""
  * save-policy: insert-leave
+ * snippets:
+ *   custom.derivative:
+ *     trigger: dv
+ *     kind: literal
+ *     expand: [explicit]
+ *     word-boundary: true
+ *     priority: 10
+ *     subject: calculus
+ *     bodies:
+ *       math-inline: '\\frac{d$1}{d$2}$0'
+ *       math-display: '\\frac{d$1}{d$2}$0'
+ *   vimtex.alpha: null  # disable a builtin
  */
 enum cwiki_config_status cwiki_config_parse(struct cwiki_config **config,
     const unsigned char *bytes, size_t length,
@@ -71,6 +84,12 @@ void cwiki_config_free(struct cwiki_config *config);
 enum cwiki_config_status cwiki_config_build_keymap(
     const struct cwiki_config *config, const struct cwiki_keymap *base,
     struct cwiki_keymap **candidate, struct cwiki_config_error *error);
+
+/* Compose ordered scopes and publish one complete owned registry. */
+enum cwiki_config_status cwiki_config_build_snippets(
+    const struct cwiki_config *const *configs, size_t config_count,
+    struct cwiki_snippet_registry **candidate,
+    struct cwiki_config_error *error);
 
 const char *cwiki_config_clue_group(const struct cwiki_config *config,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,
