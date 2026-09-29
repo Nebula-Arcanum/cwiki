@@ -278,6 +278,17 @@ test_commands_save_quit_and_cancel(void)
        CWIKI_EDITOR_OK && cwiki_editor_execute_command(&fixture.editor) ==
        CWIKI_EDITOR_OK && !fixture.document.dirty,
        ":w clears dirty only after the durable save succeeds");
+   check(cwiki_editor_enter_insert(&fixture.editor, true, 51U) ==
+       CWIKI_EDITOR_OK && cwiki_editor_insert(&fixture.editor, "?", 1U) ==
+       CWIKI_EDITOR_OK && cwiki_editor_escape(&fixture.editor) ==
+       CWIKI_EDITOR_OK && fixture.document.dirty &&
+       cwiki_editor_undo(&fixture.editor) == CWIKI_EDITOR_OK &&
+       !fixture.document.dirty &&
+       cwiki_editor_redo(&fixture.editor) == CWIKI_EDITOR_OK &&
+       fixture.document.dirty &&
+       cwiki_editor_undo(&fixture.editor) == CWIKI_EDITOR_OK &&
+       !fixture.document.dirty,
+       "undo and redo update dirty state against the successful save point");
    check(cwiki_editor_begin_command(&fixture.editor) == CWIKI_EDITOR_OK &&
        cwiki_editor_command_insert(&fixture.editor, "q", 1U) ==
        CWIKI_EDITOR_OK && cwiki_editor_execute_command(&fixture.editor) ==

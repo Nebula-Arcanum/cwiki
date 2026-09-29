@@ -38,6 +38,22 @@ reset_goals(struct cwiki_editor *editor)
 }
 
 static bool
+current_sequence(const struct cwiki_undo *undo, uint64_t *sequence)
+{
+   size_t index;
+
+   for (index = 0U; index < cwiki_undo_state_count(undo); index++) {
+      struct cwiki_undo_state_info info;
+
+      if (cwiki_undo_state_info(undo, index, &info) == 0 && info.current) {
+         *sequence = info.sequence;
+         return true;
+      }
+   }
+   return false;
+}
+
+static bool
 range_empty(const struct cwiki_motion_range *range)
 {
    return range->start.line == range->end.line &&
@@ -294,6 +310,8 @@ cwiki_editor_init(struct cwiki_editor *editor, struct cwiki_document *document)
       memset(editor, 0, sizeof(*editor));
       return error_status();
    }
+   editor->savepoint_valid = !document->dirty;
+   editor->saved_sequence = 0U;
    return CWIKI_EDITOR_OK;
 }
 
@@ -677,10 +695,17 @@ cwiki_editor_put(struct cwiki_editor *editor, bool before, uint64_t timestamp)
 static enum cwiki_editor_status
 history_result(struct cwiki_editor *editor, int result)
 {
+   uint64_t sequence;
+
    if (result != 0) {
       return errno == ENOENT ? CWIKI_EDITOR_NOTHING : error_status();
    }
-   cwiki_document_mark_dirty(editor->document);
+   if (editor->savepoint_valid && current_sequence(&editor->undo, &sequence) &&
+       sequence == editor->saved_sequence) {
+      editor->document->dirty = false;
+   } else {
+      cwiki_document_mark_dirty(editor->document);
+   }
    editor->pending_operator = CWIKI_EDITOR_NO_OPERATOR;
    reset_goals(editor);
    return CWIKI_EDITOR_OK;
@@ -787,6 +812,15 @@ cwiki_editor_execute_command(struct cwiki_editor *editor)
    if (save && cwiki_document_save(editor->document).status !=
        CWIKI_DURABLE_WRITE_SUCCESS) {
       return CWIKI_EDITOR_SAVE_FAILED;
+   }
+   if (save) {
+      uint64_t sequence;
+
+      if (!current_sequence(&editor->undo, &sequence)) {
+         return CWIKI_EDITOR_INVALID;
+      }
+      editor->saved_sequence = sequence;
+      editor->savepoint_valid = true;
    }
    if (quit && editor->document->dirty) {
       return CWIKI_EDITOR_DIRTY;

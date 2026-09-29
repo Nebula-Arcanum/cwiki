@@ -50,8 +50,10 @@ struct cwiki_editor {
    size_t command_length;
    size_t command_capacity;
    uint64_t pending_timestamp;
+   uint64_t saved_sequence;
    enum cwiki_editor_mode mode;
    enum cwiki_editor_operator pending_operator;
+   bool savepoint_valid;
    bool quit_requested;
 };
 
