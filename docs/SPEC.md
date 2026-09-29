@@ -790,11 +790,13 @@ shell escape reachable from a snippet.
 Body references use explicit, non-overlapping spellings: `${capture:1}` inserts
 regex capture 1, `${capture:1|upper}` applies a named transform to that capture,
 and `${stop:1|upper}` inserts a transformed mirror of tab stop 1. Standard `$1`,
-`${1:placeholder}` and `$0` retain their usual tab-stop meanings. This syntax was
-accepted on 2026-09-29. Compact `${c1}` / `${s1}` forms were rejected as opaque;
+`${1:placeholder}` and `$0` retain their usual tab-stop meanings. `${visual}`
+inserts the selection captured before expansion. This syntax was accepted on
+2026-09-29. Compact `${c1}` / `${s1}` forms were rejected as opaque;
 function-like `${upper(capture:1)}` was rejected as unnecessary expression
-syntax; deferring captures and transforms was rejected because the curated M1
-snippet library requires them.
+syntax; `$VISUAL` was rejected because LuaSnip compatibility did not justify a
+second naming style; deferring captures, transforms or visual insertion was
+rejected because the curated M1 snippet library requires them.
 
 **R1.10.8** Trigger matching on each keystroke: literal triggers live in a trie
 keyed on reversed text, so matching the text before the cursor is one walk
