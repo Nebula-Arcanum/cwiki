@@ -1155,22 +1155,29 @@ relative_offset(const struct cwiki_buffer *buffer, struct cwiki_position base,
 
 static enum cwiki_snippet_status
 replace_plain(struct cwiki_snippet_engine *engine, struct cwiki_position start,
-    struct cwiki_position end, const char *bytes, size_t length, uint64_t timestamp)
+    struct cwiki_position end, const char *bytes, size_t length,
+    uint64_t timestamp, bool pending)
 {
-   if (cwiki_undo_begin(engine->undo, timestamp) != 0) return CWIKI_SNIPPET_INVALID;
+   struct cwiki_undo_checkpoint checkpoint;
+   if ((pending && cwiki_undo_checkpoint(engine->undo, &checkpoint) != 0) ||
+       (!pending && cwiki_undo_begin(engine->undo, timestamp) != 0))
+      return CWIKI_SNIPPET_INVALID;
    if (undo_delete_range(engine->undo, start, end) != 0 ||
        undo_insert_text(engine->undo, start, bytes, length) != 0 ||
-       cwiki_undo_commit(engine->undo) != 0) {
-      if (cwiki_undo_transaction_active(engine->undo)) (void)cwiki_undo_cancel(engine->undo);
+       (!pending && cwiki_undo_commit(engine->undo) != 0)) {
+      if (pending) (void)cwiki_undo_rollback(engine->undo, &checkpoint);
+      else if (cwiki_undo_transaction_active(engine->undo))
+         (void)cwiki_undo_cancel(engine->undo);
       return CWIKI_SNIPPET_NO_MEMORY;
    }
    return CWIKI_SNIPPET_OK;
 }
 
-enum cwiki_snippet_status
-cwiki_snippet_edit(struct cwiki_snippet_engine *engine,
+static enum cwiki_snippet_status
+snippet_edit(struct cwiki_snippet_engine *engine,
     struct cwiki_position start, struct cwiki_position end, const char *bytes,
-    size_t length, uint64_t timestamp, struct cwiki_position *cursor)
+    size_t length, uint64_t timestamp, struct cwiki_position *cursor,
+    bool pending)
 {
    struct session *session;
    struct occurrence *primary;
@@ -1180,19 +1187,21 @@ cwiki_snippet_edit(struct cwiki_snippet_engine *engine,
    char **mirror_bytes = NULL;
    size_t *mirror_lengths = NULL;
    size_t old_length, before, after, updated_length, i;
+   struct cwiki_undo_checkpoint checkpoint;
    enum cwiki_snippet_status status = CWIKI_SNIPPET_OK;
    if (engine == NULL || cursor == NULL || (bytes == NULL && length != 0U) ||
        !cwiki_utf8_validate(bytes, length) || position_compare(start, end) > 0) return CWIKI_SNIPPET_INVALID;
    if (engine->depth == 0U) {
-      status = replace_plain(engine, start, end, bytes, length, timestamp);
+      status = replace_plain(engine, start, end, bytes, length, timestamp,
+          pending);
       if (status == CWIKI_SNIPPET_OK) *cursor = offset_position(start, bytes, length);
       return status;
    }
    session = &engine->sessions[engine->depth - 1U];
-   if (session->current >= session->stop_count) { pop_session(engine); return cwiki_snippet_edit(engine, start, end, bytes, length, timestamp, cursor); }
+   if (session->current >= session->stop_count) { pop_session(engine); return snippet_edit(engine, start, end, bytes, length, timestamp, cursor, pending); }
    primary = primary_for(session, session->stops[session->current]);
    if (primary == NULL || position_compare(start, primary->start) < 0 || position_compare(end, primary->end) > 0) {
-      pop_session(engine); return cwiki_snippet_edit(engine, start, end, bytes, length, timestamp, cursor);
+      pop_session(engine); return snippet_edit(engine, start, end, bytes, length, timestamp, cursor, pending);
    }
    if (range_bytes(engine->buffer, primary->start, primary->end, &old, &old_length) != 0) return allocation_status();
    before = relative_offset(engine->buffer, primary->start, start);
@@ -1221,7 +1230,10 @@ cwiki_snippet_edit(struct cwiki_snippet_engine *engine,
       }
    }
    engine->updating = true;
-   if (cwiki_undo_begin(engine->undo, timestamp) != 0) { status = CWIKI_SNIPPET_INVALID; goto restore_guard; }
+   if ((pending && cwiki_undo_checkpoint(engine->undo, &checkpoint) != 0) ||
+       (!pending && cwiki_undo_begin(engine->undo, timestamp) != 0)) {
+      status = CWIKI_SNIPPET_INVALID; goto restore_guard;
+   }
    {
       struct cwiki_position primary_start = primary->start;
       if (undo_delete_range(engine->undo, primary->start, primary->end) != 0 ||
@@ -1238,12 +1250,16 @@ cwiki_snippet_edit(struct cwiki_snippet_engine *engine,
       occurrence->start = occurrence_start;
       occurrence->end = offset_position(occurrence_start, mirror_bytes[i - 1U], mirror_lengths[i - 1U]);
    }
-   if (cwiki_undo_commit(engine->undo) != 0) { status = CWIKI_SNIPPET_NO_MEMORY; goto rollback; }
+   if (!pending && cwiki_undo_commit(engine->undo) != 0) {
+      status = CWIKI_SNIPPET_NO_MEMORY; goto rollback;
+   }
    session->extent_start = saved_extent_start;
    *cursor = offset_position(primary->start, updated, before + length);
    engine->updating = false; goto done;
 rollback:
-   if (cwiki_undo_transaction_active(engine->undo)) (void)cwiki_undo_cancel(engine->undo);
+   if (pending) (void)cwiki_undo_rollback(engine->undo, &checkpoint);
+   else if (cwiki_undo_transaction_active(engine->undo))
+      (void)cwiki_undo_cancel(engine->undo);
    memcpy(session->occurrences, saved_occurrences, session->occurrence_count * sizeof(*saved_occurrences));
    session->extent_start = saved_extent_start; session->extent_end = saved_extent_end; session->final = saved_final;
 restore_guard:
@@ -1252,6 +1268,23 @@ done:
    if (mirror_bytes != NULL) for (i = 0U; i < session->occurrence_count; i++) free(mirror_bytes[i]);
    free(mirror_bytes); free(mirror_lengths); free(saved_occurrences); free(updated); free(old);
    return status;
+}
+
+enum cwiki_snippet_status
+cwiki_snippet_edit(struct cwiki_snippet_engine *engine,
+    struct cwiki_position start, struct cwiki_position end, const char *bytes,
+    size_t length, uint64_t timestamp, struct cwiki_position *cursor)
+{
+   return snippet_edit(engine, start, end, bytes, length, timestamp, cursor,
+       false);
+}
+
+enum cwiki_snippet_status
+cwiki_snippet_edit_pending(struct cwiki_snippet_engine *engine,
+    struct cwiki_position start, struct cwiki_position end, const char *bytes,
+    size_t length, struct cwiki_position *cursor)
+{
+   return snippet_edit(engine, start, end, bytes, length, 0U, cursor, true);
 }
 
 void
@@ -1270,4 +1303,11 @@ void
 cwiki_snippet_expansion_undone(struct cwiki_snippet_engine *engine)
 {
    if (engine != NULL) pop_session(engine);
+}
+
+void
+cwiki_snippet_clear_sessions(struct cwiki_snippet_engine *engine)
+{
+   if (engine == NULL) return;
+   while (engine->depth != 0U) pop_session(engine);
 }

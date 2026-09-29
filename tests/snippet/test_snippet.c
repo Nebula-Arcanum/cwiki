@@ -328,6 +328,29 @@ test_expansion_mirrors_undo_and_sessions(void)
        "asymmetric multibyte edit updates mirrors in one API");
    check_buffer(&buffer, "åβx-åβx-ÅΒX-V- tail",
        "raw and transformed mirrors receive edited stop value");
+   check(cwiki_undo_begin(&undo, UINT64_C(3)) == 0,
+       "begin caller-owned stop-fill transaction");
+   cwiki_undo_test_fail_allocation_after(0U);
+   check(cwiki_snippet_edit_pending(engine,
+       (struct cwiki_position){0U, 0U},
+       (struct cwiki_position){0U, strlen("å")}, "γ", strlen("γ"),
+       &cursor) == CWIKI_SNIPPET_NO_MEMORY &&
+       cwiki_undo_transaction_active(&undo),
+       "failed pending mirror edit retains its caller transaction");
+   cwiki_undo_test_reset_allocation();
+   check_buffer(&buffer, "åβx-åβx-ÅΒX-V- tail",
+       "failed pending mirror edit rolls back only that edit");
+   check(cwiki_snippet_edit_pending(engine,
+       (struct cwiki_position){0U, 0U},
+       (struct cwiki_position){0U, strlen("å")}, "γ", strlen("γ"),
+       &cursor) == CWIKI_SNIPPET_OK && cwiki_undo_commit(&undo) == 0,
+       "pending mirror edit joins and commits its caller transaction");
+   check_buffer(&buffer, "γβx-γβx-ΓΒX-V- tail",
+       "pending edit updates raw and transformed mirrors");
+   check(cwiki_undo_to_parent(&undo) == 0,
+       "one undo reverses caller-owned edit and mirrors");
+   check_buffer(&buffer, "åβx-åβx-ÅΒX-V- tail",
+       "caller-owned mirror edit remains one undo transaction");
    check(cwiki_undo_to_parent(&undo) == 0, "one undo reverses edit and mirrors");
    check_buffer(&buffer, "éx-éx-ÉX-V- tail",
        "mirror edit is one undo transaction");

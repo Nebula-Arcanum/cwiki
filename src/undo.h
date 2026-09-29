@@ -32,6 +32,10 @@ struct cwiki_undo_state_info {
    bool current;
 };
 
+struct cwiki_undo_checkpoint {
+   size_t operation_count;
+};
+
 int cwiki_undo_init(struct cwiki_undo *undo, struct cwiki_buffer *buffer);
 void cwiki_undo_free(struct cwiki_undo *undo);
 
@@ -39,6 +43,10 @@ int cwiki_undo_begin(struct cwiki_undo *undo, uint64_t timestamp);
 int cwiki_undo_commit(struct cwiki_undo *undo);
 int cwiki_undo_cancel(struct cwiki_undo *undo);
 bool cwiki_undo_transaction_active(const struct cwiki_undo *undo);
+int cwiki_undo_checkpoint(const struct cwiki_undo *undo,
+    struct cwiki_undo_checkpoint *checkpoint);
+int cwiki_undo_rollback(struct cwiki_undo *undo,
+    const struct cwiki_undo_checkpoint *checkpoint);
 
 int cwiki_undo_insert(struct cwiki_undo *undo, size_t line, size_t byte,
     const char *bytes, size_t length);

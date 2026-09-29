@@ -148,9 +148,16 @@ enum cwiki_snippet_status cwiki_snippet_edit(
     struct cwiki_snippet_engine *engine, struct cwiki_position start,
     struct cwiki_position end, const char *bytes, size_t length,
     uint64_t timestamp, struct cwiki_position *cursor);
+/* Adds the edit to the caller's active undo transaction. */
+enum cwiki_snippet_status cwiki_snippet_edit_pending(
+    struct cwiki_snippet_engine *engine, struct cwiki_position start,
+    struct cwiki_position end, const char *bytes, size_t length,
+    struct cwiki_position *cursor);
 void cwiki_snippet_cursor_moved(struct cwiki_snippet_engine *engine,
     struct cwiki_position cursor);
 void cwiki_snippet_expansion_undone(struct cwiki_snippet_engine *engine);
+/* History traversal must clear sessions: range boundary bias is not reversible. */
+void cwiki_snippet_clear_sessions(struct cwiki_snippet_engine *engine);
 
 #ifdef CWIKI_SNIPPET_TESTING
 void cwiki_snippet_test_fail_allocation_after(size_t successful_allocations);

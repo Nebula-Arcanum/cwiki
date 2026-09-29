@@ -91,7 +91,10 @@ derived-state refresh, synchronized redraw, viewport following, insert-leave
 saves, and plain-file reopen through fixture-tested PTYs. Horizontal motion now
 carries per-run conceal reveal state through the editor into rendered frames.
 The builtin catalog supplies named, overridable VimTeX-compatible symbols and
-math, mhchem, and TikZ templates. Runtime snippet dispatch and reusable
+math, mhchem, and TikZ templates. Insert-mode dispatch now performs automatic
+and Tab-requested expansion, nested forward/backward tab-stop navigation,
+transactional mirror updates, paste suppression, and the specified separate
+undo steps for trigger text, expansion, and subsequent stop fills. Reusable
 picker/clue/configuration surfaces are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode

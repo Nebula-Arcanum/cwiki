@@ -1,6 +1,7 @@
 #include "editor.h"
 
 #include "layout.h"
+#include "snippet.h"
 #include "unicode.h"
 #include "zone.h"
 
@@ -509,6 +510,80 @@ cwiki_editor_backspace(struct cwiki_editor *editor)
       return CWIKI_EDITOR_NOTHING;
    }
    cwiki_document_mark_dirty(editor->document);
+   reset_goals(editor);
+   return CWIKI_EDITOR_OK;
+}
+
+static enum cwiki_editor_status
+snippet_status(enum cwiki_snippet_status status)
+{
+   if (status == CWIKI_SNIPPET_OK) {
+      return CWIKI_EDITOR_OK;
+   }
+   return status == CWIKI_SNIPPET_NO_MEMORY ? CWIKI_EDITOR_NO_MEMORY :
+       CWIKI_EDITOR_INVALID;
+}
+
+enum cwiki_editor_status
+cwiki_editor_snippet_expand(struct cwiki_editor *editor,
+    struct cwiki_snippet_engine *engine,
+    const struct cwiki_snippet_match *match, uint64_t timestamp)
+{
+   enum cwiki_snippet_status status;
+
+   if (editor == NULL || engine == NULL || match == NULL ||
+       editor->mode != CWIKI_EDITOR_INSERT ||
+       !cwiki_undo_transaction_active(&editor->undo)) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (cwiki_undo_commit(&editor->undo) != 0) {
+      return error_status();
+   }
+   status = cwiki_snippet_expand(engine, match, NULL, 0U, timestamp,
+       &editor->motion.cursor);
+   if (status == CWIKI_SNIPPET_OK) {
+      editor->reveal.active = false;
+      cwiki_document_mark_dirty(editor->document);
+      reset_goals(editor);
+   }
+   if (cwiki_undo_begin(&editor->undo, timestamp) != 0) {
+      return error_status();
+   }
+   return snippet_status(status);
+}
+
+enum cwiki_editor_status
+cwiki_editor_snippet_edit(struct cwiki_editor *editor,
+    struct cwiki_snippet_engine *engine, struct cwiki_position start,
+    struct cwiki_position end, const char *bytes, size_t length)
+{
+   enum cwiki_snippet_status status;
+
+   if (editor == NULL || engine == NULL || editor->mode != CWIKI_EDITOR_INSERT ||
+       !cwiki_undo_transaction_active(&editor->undo)) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   status = cwiki_snippet_edit_pending(engine, start, end, bytes, length,
+       &editor->motion.cursor);
+   if (status == CWIKI_SNIPPET_OK &&
+       (start.line != end.line || start.byte != end.byte || length != 0U)) {
+      editor->reveal.active = false;
+      cwiki_document_mark_dirty(editor->document);
+      reset_goals(editor);
+   }
+   return snippet_status(status);
+}
+
+enum cwiki_editor_status
+cwiki_editor_snippet_move(struct cwiki_editor *editor,
+    struct cwiki_position cursor)
+{
+   if (editor == NULL || editor->mode != CWIKI_EDITOR_INSERT ||
+       cursor.line >= editor->document->buffer.line_count ||
+       cursor.byte > editor->document->buffer.lines[cursor.line].length) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   editor->motion.cursor = cursor;
    reset_goals(editor);
    return CWIKI_EDITOR_OK;
 }

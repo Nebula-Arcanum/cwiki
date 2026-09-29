@@ -185,6 +185,7 @@ test_cancel_and_empty_transaction(void)
 {
    struct cwiki_buffer buffer;
    struct cwiki_undo undo;
+   struct cwiki_undo_checkpoint checkpoint;
    struct cwiki_position first = {0U, 1U};
    struct cwiki_position second = {1U, 3U};
 
@@ -196,10 +197,17 @@ test_cancel_and_empty_transaction(void)
        "register cancel positions");
    check(cwiki_undo_begin(&undo, UINT64_C(410)) == 0 &&
        cwiki_undo_insert(&undo, 0U, 1U, "12", 2U) == 0 &&
+       cwiki_undo_checkpoint(&undo, &checkpoint) == 0 &&
        cwiki_undo_delete(&undo, 1U, 1U, 2U) == 0 &&
        cwiki_undo_split(&undo, 0U, 3U) == 0 &&
        cwiki_undo_join(&undo, 1U) == 0,
        "apply cancellable mixed transaction");
+   check(cwiki_undo_rollback(&undo, &checkpoint) == 0,
+       "roll back to a pending transaction checkpoint");
+   check_encoding(&buffer, "l12eft\nRIGHT", 12U,
+       "checkpoint rollback preserves earlier pending edits");
+   check(cwiki_undo_insert(&undo, 1U, 5U, "!", 1U) == 0,
+       "pending transaction remains editable after checkpoint rollback");
    check(cwiki_undo_cancel(&undo) == 0,
        "cancel rolls back every applied operation");
    check_encoding(&buffer, "left\nRIGHT", 10U,

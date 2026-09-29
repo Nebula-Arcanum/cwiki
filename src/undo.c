@@ -383,6 +383,45 @@ cwiki_undo_transaction_active(const struct cwiki_undo *undo)
 }
 
 int
+cwiki_undo_checkpoint(const struct cwiki_undo *undo,
+    struct cwiki_undo_checkpoint *checkpoint)
+{
+   if (!ready_for_edit(undo) || checkpoint == NULL) {
+      errno = EINVAL;
+      return -1;
+   }
+   checkpoint->operation_count = undo->pending->operation_count;
+   return 0;
+}
+
+int
+cwiki_undo_rollback(struct cwiki_undo *undo,
+    const struct cwiki_undo_checkpoint *checkpoint)
+{
+   struct cwiki_undo_node *pending;
+
+   if (!ready_for_edit(undo) || checkpoint == NULL ||
+       checkpoint->operation_count > undo->pending->operation_count) {
+      errno = EINVAL;
+      return -1;
+   }
+   pending = undo->pending;
+   while (pending->applied_operations > checkpoint->operation_count) {
+      size_t index = pending->applied_operations - 1U;
+
+      if (apply_reverse(undo->buffer, &pending->operations[index]) != 0) {
+         return -1;
+      }
+      free(pending->operations[index].bytes);
+      memset(&pending->operations[index], 0,
+          sizeof(pending->operations[index]));
+      pending->applied_operations--;
+      pending->operation_count--;
+   }
+   return 0;
+}
+
+int
 cwiki_undo_insert(struct cwiki_undo *undo, size_t line, size_t byte,
     const char *bytes, size_t length)
 {

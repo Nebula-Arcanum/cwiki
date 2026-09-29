@@ -19,6 +19,7 @@
 
 #define ESCAPE "\x1b[27u"
 #define ENTER "\x1b[13u"
+#define TAB "\x1b[9;1u"
 
 static const char supported[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?1;2c";
@@ -328,6 +329,20 @@ main(void)
    }
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: per-run reveal, modes, departure, edit and history frames passed");
+   assert(unlink(path) == 0);
+
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("imk" TAB "x" ESCAPE));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "x") != NULL && strstr(output, "mk") == NULL);
+   send_bytes(session.master, wire(":q" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript),
+       "%simk" TAB "x" ESCAPE ":q" ENTER, supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   content(path, "$x$", CWIKI_LINE_ENDING_LF);
+   (void)puts("app: explicit snippet expansion, stop fill and autosave passed");
    assert(unlink(path) == 0);
 
    /* Pending startup input, new LF file, edits and motions in a single drain.

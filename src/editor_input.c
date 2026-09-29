@@ -1,6 +1,11 @@
 #include "editor_input.h"
 
+#include "snippet.h"
+#include "snippet_catalog.h"
+#include "unicode.h"
+
 #include <stdbool.h>
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -43,10 +48,13 @@ struct cwiki_editor_input {
    struct cwiki_editor *editor;
    struct cwiki_action_registry *actions;
    struct cwiki_keymap *keymap;
+   struct cwiki_snippet_registry *snippet_registry;
+   struct cwiki_snippet_engine *snippets;
    struct action_context action_contexts[ACTION_COUNT];
    struct cwiki_input_event pending[CWIKI_KEYMAP_MAX_SEQUENCE];
    size_t pending_count;
    struct cwiki_editor_input_context context;
+   bool stop_selected;
 };
 
 #define MOTION_ACTION(motion, name, label) \
@@ -186,6 +194,10 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
 
       status = cwiki_editor_apply_motion(editor, input->context.layout,
           input->context.zones, motion, input->context.viewport);
+      if (status == CWIKI_EDITOR_OK) {
+         cwiki_snippet_cursor_moved(input->snippets,
+             editor->motion.cursor);
+      }
       return (int)status;
    }
    switch (action->id) {
@@ -231,6 +243,20 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
    default:
       status = CWIKI_EDITOR_INVALID;
       break;
+   }
+   if (status == CWIKI_EDITOR_OK) {
+      if (action->id == ACTION_UNDO || action->id == ACTION_REDO ||
+          action->id == ACTION_OLDER || action->id == ACTION_NEWER) {
+         cwiki_snippet_clear_sessions(input->snippets);
+         input->stop_selected = false;
+      } else if (action->id == ACTION_DELETE || action->id == ACTION_CHANGE ||
+          action->id == ACTION_PUT_AFTER || action->id == ACTION_PUT_BEFORE) {
+         cwiki_snippet_clear_sessions(input->snippets);
+         input->stop_selected = false;
+      } else if (action->id == ACTION_YANK) {
+         cwiki_snippet_cursor_moved(input->snippets,
+             editor->motion.cursor);
+      }
    }
    return (int)status;
 }
@@ -307,6 +333,15 @@ cwiki_editor_input_init(struct cwiki_editor_input **input,
       free(created);
       return CWIKI_EDITOR_NO_MEMORY;
    }
+   if (cwiki_snippet_registry_init(&created->snippet_registry) !=
+       CWIKI_SNIPPET_OK ||
+       cwiki_snippet_catalog_install(created->snippet_registry, NULL, 0U) !=
+       CWIKI_SNIPPET_OK ||
+       cwiki_snippet_engine_init(&created->snippets,
+       &editor->document->buffer, &editor->undo) != CWIKI_SNIPPET_OK) {
+      cwiki_editor_input_free(created);
+      return CWIKI_EDITOR_NO_MEMORY;
+   }
    status = register_actions(created);
    if (status != CWIKI_EDITOR_OK ||
        cwiki_keymap_init(&created->keymap, created->actions) !=
@@ -329,6 +364,8 @@ cwiki_editor_input_free(struct cwiki_editor_input *input)
    if (input == NULL) {
       return;
    }
+   cwiki_snippet_engine_free(input->snippets);
+   cwiki_snippet_registry_free(input->snippet_registry);
    cwiki_keymap_free(input->keymap);
    cwiki_action_registry_free(input->actions);
    free(input);
@@ -391,9 +428,95 @@ handle_normal(struct cwiki_editor_input *input,
 }
 
 static enum cwiki_editor_status
-insert_key_text(struct cwiki_editor *editor,
+recompute_zones(struct cwiki_editor_input *input)
+{
+   struct cwiki_buffer *buffer = &input->editor->document->buffer;
+   size_t line;
+
+   if (input->context.zones == NULL) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   for (line = 0U; line < buffer->line_count; line++) {
+      if (buffer->lines[line].zone_dirty &&
+          cwiki_zone_recompute(input->context.zones, buffer, line, NULL) != 0) {
+         return errno == ENOMEM ? CWIKI_EDITOR_NO_MEMORY :
+             CWIKI_EDITOR_INVALID;
+      }
+   }
+   return CWIKI_EDITOR_OK;
+}
+
+static enum cwiki_editor_status
+try_expand(struct cwiki_editor_input *input,
+    enum cwiki_snippet_expand_kind kind)
+{
+   struct cwiki_snippet_match match = {0};
+   enum cwiki_snippet_status matched;
+   enum cwiki_editor_status status;
+
+   if (cwiki_snippet_session_depth(input->snippets) >=
+       CWIKI_SNIPPET_SESSION_MAX_DEPTH) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   status = recompute_zones(input);
+   if (status != CWIKI_EDITOR_OK) {
+      return status;
+   }
+   matched = cwiki_snippet_match(input->snippet_registry,
+       input->context.zones, &input->editor->document->buffer,
+       input->editor->motion.cursor, kind, CWIKI_SNIPPET_INPUT_NONE, &match);
+   if (matched == CWIKI_SNIPPET_NO_MATCH ||
+       matched == CWIKI_SNIPPET_LIMIT_DISABLED) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   if (matched != CWIKI_SNIPPET_OK) {
+      return matched == CWIKI_SNIPPET_NO_MEMORY ? CWIKI_EDITOR_NO_MEMORY :
+          CWIKI_EDITOR_INVALID;
+   }
+   status = cwiki_editor_snippet_expand(input->editor, input->snippets,
+       &match, input->context.timestamp);
+   cwiki_snippet_match_free(&match);
+   if (status == CWIKI_EDITOR_OK) {
+      input->stop_selected = true;
+   }
+   return status;
+}
+
+static enum cwiki_editor_status
+snippet_insert(struct cwiki_editor_input *input, const char *bytes,
+    size_t length, bool auto_expand)
+{
+   struct cwiki_editor *editor = input->editor;
+   enum cwiki_editor_status status;
+
+   if (editor->mode != CWIKI_EDITOR_INSERT ||
+       cwiki_snippet_session_depth(input->snippets) == 0U) {
+      status = cwiki_editor_insert(editor, bytes, length);
+   } else {
+      struct cwiki_position start = editor->motion.cursor;
+      struct cwiki_position end = start;
+
+      if (input->stop_selected &&
+          cwiki_snippet_current_stop(input->snippets, &start, &end) != 0) {
+         return CWIKI_EDITOR_INVALID;
+      }
+      status = cwiki_editor_snippet_edit(editor, input->snippets, start, end,
+          bytes, length);
+      input->stop_selected = false;
+   }
+   if (status != CWIKI_EDITOR_OK || !auto_expand ||
+       editor->mode != CWIKI_EDITOR_INSERT) {
+      return status;
+   }
+   status = try_expand(input, CWIKI_SNIPPET_AUTO);
+   return status == CWIKI_EDITOR_NOTHING ? CWIKI_EDITOR_OK : status;
+}
+
+static enum cwiki_editor_status
+insert_key_text(struct cwiki_editor_input *input,
     const struct cwiki_input_event *event)
 {
+   struct cwiki_editor *editor = input->editor;
    utf8proc_uint8_t encoded[4];
    utf8proc_ssize_t length;
 
@@ -401,8 +524,8 @@ insert_key_text(struct cwiki_editor *editor,
       return editor->mode == CWIKI_EDITOR_COMMAND ?
           cwiki_editor_command_insert(editor, (const char *)event->text,
           event->text_len) :
-          cwiki_editor_insert(editor, (const char *)event->text,
-          event->text_len);
+          snippet_insert(input, (const char *)event->text, event->text_len,
+          true);
    }
    if ((event->modifiers & ~(unsigned int)CWIKI_INPUT_SHIFT) != 0U ||
        event->key > UINT32_C(0x10ffff) ||
@@ -416,7 +539,60 @@ insert_key_text(struct cwiki_editor *editor,
    return editor->mode == CWIKI_EDITOR_COMMAND ?
        cwiki_editor_command_insert(editor, (const char *)encoded,
        (size_t)length) :
-       cwiki_editor_insert(editor, (const char *)encoded, (size_t)length);
+       snippet_insert(input, (const char *)encoded, (size_t)length, true);
+}
+
+static enum cwiki_editor_status
+snippet_backspace(struct cwiki_editor_input *input)
+{
+   struct cwiki_editor *editor = input->editor;
+   struct cwiki_position start = editor->motion.cursor;
+   struct cwiki_position end = start;
+
+   if (editor->mode != CWIKI_EDITOR_INSERT ||
+       cwiki_snippet_session_depth(input->snippets) == 0U) {
+      return cwiki_editor_backspace(editor);
+   }
+   if (input->stop_selected) {
+      if (cwiki_snippet_current_stop(input->snippets, &start, &end) != 0) {
+         return CWIKI_EDITOR_INVALID;
+      }
+   } else if (start.byte != 0U) {
+      start.byte = cwiki_grapheme_previous(
+          editor->document->buffer.lines[start.line].bytes,
+          editor->document->buffer.lines[start.line].length, start.byte);
+   } else if (start.line != 0U) {
+      start.line--;
+      start.byte = editor->document->buffer.lines[start.line].length;
+   } else {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   input->stop_selected = false;
+   return cwiki_editor_snippet_edit(editor, input->snippets, start, end, NULL,
+       0U);
+}
+
+static enum cwiki_editor_status
+handle_tab(struct cwiki_editor_input *input, bool previous)
+{
+   struct cwiki_position cursor;
+   int moved;
+
+   if (cwiki_snippet_session_depth(input->snippets) == 0U) {
+      if (previous) {
+         return CWIKI_EDITOR_NOTHING;
+      }
+      return try_expand(input, CWIKI_SNIPPET_EXPLICIT);
+   }
+   cursor = input->editor->motion.cursor;
+   moved = previous ? cwiki_snippet_previous_stop(input->snippets, &cursor) :
+       cwiki_snippet_next_stop(input->snippets, &cursor);
+   if (moved < 0) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   input->stop_selected = moved == 0;
+   return moved == 0 ? cwiki_editor_snippet_move(input->editor, cursor) :
+       CWIKI_EDITOR_OK;
 }
 
 static enum cwiki_editor_status
@@ -429,8 +605,8 @@ handle_editing(struct cwiki_editor_input *input,
       return editor->mode == CWIKI_EDITOR_COMMAND ?
           cwiki_editor_command_insert(editor, (const char *)event->text,
           event->text_len) :
-          cwiki_editor_insert(editor, (const char *)event->text,
-          event->text_len);
+          snippet_insert(input, (const char *)event->text, event->text_len,
+          false);
    }
    if (event->action == CWIKI_INPUT_RELEASE) {
       return CWIKI_EDITOR_NOTHING;
@@ -438,18 +614,25 @@ handle_editing(struct cwiki_editor_input *input,
    if (event->key == 27U && event->modifiers == 0U) {
       return cwiki_editor_escape(editor);
    }
+   if (editor->mode == CWIKI_EDITOR_INSERT && event->key == 9U &&
+       (event->modifiers == 0U || event->modifiers == CWIKI_INPUT_SHIFT)) {
+      return handle_tab(input, event->modifiers == CWIKI_INPUT_SHIFT);
+   }
    if ((event->key == 13U || event->key == 10U) &&
        event->modifiers == 0U) {
       return editor->mode == CWIKI_EDITOR_COMMAND ?
-          cwiki_editor_execute_command(editor) : cwiki_editor_enter(editor);
+          cwiki_editor_execute_command(editor) :
+          (editor->mode == CWIKI_EDITOR_INSERT ?
+          snippet_insert(input, "\n", 1U, true) :
+          cwiki_editor_enter(editor));
    }
    if ((event->key == 127U || event->key == 8U) &&
        event->modifiers == 0U) {
       return editor->mode == CWIKI_EDITOR_COMMAND ?
           cwiki_editor_command_backspace(editor) :
-          cwiki_editor_backspace(editor);
+          snippet_backspace(input);
    }
-   return insert_key_text(editor, event);
+   return insert_key_text(input, event);
 }
 
 enum cwiki_editor_status

@@ -102,6 +102,21 @@ send(struct fixture *fixture, struct cwiki_input_event event)
        &fixture->context);
 }
 
+static struct cwiki_zone_engine *
+attach_zones(struct fixture *fixture)
+{
+   struct cwiki_zone_engine *zones = NULL;
+   const struct cwiki_zone_region *regions;
+   size_t count;
+   uint64_t top;
+
+   regions = cwiki_zone_builtin_regions(&count, &top);
+   check(cwiki_zone_engine_init(&zones, regions, count, top) == 0,
+       "initialize snippet zones");
+   fixture->context.zones = zones;
+   return zones;
+}
+
 static void
 test_named_actions_physical_keys_and_literal_text(void)
 {
@@ -200,6 +215,136 @@ test_command_line_and_unknown_input(void)
 }
 
 static void
+test_runtime_snippets_and_undo_boundaries(void)
+{
+   struct fixture fixture;
+   struct cwiki_zone_engine *zones;
+   struct cwiki_input_event paste = {0};
+
+   fixture_init(&fixture, "");
+   zones = attach_zones(&fixture);
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('m', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('k', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk"), "explicit trigger remains literal before Tab");
+   check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       fixture.editor.motion.cursor.byte == 1U &&
+       content_is(&fixture, "$$"), "Tab expands and selects the first stop");
+   check(send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "$x$") &&
+       cwiki_undo_state_count(&fixture.editor.undo) == 4U,
+       "typed trigger, expansion and stop fill are distinct undo steps");
+   check(send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "$$") &&
+       send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk") &&
+       send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, ""),
+       "undo reverses fill, expansion and typed trigger independently");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "$ $");
+   zones = attach_zones(&fixture);
+   fixture.editor.motion.cursor.byte = 1U;
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('`', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "$\\alpha $"),
+       "ordinary VimTeX symbol mapping auto-expands in math");
+   check(send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK,
+       "leave symbol expansion insert session");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "");
+   zones = attach_zones(&fixture);
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK,
+       "enter insert mode for literal paste");
+   paste.kind = CWIKI_INPUT_PASTE;
+   paste.text = (const unsigned char *)"mk";
+   paste.text_len = 2U;
+   check(send(&fixture, paste) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk"), "paste never auto-expands snippets");
+   check(send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK,
+       "leave pasted insert session");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+}
+
+static void
+test_runtime_snippet_mirrors_and_tabs(void)
+{
+   struct fixture fixture;
+   struct cwiki_zone_engine *zones;
+   const char *gather = "gather";
+   size_t index;
+
+   fixture_init(&fixture, "");
+   zones = attach_zones(&fixture);
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('e', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('n', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('v', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK,
+       "expand mirrored environment snippet");
+   for (index = 0U; index < strlen(gather); index++) {
+      check(send(&fixture, key((uint32_t)(unsigned char)gather[index], 0U)) ==
+          CWIKI_EDITOR_OK, "fill mirrored environment name");
+   }
+   check(content_is(&fixture,
+       "\\begin{gather}\n\n\\end{gather}"),
+       "typing one stop updates its mirror on every edit");
+   check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture,
+       "\\begin{gather}\nx\n\\end{gather}"),
+       "Tab and Shift-Tab navigate numbered stops and final stop");
+   check(cwiki_undo_state_count(&fixture.editor.undo) == 4U &&
+       send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "\\begin{align}\n\n\\end{align}") &&
+       send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "env"),
+       "all stop fills and mirrors share one post-expansion insert step");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+}
+
+static void
+test_runtime_nested_snippets(void)
+{
+   struct fixture fixture;
+   struct cwiki_zone_engine *zones;
+
+   fixture_init(&fixture, "$ $");
+   zones = attach_zones(&fixture);
+   fixture.editor.motion.cursor.byte = 1U;
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('/', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('/', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('/', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('/', 0U)) == CWIKI_EDITOR_OK,
+       "auto-expand a fraction inside an outer fraction stop");
+   check(send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('b', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('c', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "$\\frac{\\frac{a}{b}}{c} $"),
+       "nested session returns from its final stop to the outer denominator");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+}
+
+static void
 test_reveal_through_key_dispatch(void)
 {
    struct fixture fixture;
@@ -283,6 +428,9 @@ main(void)
    test_named_actions_physical_keys_and_literal_text();
    test_operator_sequences_history_and_rebinding();
    test_command_line_and_unknown_input();
+   test_runtime_snippets_and_undo_boundaries();
+   test_runtime_snippet_mirrors_and_tabs();
+   test_runtime_nested_snippets();
    if (failures != 0) {
       (void)fprintf(stderr, "%d editor input test(s) failed\n", failures);
       return EXIT_FAILURE;

@@ -10,6 +10,8 @@
 #include <stdint.h>
 
 struct cwiki_layout_window;
+struct cwiki_snippet_engine;
+struct cwiki_snippet_match;
 struct cwiki_zone_engine;
 
 enum cwiki_editor_mode {
@@ -72,6 +74,15 @@ enum cwiki_editor_status cwiki_editor_insert(struct cwiki_editor *editor,
     const char *bytes, size_t length);
 enum cwiki_editor_status cwiki_editor_enter(struct cwiki_editor *editor);
 enum cwiki_editor_status cwiki_editor_backspace(struct cwiki_editor *editor);
+enum cwiki_editor_status cwiki_editor_snippet_expand(
+    struct cwiki_editor *editor, struct cwiki_snippet_engine *engine,
+    const struct cwiki_snippet_match *match, uint64_t timestamp);
+enum cwiki_editor_status cwiki_editor_snippet_edit(
+    struct cwiki_editor *editor, struct cwiki_snippet_engine *engine,
+    struct cwiki_position start, struct cwiki_position end, const char *bytes,
+    size_t length);
+enum cwiki_editor_status cwiki_editor_snippet_move(
+    struct cwiki_editor *editor, struct cwiki_position cursor);
 
 enum cwiki_editor_status cwiki_editor_start_operator(
     struct cwiki_editor *editor, enum cwiki_editor_operator operator_kind,
