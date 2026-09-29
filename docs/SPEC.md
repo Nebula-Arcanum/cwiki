@@ -540,6 +540,20 @@ objects, Visual modes, additional operators, and the complete register model
 remain deferred to Milestone 5. This broader motion scope was selected over the
 narrow `h`/`l`, `w`/`b`/`e`, row-motion-only alternative on 2026-09-29.
 
+**R1.7.8 (Milestone 1 mode and edit contract)** `i` and `a` enter Insert mode,
+`R` enters Replace mode, and Escape returns to Normal mode. Associated text and
+bracketed paste insert literally; Enter splits the line; Backspace deletes one
+grapheme or joins with the preceding line at the start of a line. Replace mode
+overwrites one grapheme at a time and inserts after end of line. Motions and
+`d`/`c`/`y` use Vim-compatible word/WORD classes and range endpoints, without
+the exceptional `cw` rewrite; counts remain deferred. Milestone 1 has one
+internal unnamed yank slot: `d`, `c`, and `y` populate it, and `p`/`P` put it
+after/before the cursor with its characterwise or linewise shape. Named,
+numbered, clipboard, and special registers remain deferred. Command-line mode
+supports `:w`, `:q`, `:wq`, and Escape cancellation; history, completion,
+ranges, and other Ex commands remain deferred. This bounded contract, including
+`p`/`P`, was selected on 2026-09-29.
+
 Rejected:
 
 - **Wrap off by default** (matching the nvim config). That config also edits
