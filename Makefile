@@ -25,10 +25,12 @@ UNDO_TEST = $(BUILD_DIR)/test-undo
 ZONE_TEST = $(BUILD_DIR)/test-zone
 ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
 REGEX_TEST = $(BUILD_DIR)/test-regex
+VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
+VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
-	$(ZONE_FUZZ) $(REGEX_TEST)
+	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -38,7 +40,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/terminal/capabilities_test.c src/terminal.c \
 	tests/terminal/terminal_test.c src/undo.c tests/undo/test_undo.c \
 	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
-	tests/regex/test_regex.c
+	tests/regex/test_regex.c src/vim_regex.c tests/regex/test_vim_regex.c \
+	tests/regex/fuzz_vim_regex.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -137,6 +140,21 @@ $(REGEX_TEST): src/regex.c src/regex.h tests/regex/test_regex.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(PCRE2_CFLAGS) -Isrc src/regex.c \
 		tests/regex/test_regex.c $(LDFLAGS) $(PCRE2_LIBS) -o $(REGEX_TEST)
 
+$(VIM_REGEX_TEST): src/vim_regex.c src/vim_regex.h src/regex.c src/regex.h \
+		tests/regex/test_vim_regex.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/vim_regex.c src/regex.c tests/regex/test_vim_regex.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(VIM_REGEX_TEST)
+
+$(VIM_REGEX_FUZZ): src/vim_regex.c src/vim_regex.h src/regex.c src/regex.h \
+		tests/regex/fuzz_vim_regex.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_VIM_REGEX_FUZZ_STANDALONE -Isrc src/vim_regex.c src/regex.c \
+		tests/regex/fuzz_vim_regex.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		$(PCRE2_LIBS) -o $(VIM_REGEX_FUZZ)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -147,6 +165,8 @@ product-test: $(PRODUCT_TESTS)
 	$(ZONE_TEST)
 	$(ZONE_FUZZ)
 	$(REGEX_TEST)
+	$(VIM_REGEX_TEST)
+	$(VIM_REGEX_FUZZ)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -164,7 +184,8 @@ analyze:
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
 		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_TERMINAL_TESTING \
 		-DCWIKI_UNDO_TESTING \
-		-DCWIKI_ZONE_FUZZ_STANDALONE $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
+		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
+		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
 
 verify: check sanitize
 

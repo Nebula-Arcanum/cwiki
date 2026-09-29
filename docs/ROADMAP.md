@@ -55,8 +55,10 @@ durable-write primitive are integrated. The terminal lifecycle now provides raw
 mode, capability probing, synchronized updates, and signal-safe restoration.
 The incremental zone-stack foundation covers the first Markdown/LaTeX contexts,
 uses the shared bounded PCRE2 runtime, and visibly marks lines where a regex
-resource limit makes zone state untrustworthy. Strict, sanitizer, model,
-protocol, fault-injection, and parser fuzz tests cover these slices. Application
+resource limit makes zone state untrustworthy. Typed Vim patterns translate
+across all four magic modes with Unicode smartcase, while unsupported constructs
+are rejected rather than guessed. Strict, sanitizer, model, protocol,
+fault-injection, and parser/translator fuzz tests cover these slices. Application
 integration and the remaining editor, highlighting, and snippet work are not yet
 implemented.
 

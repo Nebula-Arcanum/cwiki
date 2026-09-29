@@ -53,7 +53,7 @@ reserve(struct output *output, size_t extra)
       return false;
    }
    required = output->length + extra + 1U;
-   if (required <= output->capacity) {
+   if (required <= output->capacity && output->bytes != NULL) {
       return true;
    }
    capacity = output->capacity == 0U ? 32U : output->capacity;
