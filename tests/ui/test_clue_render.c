@@ -98,18 +98,19 @@ expect_overlay(const struct cwiki_keymap *keymap,
    size_t capacity;
 
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL,
-       prefix, prefix_count, area, border, NULL, 0U, &needed) == 0);
+       prefix, prefix_count, area, border, NULL, NULL, 0U, &needed) == 0);
    assert(needed == strlen(expected));
    (void)memset(output, '!', sizeof(output));
    (void)memcpy(before, output, sizeof(output));
    for (capacity = 0U; capacity <= needed; capacity++) {
       assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL,
-          prefix, prefix_count, area, border, output, capacity, &length) ==
+          prefix, prefix_count, area, border, NULL, output, capacity, &length) ==
           -1 && errno == ENOSPC);
       assert(length == 777U && memcmp(output, before, sizeof(output)) == 0);
    }
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL,
-       prefix, prefix_count, area, border, output, needed + 1U, &length) == 0);
+       prefix, prefix_count, area, border, NULL, output, needed + 1U,
+       &length) == 0);
    assert(length == needed && strcmp(output, expected) == 0);
    assert(output[length + 1U] == '!');
 }
@@ -181,19 +182,24 @@ special_keys_empty_and_errors(void)
    assert(cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &tab,
        "test.tab") == CWIKI_KEYMAP_OK);
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &z,
-       1U, &area, CWIKI_FLOAT_BORDER_NONE, output, sizeof(output), &length) ==
-       0);
+       1U, &area, CWIKI_FLOAT_BORDER_NONE, NULL, output, sizeof(output),
+       &length) == 0);
    assert(strstr(output, "Tab  ") != NULL && strstr(output, "Complete") != NULL);
+   area = (struct cwiki_float_area){1U, 1U, 3U, 18U};
+   assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &z,
+       1U, &area, CWIKI_FLOAT_BORDER_SINGLE, "Navigation", output,
+       sizeof(output), &length) == 0);
+   assert(strstr(output, "┌─ Navigation ───┐") != NULL);
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &x,
-       1U, &area, CWIKI_FLOAT_BORDER_NONE, output, sizeof(output), &length) ==
-       0);
+       1U, &area, CWIKI_FLOAT_BORDER_NONE, NULL, output, sizeof(output),
+       &length) == 0);
    assert(strstr(output, "No continuations") != NULL);
    area = (struct cwiki_float_area){1U, 1U, 2U, 4U};
    (void)strcpy(output, "unchanged");
    length = 42U;
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &z,
-       1U, &area, CWIKI_FLOAT_BORDER_SINGLE, output, sizeof(output), &length) ==
-       -1 && errno == EINVAL && strcmp(output, "unchanged") == 0 &&
+       1U, &area, CWIKI_FLOAT_BORDER_SINGLE, NULL, output, sizeof(output),
+       &length) == -1 && errno == EINVAL && strcmp(output, "unchanged") == 0 &&
        length == 42U);
    cwiki_keymap_free(keymap);
    cwiki_action_registry_free(actions);
@@ -231,7 +237,7 @@ demo(void)
        "For $f(x)=x^2$, the derivative is $2x$.\n\n"
        "Press g and pause to inspect continuations.\n", stdout);
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL,
-       &prefix, 1U, &area, CWIKI_FLOAT_BORDER_SINGLE, output,
+       &prefix, 1U, &area, CWIKI_FLOAT_BORDER_SINGLE, "Go", output,
        sizeof(output), &length) == 0);
    assert(fwrite(output, 1U, length, stdout) == length);
    cwiki_keymap_free(keymap);

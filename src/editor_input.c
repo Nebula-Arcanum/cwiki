@@ -371,6 +371,19 @@ cwiki_editor_input_free(struct cwiki_editor_input *input)
    free(input);
 }
 
+enum cwiki_editor_status
+cwiki_editor_input_replace_keymap(struct cwiki_editor_input *input,
+    struct cwiki_keymap *candidate)
+{
+   if (input == NULL || candidate == NULL) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   cwiki_keymap_free(input->keymap);
+   input->keymap = candidate;
+   input->pending_count = 0U;
+   return CWIKI_EDITOR_OK;
+}
+
 static enum cwiki_editor_status
 dispatch_match(struct cwiki_editor_input *input,
     const struct cwiki_keymap_match *match)

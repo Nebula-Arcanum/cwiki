@@ -22,6 +22,9 @@ struct cwiki_editor_input_context {
 enum cwiki_editor_status cwiki_editor_input_init(
     struct cwiki_editor_input **input, struct cwiki_editor *editor);
 void cwiki_editor_input_free(struct cwiki_editor_input *input);
+/* Takes ownership of a complete candidate keymap. */
+enum cwiki_editor_status cwiki_editor_input_replace_keymap(
+    struct cwiki_editor_input *input, struct cwiki_keymap *candidate);
 
 enum cwiki_editor_status cwiki_editor_input_handle(
     struct cwiki_editor_input *input, const struct cwiki_input_event *event,

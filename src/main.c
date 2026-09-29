@@ -10,7 +10,7 @@ int
 main(int argc, char **argv)
 {
    struct cwiki_app_options options = {
-      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL
+      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL, NULL, 0U
    };
    char crash_path[] = "/tmp/cwiki-keys-XXXXXX";
    int result;

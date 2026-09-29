@@ -132,7 +132,8 @@ fail_frame(int fd, const void *bytes, size_t length)
 }
 
 static struct session
-start(const char *path, const char *reply, bool fault)
+start_config(const char *path, const char *reply, bool fault,
+    const char *config)
 {
    struct session session;
    struct winsize size = {5U, 40U, 0U, 0U};
@@ -157,7 +158,8 @@ start(const char *path, const char *reply, bool fault)
       struct cwiki_key_record record;
       struct cwiki_app_options options = {
          session.slave, session.slave, fileno(session.errors),
-         fileno(session.record), &record
+         fileno(session.record), &record, (const unsigned char *)config,
+         config == NULL ? 0U : strlen(config)
       };
       int result;
 
@@ -176,6 +178,12 @@ start(const char *path, const char *reply, bool fault)
    assert(strcmp(output, queries) == 0);
    send_bytes(session.master, wire(reply));
    return session;
+}
+
+static struct session
+start(const char *path, const char *reply, bool fault)
+{
+   return start_config(path, reply, fault, NULL);
 }
 
 static void
@@ -427,6 +435,30 @@ main(void)
        "%sg" ESCAPE ":q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: live clues derive from pending keymap/action metadata passed");
+
+   {
+      static const char config[] =
+          "keymaps:\n"
+          "  normal:\n"
+          "    - keys: [x]\n"
+          "      action: mode.command\n"
+          "clue-groups:\n"
+          "  normal:\n"
+          "    - prefix: [g]\n"
+          "      label: Go\n";
+
+      session = start_config(path, supported, false, config);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("g"));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "─ Go ") != NULL);
+      send_bytes(session.master, wire(ESCAPE "xq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%sg" ESCAPE "xq" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      (void)puts("app: validated keymap and clue-group config applied passed");
+   }
 
    write_note(path, "one\ntwo\nthree\nfour\nfive\nsix\nseven");
    session = start(path, supported, false);

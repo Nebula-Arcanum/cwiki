@@ -56,7 +56,7 @@ APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
 	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
 	src/keymap.c src/snippet.c src/snippet_catalog.c src/editor_input.c \
-	src/float.c src/clue_render.c
+	src/float.c src/clue_render.c src/config.c
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
@@ -101,9 +101,9 @@ all: $(CWIKI)
 
 $(CWIKI): $(APP_SOURCES) src/main.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
-		$(APP_SOURCES) src/main.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
-		-o $(CWIKI)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		$(YAML_CFLAGS) -Isrc $(APP_SOURCES) src/main.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) -o $(CWIKI)
 
 smoke: $(SMOKE)
 
@@ -403,9 +403,9 @@ $(CONFIG_TEST): src/config.c src/config.h src/action.c src/action.h \
 
 $(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) \
 		-DCWIKI_APP_TESTING -Isrc $(APP_SOURCES) tests/app/test_app.c \
-		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(APP_TEST)
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) -o $(APP_TEST)
 
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)

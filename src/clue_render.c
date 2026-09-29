@@ -99,12 +99,23 @@ repeat(struct output *out, const char *glyph, size_t count)
 
 static void
 border_row(struct output *out, const struct cwiki_float_area *area,
-    size_t row, bool top)
+    size_t row, bool top, const char *title)
 {
+   size_t width = area->columns - 2U;
+   size_t painted = 0U;
+
    position(out, row, area->left);
    text(out, "\x1b[0;90m");
    text(out, top ? "┌" : "└");
-   repeat(out, "─", area->columns - 2U);
+   if (top && title != NULL && title[0] != '\0' && width >= 3U) {
+      text(out, "─ ");
+      painted = 2U + paint(out, title, strlen(title), width - 2U);
+      if (painted < width) {
+         text(out, " ");
+         painted++;
+      }
+   }
+   repeat(out, "─", width - painted);
    text(out, top ? "┐" : "┘");
    text(out, "\x1b[0m");
 }
@@ -299,7 +310,8 @@ static void
 overlay(struct output *out, const struct cwiki_keymap *keymap,
     const struct cwiki_action_registry *actions,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,
-    size_t prefix_count, const struct cwiki_float_area *area, bool bordered)
+    size_t prefix_count, const struct cwiki_float_area *area, bool bordered,
+    const char *title)
 {
    size_t inset = bordered ? 1U : 0U;
    size_t width = area->columns - inset * 2U;
@@ -311,7 +323,7 @@ overlay(struct output *out, const struct cwiki_keymap *keymap,
    text(out, CWIKI_TERMINAL_CURSOR_HIDE);
    text(out, "\x1b[s");
    if (bordered) {
-      border_row(out, area, area->top, true);
+      border_row(out, area, area->top, true, title);
    }
    for (i = 0U; i < rows; i++) {
       size_t row = area->top + inset + i;
@@ -326,7 +338,7 @@ overlay(struct output *out, const struct cwiki_keymap *keymap,
       }
    }
    if (bordered) {
-      border_row(out, area, area->top + area->rows - 1U, false);
+      border_row(out, area, area->top + area->rows - 1U, false, NULL);
    }
    text(out, "\x1b[u");
    text(out, CWIKI_TERMINAL_CURSOR_SHOW);
@@ -337,8 +349,8 @@ cwiki_clue_render_overlay(const struct cwiki_keymap *keymap,
     const struct cwiki_action_registry *actions,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,
     size_t prefix_count, const struct cwiki_float_area *area,
-    enum cwiki_float_border border, char *bytes, size_t capacity,
-    size_t *length)
+    enum cwiki_float_border border, const char *title, char *bytes,
+    size_t capacity, size_t *length)
 {
    struct output out = {NULL, 0U, 0};
    bool bordered = border == CWIKI_FLOAT_BORDER_SINGLE;
@@ -358,7 +370,8 @@ cwiki_clue_render_overlay(const struct cwiki_keymap *keymap,
       errno = EINVAL;
       return -1;
    }
-   overlay(&out, keymap, actions, mode, prefix, prefix_count, area, bordered);
+   overlay(&out, keymap, actions, mode, prefix, prefix_count, area, bordered,
+       title);
    if (out.error != 0 || (bytes != NULL && capacity <= out.length)) {
       errno = out.error != 0 ? out.error : ENOSPC;
       return -1;
@@ -367,7 +380,7 @@ cwiki_clue_render_overlay(const struct cwiki_keymap *keymap,
       out.bytes = bytes;
       out.length = 0U;
       overlay(&out, keymap, actions, mode, prefix, prefix_count, area,
-          bordered);
+          bordered, title);
       bytes[out.length] = '\0';
    }
    *length = out.length;

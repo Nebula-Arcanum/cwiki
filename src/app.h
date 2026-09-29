@@ -14,6 +14,9 @@ struct cwiki_app_options {
    int crash_fd;
    /* Optional caller-owned initialized recorder, also useful for replay tests. */
    struct cwiki_key_record *record;
+   /* Optional declarative configuration bytes, parsed before terminal startup. */
+   const unsigned char *config;
+   size_t config_length;
 };
 
 /* Returns 0 on requested exit, 1 on failure; diagnostics follow restoration. */

@@ -105,9 +105,10 @@ continuation from shared keymap and named-action metadata, including action
 availability, and is composed into application redraws. The bounded libyaml
 configuration foundation strictly validates physical-key bindings, unbindings,
 and clue-group labels with source locations, then builds a complete candidate
-keymap without mutating its base. Configuration scope discovery and application,
-the remaining declarative schemas, clue-group display, and concrete picker
-providers are not yet implemented.
+keymap without mutating its base. Validated configuration bytes now replace the
+live keymap transactionally before terminal startup, and configured clue-group
+labels title the live popup. Configuration scope discovery, the remaining
+declarative schemas, and concrete picker providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
