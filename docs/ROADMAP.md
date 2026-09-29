@@ -78,8 +78,10 @@ viewport and structural motions, conceal reveal continuity, and normalized
 operator ranges. The editor model composes those ranges with Insert/Replace and
 Command-line modes, deterministic undo boundaries, `d`/`c`/`y`, the unnamed
 yank and `p`/`P`, dirty-state-preserving saves, and the bounded `:w`/`:q`/`:wq`
-surface. Application integration, the builtin snippet catalog, physical key
-dispatch, and the remaining highlighting work are not yet implemented.
+surface. Parser events now route through the shared physical-key keymap and named
+action registry, including prefix sequences, associated text, and literal paste.
+The application loop, builtin snippet catalog, and remaining highlighting work
+are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
