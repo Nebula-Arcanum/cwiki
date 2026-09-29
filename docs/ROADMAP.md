@@ -69,12 +69,14 @@ model, protocol, fault-injection, and parser/translator/snippet fuzz tests cover
 these slices. A bounded shared structural-search primitive and named-action
 registry establish the common paths for later motions, clues, palette, macros,
 replay, and command dispatch. The keymap foundation adds mode-scoped physical
-key sequences, rebinding, prefix matching, and deterministic clue metadata.
-Application integration, the builtin snippet catalog, key dispatch, and the
-remaining editor and highlighting work are not yet implemented. Plain Markdown
-document ownership now composes buffer
-encoding with the durable-write outcomes while preserving dirty state unless
-durability is fully confirmed.
+key sequences, rebinding, prefix matching, and deterministic clue metadata. Plain
+Markdown document ownership composes buffer encoding with the durable-write
+outcomes while preserving dirty state unless durability is fully confirmed. The
+motion engine covers the approved Milestone 1 navigation set with Unicode
+word/WORD and grapheme semantics, distinct wrapped-row and source-line movement,
+viewport and structural motions, conceal reveal continuity, and normalized
+operator ranges. Application integration, the builtin snippet catalog, key
+dispatch, and the remaining editor and highlighting work are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

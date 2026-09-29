@@ -36,12 +36,14 @@ ACTION_TEST = $(BUILD_DIR)/test-action
 STRUCTURAL_SEARCH_TEST = $(BUILD_DIR)/test-structural-search
 DOCUMENT_TEST = $(BUILD_DIR)/test-document
 KEYMAP_TEST = $(BUILD_DIR)/test-keymap
+MOTION_TEST = $(BUILD_DIR)/test-motion
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
-	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST)
+	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
+	$(MOTION_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -58,7 +60,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c src/action.c \
 	tests/action/test_action.c src/structural_search.c \
 	tests/zone/test_structural_search.c src/document.c tests/io/test_document.c \
-	src/keymap.c tests/action/test_keymap.c
+	src/keymap.c tests/action/test_keymap.c src/motion.c \
+	tests/editor/test_motion.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -249,6 +252,16 @@ $(KEYMAP_TEST): src/keymap.c src/keymap.h src/action.c src/action.h \
 		-Isrc src/action.c src/keymap.c tests/action/test_keymap.c $(LDFLAGS) \
 		-o $(KEYMAP_TEST)
 
+$(MOTION_TEST): src/motion.c src/motion.h src/layout.c src/layout.h \
+		src/conceal.c src/conceal.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h src/zone.c src/zone.h src/regex.c src/regex.h \
+		tests/editor/test_motion.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/buffer.c src/unicode.c src/regex.c src/zone.c src/conceal.c \
+		src/layout.c src/motion.c tests/editor/test_motion.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(MOTION_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -270,6 +283,7 @@ product-test: $(PRODUCT_TESTS)
 	$(STRUCTURAL_SEARCH_TEST)
 	$(DOCUMENT_TEST)
 	$(KEYMAP_TEST)
+	$(MOTION_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
