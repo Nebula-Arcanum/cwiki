@@ -34,12 +34,13 @@ SNIPPET_TEST = $(BUILD_DIR)/test-snippet
 SNIPPET_FUZZ = $(BUILD_DIR)/fuzz-snippet
 ACTION_TEST = $(BUILD_DIR)/test-action
 STRUCTURAL_SEARCH_TEST = $(BUILD_DIR)/test-structural-search
+DOCUMENT_TEST = $(BUILD_DIR)/test-document
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
-	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST)
+	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -55,7 +56,7 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/layout.c tests/layout/test_layout.c src/snippet.c \
 	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c src/action.c \
 	tests/action/test_action.c src/structural_search.c \
-	tests/zone/test_structural_search.c
+	tests/zone/test_structural_search.c src/document.c tests/io/test_document.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -230,6 +231,15 @@ $(STRUCTURAL_SEARCH_TEST): src/structural_search.c src/structural_search.h \
 		tests/zone/test_structural_search.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(STRUCTURAL_SEARCH_TEST)
 
+$(DOCUMENT_TEST): src/document.c src/document.h src/durable_write.c \
+		src/durable_write.h src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
+		tests/io/test_document.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) \
+		-DCWIKI_DOCUMENT_TESTING -DCWIKI_DURABLE_WRITE_TESTING -Isrc \
+		src/buffer.c src/unicode.c src/durable_write.c src/document.c \
+		tests/io/test_document.c $(LDFLAGS) $(UTF8PROC_LIBS) -o $(DOCUMENT_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -249,6 +259,7 @@ product-test: $(PRODUCT_TESTS)
 	$(SNIPPET_FUZZ)
 	$(ACTION_TEST)
 	$(STRUCTURAL_SEARCH_TEST)
+	$(DOCUMENT_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -264,7 +275,8 @@ analyze:
 	$(CLANG_TIDY) --checks='-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling' \
 		--warnings-as-errors='*' \
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
-		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_TERMINAL_TESTING \
+		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_DOCUMENT_TESTING \
+		-DCWIKI_TERMINAL_TESTING \
 		-DCWIKI_KEY_RECORD_TESTING \
 		-DCWIKI_UNDO_TESTING -DCWIKI_SNIPPET_TESTING \
 		-DCWIKI_ACTION_TESTING \

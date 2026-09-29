@@ -70,7 +70,9 @@ these slices. A bounded shared structural-search primitive and named-action
 registry establish the common paths for later motions, keymaps, clues, palette,
 macros, replay, and command dispatch. Application integration, the builtin
 snippet catalog, key dispatch, and the remaining editor and highlighting work
-are not yet implemented.
+are not yet implemented. Plain Markdown document ownership now composes buffer
+encoding with the durable-write outcomes while preserving dirty state unless
+durability is fully confirmed.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
