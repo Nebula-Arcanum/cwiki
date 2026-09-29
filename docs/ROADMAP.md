@@ -98,8 +98,10 @@ undo steps for trigger text, expansion, and subsequent stop fills. Prompt text
 input now has a reusable Unicode/grapheme-safe line editor with the
 approved Emacs-style controls. The shared picker model owns stable item metadata,
 live-filters and deterministically ranks Unicode case-insensitive fuzzy matches,
-and preserves selection across query changes. Floating picker rendering,
-clue/configuration surfaces, and concrete picker providers are not yet implemented.
+and preserves selection across query changes. A bounded float-placement primitive
+and picker overlay add configurable anchoring, borders, scrolling, clipping, and
+empty-result rendering. Clue/configuration surfaces, application dispatch, and
+concrete picker providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
