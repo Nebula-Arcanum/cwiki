@@ -4,6 +4,8 @@
 #include "editor_input.h"
 #include "input.h"
 #include "keymap.h"
+#include "layout.h"
+#include "zone.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -197,9 +199,87 @@ test_command_line_and_unknown_input(void)
    fixture_free(&fixture);
 }
 
+static void
+test_reveal_through_key_dispatch(void)
+{
+   struct fixture fixture;
+   struct cwiki_zone_engine *zones = NULL;
+   struct cwiki_conceal_table conceal;
+   struct cwiki_layout_window layout;
+   struct cwiki_layout_options options = {0};
+   size_t count;
+   uint64_t top;
+   const struct cwiki_zone_region *regions =
+       cwiki_zone_builtin_regions(&count, &top);
+   static const struct {
+      uint32_t key;
+      unsigned int modifiers;
+      size_t byte;
+      bool revealed;
+   } steps[] = {
+      {'l', 0U, 1U, true}, {'l', 0U, 2U, true},
+      {'h', 0U, 1U, true}, {'h', 0U, 0U, false},
+      {'l', 0U, 1U, true}, {';', CWIKI_INPUT_SHIFT, 1U, true},
+      {27U, 0U, 1U, true}, {'i', 0U, 1U, true},
+      {27U, 0U, 1U, true}, {'r', CWIKI_INPUT_SHIFT, 1U, true},
+      {27U, 0U, 1U, true},
+      {'l', 0U, 2U, true}, {'l', 0U, 3U, true},
+      {'l', 0U, 4U, true}, {'l', 0U, 5U, true},
+      {'l', 0U, 6U, true}, {'l', 0U, 7U, false},
+      {'h', 0U, 6U, true}, {'a', 0U, 7U, false},
+      {27U, 0U, 7U, false}, {'h', 0U, 6U, true},
+      {'y', 0U, 6U, true}, {'h', 0U, 5U, false},
+      {'l', 0U, 6U, true}, {'l', 0U, 7U, false},
+      {'l', 0U, 8U, false}, {'l', 0U, 9U, false},
+      {'l', 0U, 10U, true}, {'l', 0U, 11U, true},
+      {'h', 0U, 10U, true}, {'h', 0U, 9U, false}
+   };
+
+   fixture_init(&fixture, "$\\alpha + \\beta$\nnext");
+   check(cwiki_zone_engine_init(&zones, regions, count, top) == 0 &&
+       cwiki_zone_recompute(zones, &fixture.document.buffer, 0U, NULL) == 0 &&
+       cwiki_conceal_table_init_builtin(&conceal) == 0,
+       "initialize reveal layout dependencies");
+   cwiki_layout_window_init(&layout);
+   options.content_width = 40U;
+   options.continuation_marker = "";
+   options.conceal_categories = CWIKI_CONCEAL_DEFAULT_MASK;
+   options.concealcursor_modes = CWIKI_CONCEALCURSOR_DEFAULT;
+   fixture.context.layout = &layout;
+   fixture.context.zones = zones;
+   for (size_t i = 0U; i < sizeof(steps) / sizeof(steps[0]); i++) {
+      options.cursor = fixture.editor.motion.cursor;
+      options.reveal_line = fixture.editor.reveal_line;
+      options.reveal = fixture.editor.reveal;
+      options.mode = fixture.editor.mode == CWIKI_EDITOR_NORMAL ?
+          CWIKI_CONCEAL_MODE_NORMAL : (fixture.editor.mode ==
+          CWIKI_EDITOR_COMMAND ? CWIKI_CONCEAL_MODE_COMMAND :
+          CWIKI_CONCEAL_MODE_INSERT);
+      check(cwiki_layout_rebuild(&layout, &fixture.document.buffer, zones,
+          &conceal, &options) == 0, "rebuild dispatched reveal state");
+      check(send(&fixture, key(steps[i].key, steps[i].modifiers)) ==
+          CWIKI_EDITOR_OK && fixture.editor.motion.cursor.byte == steps[i].byte &&
+          fixture.editor.reveal.active == steps[i].revealed,
+          "approach, continuity, departure and mode/operator dispatch");
+      if (steps[i].revealed) {
+         check(fixture.editor.reveal_line == 0U &&
+             fixture.editor.reveal.source_start ==
+             (steps[i].byte >= 10U ? 10U : 1U) &&
+             fixture.editor.reveal.source_end ==
+             (steps[i].byte >= 10U ? 15U : 7U),
+             "only the approached run remains revealed");
+      }
+   }
+   cwiki_layout_window_free(&layout);
+   cwiki_conceal_table_free(&conceal);
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+}
+
 int
 main(void)
 {
+   test_reveal_through_key_dispatch();
    test_named_actions_physical_keys_and_literal_text();
    test_operator_sequences_history_and_rebinding();
    test_command_line_and_unknown_input();

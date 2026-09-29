@@ -62,6 +62,8 @@ refresh(struct app *app)
        (app->editor.mode == CWIKI_EDITOR_NORMAL ? CWIKI_CONCEAL_MODE_NORMAL :
        CWIKI_CONCEAL_MODE_INSERT);
    options.cursor = app->editor.motion.cursor;
+   options.reveal_line = app->editor.reveal_line;
+   options.reveal = app->editor.reveal;
    /* ponytail: rebuild after every event; incremental caching can follow profiling. */
    for (size_t line = 0U; line < app->document.buffer.line_count; line++) {
       if (app->document.buffer.lines[line].zone_dirty &&

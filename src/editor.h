@@ -45,6 +45,8 @@ struct cwiki_editor {
    struct cwiki_document *document;
    struct cwiki_undo undo;
    struct cwiki_motion_state motion;
+   size_t reveal_line;
+   struct cwiki_conceal_reveal reveal;
    struct cwiki_editor_yank yank;
    char *command;
    size_t command_length;

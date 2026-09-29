@@ -243,6 +243,7 @@ apply_operator_range(struct cwiki_editor *editor,
    struct cwiki_position original = editor->motion.cursor;
    int changed;
 
+   editor->reveal.active = false;
    if (range_empty(range)) {
       editor->pending_operator = CWIKI_EDITOR_NO_OPERATOR;
       return CWIKI_EDITOR_NOTHING;
@@ -352,6 +353,10 @@ cwiki_editor_enter_insert(struct cwiki_editor *editor, bool append,
          editor->motion.cursor.byte = cwiki_grapheme_next(line->bytes,
              line->length, editor->motion.cursor.byte);
       }
+      if (editor->reveal.active &&
+          editor->motion.cursor.byte >= editor->reveal.source_end) {
+         editor->reveal.active = false;
+      }
    }
    editor->mode = CWIKI_EDITOR_INSERT;
    editor->pending_operator = CWIKI_EDITOR_NO_OPERATOR;
@@ -439,6 +444,9 @@ cwiki_editor_insert(struct cwiki_editor *editor, const char *bytes,
        (bytes == NULL && length != 0U) || !cwiki_utf8_validate(bytes, length)) {
       return CWIKI_EDITOR_INVALID;
    }
+   if (length != 0U) {
+      editor->reveal.active = false;
+   }
    while (offset < length) {
       if (bytes[offset] == '\n') {
          if (cwiki_undo_split(&editor->undo, editor->motion.cursor.line,
@@ -481,6 +489,9 @@ cwiki_editor_backspace(struct cwiki_editor *editor)
       return CWIKI_EDITOR_INVALID;
    }
    cursor = editor->motion.cursor;
+   if (cursor.byte != 0U || cursor.line != 0U) {
+      editor->reveal.active = false;
+   }
    if (cursor.byte != 0U) {
       size_t previous = cwiki_grapheme_previous(
           editor->document->buffer.lines[cursor.line].bytes,
@@ -550,6 +561,8 @@ cwiki_editor_apply_motion(struct cwiki_editor *editor,
       return error_status();
    }
    if (editor->pending_operator == CWIKI_EDITOR_NO_OPERATOR) {
+      editor->reveal_line = result.reveal_line;
+      editor->reveal = result.reveal;
       return CWIKI_EDITOR_OK;
    }
    status = apply_operator_range(editor, &result.range,
@@ -654,6 +667,7 @@ cwiki_editor_put(struct cwiki_editor *editor, bool before, uint64_t timestamp)
    if (cwiki_undo_begin(&editor->undo, timestamp) != 0) {
       return error_status();
    }
+   editor->reveal.active = false;
    if (editor->yank.linewise) {
       size_t target = before ? original.line : original.line + 1U;
 
@@ -697,6 +711,7 @@ history_result(struct cwiki_editor *editor, int result)
 {
    uint64_t sequence;
 
+   editor->reveal.active = false;
    if (result != 0) {
       return errno == ENOENT ? CWIKI_EDITOR_NOTHING : error_status();
    }

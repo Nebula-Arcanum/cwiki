@@ -289,6 +289,47 @@ main(void)
 
    assert(fd >= 0 && close(fd) == 0 && unlink(path) == 0);
 
+   /* Each input drain must rebuild with the active run, not just the cursor. */
+   write_note(path, "$\\alpha + \\beta$\nnext");
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "𝛼") != NULL && strstr(output, "𝛽") != NULL);
+   {
+      static const struct {
+         const char *keys;
+         bool alpha;
+         bool beta;
+      } steps[] = {
+         {"l", false, true}, {"ll", false, true},
+         {":", false, true}, {ESCAPE, false, true},
+         {"i", false, false}, {ESCAPE, false, true},
+         {"llll", true, true}, {"h", false, true},
+         {"j", true, true}, {"k0l", false, true},
+         {"yl", true, true}, {"l", false, true},
+         {"iX" ESCAPE, false, true}, {"u", true, true},
+         {"l", false, true}, {"\x1b[114;5u", false, true},
+         {":wq" ENTER, false, true}
+      };
+      size_t used = strlen(supported);
+
+      (void)strcpy(transcript, supported);
+      for (size_t i = 0U; i < sizeof(steps) / sizeof(steps[0]); i++) {
+         send_bytes(session.master, wire(steps[i].keys));
+         frame(&session, output, sizeof(output));
+         assert((strstr(output, "𝛼") != NULL) == steps[i].alpha);
+         assert((strstr(output, "𝛽") != NULL) == steps[i].beta);
+         if (i < 12U) {
+            assert((strstr(output, "\\alpha") != NULL) == !steps[i].alpha);
+         }
+         assert(used + strlen(steps[i].keys) < sizeof(transcript));
+         (void)strcpy(transcript + used, steps[i].keys);
+         used += strlen(steps[i].keys);
+      }
+   }
+   finish(&session, 0, true, transcript, NULL);
+   (void)puts("app: per-run reveal, modes, departure, edit and history frames passed");
+   assert(unlink(path) == 0);
+
    /* Pending startup input, new LF file, edits and motions in a single drain.
     * j must see the newly inserted second line; dw must see its latest bytes. */
    assert(snprintf(transcript, sizeof(transcript),

@@ -309,9 +309,84 @@ test_commands_save_quit_and_cancel(void)
    fixture_free(&fixture);
 }
 
+static void
+test_reveal_invalidation(void)
+{
+   struct fixture fixture;
+
+   /* Seed the motion result to isolate mutations from layout/run selection. */
+   for (unsigned int action = 0U; action < 9U; action++) {
+      fixture_init(&fixture, "$\\alpha$ tail");
+      fixture.editor.motion.cursor.byte = 3U;
+      fixture.editor.reveal = (struct cwiki_conceal_reveal){1U, 7U, true};
+      if (action < 4U) {
+         check((action == 1U ?
+             cwiki_editor_enter_replace(&fixture.editor, 1U) :
+             cwiki_editor_enter_insert(&fixture.editor, false, 1U)) ==
+             CWIKI_EDITOR_OK && fixture.editor.reveal.active,
+             "mode entry without movement retains the source interval");
+         if (action == 2U) {
+            check(cwiki_editor_backspace(&fixture.editor) == CWIKI_EDITOR_OK,
+                "backspace inside revealed run");
+         } else if (action == 3U) {
+            check(cwiki_editor_enter(&fixture.editor) == CWIKI_EDITOR_OK,
+                "split inside revealed run");
+         } else {
+            check(cwiki_editor_insert(&fixture.editor, "X", 1U) ==
+                CWIKI_EDITOR_OK, "insert or replace inside revealed run");
+         }
+         check(!fixture.editor.reveal.active,
+             "source mutation invalidates the interval before refresh");
+         check(cwiki_editor_escape(&fixture.editor) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active, "Escape cannot revive stale reveal");
+      } else if (action < 7U) {
+         check(cwiki_editor_start_operator(&fixture.editor,
+             action == 4U ? CWIKI_EDITOR_YANK :
+             (action == 5U ? CWIKI_EDITOR_DELETE : CWIKI_EDITOR_CHANGE),
+             2U) == CWIKI_EDITOR_OK &&
+             cwiki_editor_apply_motion(&fixture.editor, NULL, NULL,
+             CWIKI_MOTION_RIGHT, NULL) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active,
+             "operator motion never installs its destination reveal");
+         if (action == 6U) {
+            check(cwiki_editor_escape(&fixture.editor) == CWIKI_EDITOR_OK,
+                "finish change");
+         }
+      } else {
+         check(cwiki_editor_start_operator(&fixture.editor, CWIKI_EDITOR_YANK,
+             3U) == CWIKI_EDITOR_OK &&
+             cwiki_editor_start_operator(&fixture.editor, CWIKI_EDITOR_YANK,
+             3U) == CWIKI_EDITOR_OK && !fixture.editor.reveal.active,
+             "linewise operator clears reveal too");
+         fixture.editor.reveal.active = true;
+         check(cwiki_editor_put(&fixture.editor, action == 7U, 4U) ==
+             CWIKI_EDITOR_OK && !fixture.editor.reveal.active,
+             "put clears reveal before source insertion");
+      }
+      if (action != 4U) {
+         fixture.editor.reveal.active = true;
+         check(cwiki_editor_undo(&fixture.editor) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active &&
+             content_is(&fixture, "$\\alpha$ tail"),
+             "undo clears reveal and restores exact original bytes");
+         fixture.editor.reveal.active = true;
+         check(cwiki_editor_redo(&fixture.editor) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active, "redo clears reveal");
+         fixture.editor.reveal.active = true;
+         check(cwiki_editor_older(&fixture.editor) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active, "older clears reveal");
+         fixture.editor.reveal.active = true;
+         check(cwiki_editor_newer(&fixture.editor) == CWIKI_EDITOR_OK &&
+             !fixture.editor.reveal.active, "newer clears reveal");
+      }
+      fixture_free(&fixture);
+   }
+}
+
 int
 main(void)
 {
+   test_reveal_invalidation();
    test_insert_replace_backspace_and_undo();
    test_operators_characterwise_put_and_change();
    test_linewise_yank_put_delete_and_change();
