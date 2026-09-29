@@ -1,6 +1,8 @@
 #include "app.h"
+#include "config_files.h"
 #include "terminal.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,9 @@ main(int argc, char **argv)
    struct cwiki_app_options options = {
       STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL, NULL, 0U
    };
+   struct cwiki_config_sources configs = {0};
+   struct cwiki_config_files_error config_error = {0};
+   enum cwiki_config_files_status config_status;
    char crash_path[] = "/tmp/cwiki-keys-XXXXXX";
    int result;
 
@@ -26,13 +31,40 @@ main(int argc, char **argv)
       (void)fprintf(stderr, "usage: cwiki NOTE | cwiki --reset-terminal\n");
       return 1;
    }
+   config_status = cwiki_config_sources_discover(&configs, argv[1],
+       getenv("HOME"), getenv("XDG_CONFIG_HOME"),
+#ifdef __APPLE__
+       true,
+#else
+       false,
+#endif
+       &config_error);
+   if (config_status != CWIKI_CONFIG_FILES_OK) {
+      const char *message = config_status == CWIKI_CONFIG_FILES_TOO_LARGE ?
+          "configuration exceeds the 1 MiB limit" :
+          (config_status == CWIKI_CONFIG_FILES_INVALID_VAULT_ID ?
+          "invalid vault UUID" :
+          (config_status == CWIKI_CONFIG_FILES_NO_MEMORY ?
+          "out of memory" : strerror(config_error.system_errno == 0 ?
+          EINVAL : config_error.system_errno)));
+
+      (void)fprintf(stderr, "cwiki: %s: %s\n",
+          config_error.path == NULL ? "configuration" : config_error.path,
+          message);
+      cwiki_config_files_error_free(&config_error);
+      return 1;
+   }
+   options.configs = configs.items;
+   options.config_count = configs.count;
    options.crash_fd = mkstemp(crash_path);
    if (options.crash_fd < 0) {
       perror("cwiki: crash recording");
+      cwiki_config_sources_free(&configs);
       return 1;
    }
    result = cwiki_app_run(argv[1], &options);
    (void)close(options.crash_fd);
    (void)unlink(crash_path);
+   cwiki_config_sources_free(&configs);
    return result;
 }

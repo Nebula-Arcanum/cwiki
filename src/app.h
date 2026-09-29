@@ -1,6 +1,8 @@
 #ifndef CWIKI_APP_H
 #define CWIKI_APP_H
 
+#include "config_files.h"
+
 #include <stddef.h>
 #include <sys/types.h>
 
@@ -14,9 +16,9 @@ struct cwiki_app_options {
    int crash_fd;
    /* Optional caller-owned initialized recorder, also useful for replay tests. */
    struct cwiki_key_record *record;
-   /* Optional declarative configuration bytes, parsed before terminal startup. */
-   const unsigned char *config;
-   size_t config_length;
+   /* Ordered declarative sources, parsed before terminal startup. */
+   const struct cwiki_config_source *configs;
+   size_t config_count;
 };
 
 /* Returns 0 on requested exit, 1 on failure; diagnostics follow restoration. */

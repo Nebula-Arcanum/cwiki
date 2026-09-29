@@ -132,8 +132,8 @@ fail_frame(int fd, const void *bytes, size_t length)
 }
 
 static struct session
-start_config(const char *path, const char *reply, bool fault,
-    const char *config)
+start_configs(const char *path, const char *reply, bool fault,
+    const char *const *configs, size_t config_count)
 {
    struct session session;
    struct winsize size = {5U, 40U, 0U, 0U};
@@ -156,14 +156,20 @@ start_config(const char *path, const char *reply, bool fault,
    assert(session.child >= 0);
    if (session.child == 0) {
       struct cwiki_key_record record;
+      struct cwiki_config_source sources[CWIKI_CONFIG_SOURCE_MAX] = {{0}};
       struct cwiki_app_options options = {
          session.slave, session.slave, fileno(session.errors),
-         fileno(session.record), &record, (const unsigned char *)config,
-         config == NULL ? 0U : strlen(config)
+         fileno(session.record), &record, sources, config_count
       };
       int result;
 
       (void)close(session.master);
+      assert(config_count <= CWIKI_CONFIG_SOURCE_MAX);
+      for (size_t i = 0U; i < config_count; i++) {
+         sources[i].path = "test-config.yaml";
+         sources[i].bytes = (unsigned char *)configs[i];
+         sources[i].length = strlen(configs[i]);
+      }
       assert(cwiki_key_record_init(&record, NULL, 0U) == 0);
       if (fault) {
          cwiki_app_test_set_write(fail_frame);
@@ -178,6 +184,15 @@ start_config(const char *path, const char *reply, bool fault,
    assert(strcmp(output, queries) == 0);
    send_bytes(session.master, wire(reply));
    return session;
+}
+
+static struct session
+start_config(const char *path, const char *reply, bool fault,
+    const char *config)
+{
+   const char *configs[] = {config};
+
+   return start_configs(path, reply, fault, configs, config == NULL ? 0U : 1U);
 }
 
 static struct session
@@ -285,6 +300,32 @@ write_note(const char *path, const char *bytes)
    assert(fd >= 0);
    send_bytes(fd, bytes);
    assert(close(fd) == 0);
+}
+
+static void
+config_error_before_terminal(const char *path)
+{
+   static unsigned char valid[] = "keymaps: {}\n";
+   static unsigned char invalid[] = "unknown: true\n";
+   struct cwiki_config_source configs[] = {
+      {CWIKI_CONFIG_GLOBAL, "/scope/global.yaml", valid, sizeof(valid) - 1U},
+      {CWIKI_CONFIG_VAULT, "/scope/vault.yaml", invalid,
+          sizeof(invalid) - 1U}
+   };
+   FILE *errors = tmpfile();
+   struct cwiki_app_options options = {
+      -1, -1, -1, -1, NULL, configs, 2U
+   };
+   char diagnostic[512];
+
+   assert(errors != NULL);
+   options.error_fd = fileno(errors);
+   assert(cwiki_app_run(path, &options) == 1);
+   assert(fseek(errors, 0L, SEEK_SET) == 0);
+   assert(fgets(diagnostic, sizeof(diagnostic), errors) != NULL);
+   assert(strstr(diagnostic, "/scope/vault.yaml:1:1") != NULL &&
+       strstr(diagnostic, "unknown configuration key") != NULL);
+   assert(fclose(errors) == 0);
 }
 
 int
@@ -437,7 +478,25 @@ main(void)
    (void)puts("app: live clues derive from pending keymap/action metadata passed");
 
    {
-      static const char config[] =
+      static const char global[] =
+          "keymaps:\n"
+          "  normal:\n"
+          "    - keys: [x]\n"
+          "      action: mode.insert-before\n"
+          "clue-groups:\n"
+          "  normal:\n"
+          "    - prefix: [g]\n"
+          "      label: Global\n";
+      static const char vault[] =
+          "keymaps:\n"
+          "  normal:\n"
+          "    - keys: [x]\n"
+          "      action: mode.insert-after\n"
+          "clue-groups:\n"
+          "  normal:\n"
+          "    - prefix: [g]\n"
+          "      label: Vault\n";
+      static const char local[] =
           "keymaps:\n"
           "  normal:\n"
           "    - keys: [x]\n"
@@ -445,20 +504,24 @@ main(void)
           "clue-groups:\n"
           "  normal:\n"
           "    - prefix: [g]\n"
-          "      label: Go\n";
+          "      label: Local\n";
+      const char *configs[] = {global, vault, local};
 
-      session = start_config(path, supported, false, config);
+      session = start_configs(path, supported, false, configs, 3U);
       frame(&session, output, sizeof(output));
       send_bytes(session.master, wire("g"));
       frame(&session, output, sizeof(output));
-      assert(strstr(output, "─ Go ") != NULL);
+      assert(strstr(output, "─ Local ") != NULL &&
+          strstr(output, "Global") == NULL && strstr(output, "Vault") == NULL);
       send_bytes(session.master, wire(ESCAPE "xq" ENTER));
       frame(&session, output, sizeof(output));
       assert(snprintf(transcript, sizeof(transcript),
           "%sg" ESCAPE "xq" ENTER, supported) > 0);
       finish(&session, 0, true, transcript, NULL);
-      (void)puts("app: validated keymap and clue-group config applied passed");
+      (void)puts("app: transactional config scope precedence applied passed");
    }
+   config_error_before_terminal(path);
+   (void)puts("app: later-scope errors abort before terminal startup passed");
 
    write_note(path, "one\ntwo\nthree\nfour\nfive\nsix\nseven");
    session = start(path, supported, false);

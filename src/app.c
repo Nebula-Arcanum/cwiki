@@ -30,9 +30,11 @@ struct app {
    struct cwiki_layout_window layout;
    struct cwiki_render_viewport viewport;
    struct cwiki_motion_viewport motion_viewport;
-   struct cwiki_config *config;
+   struct cwiki_config *configs[CWIKI_CONFIG_SOURCE_MAX];
+   size_t config_count;
    struct cwiki_config_error config_error;
    enum cwiki_config_status config_status;
+   const char *config_path;
    int error;
    unsigned int statuses;
 };
@@ -203,8 +205,10 @@ draw(struct app *app, struct cwiki_terminal *terminal)
          continuation_count + 2U, 36U, CWIKI_FLOAT_SOUTH_EAST, 0, 0
       };
 
-      clue_title = cwiki_config_clue_group(app->config, CWIKI_KEYMAP_NORMAL,
-          pending, pending_count);
+      for (size_t i = app->config_count; i != 0U && clue_title == NULL; i--) {
+         clue_title = cwiki_config_clue_group(app->configs[i - 1U],
+             CWIKI_KEYMAP_NORMAL, pending, pending_count);
+      }
       if (continuation_count != 0U &&
           cwiki_float_place(&clue_options, &clue_area) != 0) {
          goto fail;
@@ -300,32 +304,53 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
       goto system_error;
    }
    app.config_status = CWIKI_CONFIG_OK;
-   if (options->config != NULL || options->config_length != 0U) {
+   if (options->config_count > CWIKI_CONFIG_SOURCE_MAX ||
+       (options->configs == NULL && options->config_count != 0U)) {
+      errno = EINVAL;
+      goto system_error;
+   }
+   if (options->config_count != 0U) {
       struct cwiki_keymap *candidate = NULL;
+      const struct cwiki_keymap *base = cwiki_editor_input_keymap(app.input);
 
-      if (options->config == NULL) {
-         errno = EINVAL;
-         goto system_error;
-      }
-      app.config_status = cwiki_config_parse(&app.config, options->config,
-          options->config_length, cwiki_editor_input_actions(app.input),
-          &app.config_error);
-      if (app.config_status == CWIKI_CONFIG_OK) {
-         app.config_status = cwiki_config_build_keymap(app.config,
-             cwiki_editor_input_keymap(app.input), &candidate,
-             &app.config_error);
+      for (size_t i = 0U; i < options->config_count; i++) {
+         struct cwiki_keymap *next = NULL;
+
+         app.config_path = options->configs[i].path;
+         if (options->configs[i].bytes == NULL) {
+            app.config_status = CWIKI_CONFIG_INVALID;
+            break;
+         }
+         app.config_status = cwiki_config_parse(&app.configs[i],
+             options->configs[i].bytes, options->configs[i].length,
+             cwiki_editor_input_actions(app.input), &app.config_error);
+         if (app.config_status == CWIKI_CONFIG_OK) {
+            app.config_count++;
+            app.config_status = cwiki_config_build_keymap(app.configs[i], base,
+                &next, &app.config_error);
+         }
+         if (app.config_status != CWIKI_CONFIG_OK) {
+            cwiki_keymap_free(next);
+            break;
+         }
+         cwiki_keymap_free(candidate);
+         candidate = next;
+         base = candidate;
       }
       if (app.config_status == CWIKI_CONFIG_OK &&
           cwiki_editor_input_replace_keymap(app.input, candidate) !=
           CWIKI_EDITOR_OK) {
          cwiki_keymap_free(candidate);
+         candidate = NULL;
          app.config_status = CWIKI_CONFIG_INVALID;
       }
       if (app.config_status == CWIKI_CONFIG_NO_MEMORY) {
+         cwiki_keymap_free(candidate);
          errno = ENOMEM;
          goto system_error;
       }
       if (app.config_status != CWIKI_CONFIG_OK) {
+         cwiki_keymap_free(candidate);
          goto done;
       }
    }
@@ -418,7 +443,9 @@ done:
       (void)dprintf(options->error_fd, "cwiki: %s\n", strerror(app.error));
    }
    if (app.config_status != CWIKI_CONFIG_OK) {
-      (void)dprintf(options->error_fd, "cwiki: configuration:%zu:%zu: %s\n",
+      (void)dprintf(options->error_fd,
+          "cwiki: %s:%zu:%zu: %s\n",
+          app.config_path == NULL ? "configuration" : app.config_path,
           app.config_error.line, app.config_error.column,
           app.config_error.message);
    }
@@ -433,7 +460,9 @@ done:
       (void)dprintf(options->error_fd, "cwiki: unsupported command or input\n");
    }
    cwiki_input_parser_destroy(&parser);
-   cwiki_config_free(app.config);
+   for (size_t i = 0U; i < app.config_count; i++) {
+      cwiki_config_free(app.configs[i]);
+   }
    cwiki_editor_input_free(app.input);
    cwiki_layout_window_free(&app.layout);
    cwiki_conceal_table_free(&app.conceal);

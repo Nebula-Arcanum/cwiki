@@ -50,13 +50,14 @@ PICKER_TEST = $(BUILD_DIR)/test-picker
 PICKER_RENDER_TEST = $(BUILD_DIR)/test-picker-render
 CLUE_RENDER_TEST = $(BUILD_DIR)/test-clue-render
 CONFIG_TEST = $(BUILD_DIR)/test-config
+CONFIG_FILES_TEST = $(BUILD_DIR)/test-config-files
 APP_TEST = $(BUILD_DIR)/test-app
 APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/conceal.c src/layout.c src/highlight.c src/render.c src/input.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
 	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
 	src/keymap.c src/snippet.c src/snippet_catalog.c src/editor_input.c \
-	src/float.c src/clue_render.c src/config.c
+	src/float.c src/clue_render.c src/config.c src/config_files.c
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
@@ -66,7 +67,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
 	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(PICKER_RENDER_TEST) \
-	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(APP_TEST)
+	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -92,7 +93,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/ui/test_picker.c src/float.c src/picker_render.c \
 	tests/ui/test_picker_render.c src/clue_render.c \
 	tests/ui/test_clue_render.c src/config.c tests/config/test_config.c \
-	src/app.c src/main.c tests/app/test_app.c
+	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
+	tests/app/test_app.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -401,6 +403,12 @@ $(CONFIG_TEST): src/config.c src/config.h src/action.c src/action.h \
 		tests/config/test_config.c $(LDFLAGS) $(UTF8PROC_LIBS) $(YAML_LIBS) \
 		-o $(CONFIG_TEST)
 
+$(CONFIG_FILES_TEST): src/config_files.c src/config_files.h \
+		tests/config/test_config_files.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/config_files.c \
+		tests/config/test_config_files.c $(LDFLAGS) -o $(CONFIG_FILES_TEST)
+
 $(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) \
@@ -439,6 +447,7 @@ product-test: $(PRODUCT_TESTS)
 	$(PICKER_RENDER_TEST)
 	$(CLUE_RENDER_TEST)
 	$(CONFIG_TEST)
+	$(CONFIG_FILES_TEST)
 	$(APP_TEST)
 
 test: smoke replay-test support-test product-test

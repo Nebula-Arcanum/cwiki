@@ -107,8 +107,10 @@ configuration foundation strictly validates physical-key bindings, unbindings,
 and clue-group labels with source locations, then builds a complete candidate
 keymap without mutating its base. Validated configuration bytes now replace the
 live keymap transactionally before terminal startup, and configured clue-group
-labels title the live popup. Configuration scope discovery, the remaining
-declarative schemas, and concrete picker providers are not yet implemented.
+labels title the live popup. Read-only startup discovery composes existing
+global, synchronized-vault, and UUID-keyed machine-local files without creating
+vault metadata. The remaining declarative schemas and concrete picker providers
+are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
