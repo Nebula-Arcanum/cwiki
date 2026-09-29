@@ -85,8 +85,11 @@ semantic runs with raw fallback for untrusted lines. Parser-owned spans now give
 complete Markdown and LaTeX delimiters distinct roles without a second parser.
 The single-window source renderer composes those roles with conceal, wrap,
 viewport clipping, cursor placement, and the persistent mode/file/position status
-line into deterministic terminal frames. The application loop and builtin snippet
-catalog are not yet implemented.
+line into deterministic terminal frames. The executable application loop now
+composes terminal capability setup and restoration, raw recording, event dispatch,
+derived-state refresh, synchronized redraw, viewport following, insert-leave
+saves, and plain-file reopen through fixture-tested PTYs. The builtin snippet
+catalog and reusable picker/clue/configuration surfaces are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

@@ -12,6 +12,7 @@ PCRE2_CFLAGS = `pkg-config --cflags libpcre2-8`
 PCRE2_LIBS = `pkg-config --libs libpcre2-8`
 
 BUILD_DIR = build
+CWIKI = $(BUILD_DIR)/cwiki
 SMOKE = $(BUILD_DIR)/cwiki-smoke
 REPLAY_TEST = $(BUILD_DIR)/cwiki-replay-test
 FIXTURE_VAULT_TEST = $(BUILD_DIR)/test-fixture-vault
@@ -41,6 +42,12 @@ EDITOR_TEST = $(BUILD_DIR)/test-editor
 EDITOR_INPUT_TEST = $(BUILD_DIR)/test-editor-input
 HIGHLIGHT_TEST = $(BUILD_DIR)/test-highlight
 RENDER_TEST = $(BUILD_DIR)/test-render
+APP_TEST = $(BUILD_DIR)/test-app
+APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
+	src/conceal.c src/layout.c src/highlight.c src/render.c src/input.c \
+	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
+	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
+	src/keymap.c src/editor_input.c
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
@@ -48,7 +55,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
-	$(RENDER_TEST)
+	$(RENDER_TEST) $(APP_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -68,12 +75,19 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/keymap.c tests/action/test_keymap.c src/motion.c \
 	tests/editor/test_motion.c src/editor.c tests/editor/test_editor.c \
 	src/editor_input.c tests/editor/test_editor_input.c src/highlight.c \
-	tests/highlight/test_highlight.c src/render.c tests/ui/test_render.c
+	tests/highlight/test_highlight.c src/render.c tests/ui/test_render.c \
+	src/app.c src/main.c tests/app/test_app.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
 
-all: smoke
+all: $(CWIKI)
+
+$(CWIKI): $(APP_SOURCES) src/main.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		$(APP_SOURCES) src/main.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
+		-o $(CWIKI)
 
 smoke: $(SMOKE)
 
@@ -316,6 +330,12 @@ $(RENDER_TEST): src/render.c src/render.h src/editor.h src/terminal.h \
 		src/layout.c src/highlight.c src/render.c tests/ui/test_render.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(RENDER_TEST)
 
+$(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_APP_TESTING -Isrc $(APP_SOURCES) tests/app/test_app.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(APP_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -342,6 +362,7 @@ product-test: $(PRODUCT_TESTS)
 	$(EDITOR_INPUT_TEST)
 	$(HIGHLIGHT_TEST)
 	$(RENDER_TEST)
+	$(APP_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -361,7 +382,7 @@ analyze:
 		-DCWIKI_TERMINAL_TESTING \
 		-DCWIKI_KEY_RECORD_TESTING \
 		-DCWIKI_UNDO_TESTING -DCWIKI_SNIPPET_TESTING \
-		-DCWIKI_ACTION_TESTING -DCWIKI_KEYMAP_TESTING \
+		-DCWIKI_ACTION_TESTING -DCWIKI_KEYMAP_TESTING -DCWIKI_APP_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
 		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
