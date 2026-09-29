@@ -411,10 +411,12 @@ Rejected:
 ### 1.6 Conceal in editing mode
 
 **R1.6.1** Editing mode has an optional conceal layer: LaTeX markup is replaced
-on screen by the character it denotes — `\alpha` shown as α, `\le` as ≤, `\in`
-as ∈ — as a purely textual display substitution. No image and no TeX run is
-involved, so the brief's "no live preview" rule still holds: rendered output
-exists only in rendered mode.
+on screen by a width-safe character denoting the same concept — for example,
+`\alpha` as 𝛼 and `\le` as ⩽ — as a purely textual display substitution. When
+the familiar glyph (such as α, ≤ or ∈) has ambiguous East Asian width and no
+faithful non-ambiguous equivalent exists, the source remains visible. No image
+and no TeX run is involved, so the brief's "no live preview" rule still holds:
+rendered output exists only in rendered mode.
 
 **R1.6.2** Conceal is a togglable option, **on by default**, per window
 (R1.12.3). With it off, editing mode is pure source.
@@ -443,10 +445,17 @@ the modes where R1.6.3 suspends conceal — the same visible behaviour as vim.
 **R1.6.6** Concealed replacement characters must have unambiguous East Asian
 width. Characters with width class Ambiguous are excluded from the replacement
 set, since cwiki and kitty could disagree about their column count and
-desynchronise the screen (R1.3.2).
+desynchronise the screen (R1.3.2). This rule takes precedence over using the
+most familiar glyph: use a faithful non-ambiguous equivalent when one exists,
+otherwise do not conceal that source. This precedence was accepted on
+2026-09-29. A curated width-1 exception list was rejected because it recreates
+the cursor-desynchronisation risk; leaving every ambiguous form visible even
+when a faithful safe equivalent exists was rejected as unnecessarily reducing
+conceal coverage.
 
 **R1.6.7** Conceal applies only where Unicode has the target form. `x^2`
-conceals to `x²`; `x^{2n}` has no superscript form and stays as source.
+stays as source because `²` has ambiguous width, while `x^5` may conceal to
+the width-safe `x⁵`; `x^{2n}` has no whole superscript form and stays as source.
 
 **R1.6.8** Conceal categories are individually configurable with cwiki's
 14-category table: accents, Greek, math symbols, ligatures, fractions, math
