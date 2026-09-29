@@ -411,6 +411,28 @@ test_allocation_failures_are_transactional(void)
       cwiki_keymap_test_reset_allocation();
       cwiki_action_registry_free(actions);
    }
+   for (failure_point = 0U; failure_point < 3U; failure_point++) {
+      struct cwiki_action_registry *actions = NULL;
+      struct cwiki_keymap *keymap = new_keymap(&actions);
+      struct cwiki_keymap *copy = (void *)(uintptr_t)1U;
+      struct cwiki_key_sequence x = sequence1('x', 0U);
+      struct cwiki_input_event event = key_event('x', 0U);
+
+      check(cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &x,
+          "cursor.first") == CWIKI_KEYMAP_OK, "bind clone baseline");
+      cwiki_keymap_test_fail_allocation_after(failure_point);
+      check(cwiki_keymap_clone(&copy, keymap) == CWIKI_KEYMAP_NO_MEMORY &&
+          copy == NULL && matches_action(keymap, CWIKI_KEYMAP_NORMAL, &event,
+          1U, "cursor.first", false),
+          "failed clone allocation publishes nothing and preserves source");
+      cwiki_keymap_test_reset_allocation();
+      check(cwiki_keymap_clone(&copy, keymap) == CWIKI_KEYMAP_OK &&
+          matches_action(copy, CWIKI_KEYMAP_NORMAL, &event, 1U,
+          "cursor.first", false), "successful clone preserves bindings");
+      cwiki_keymap_free(copy);
+      cwiki_keymap_free(keymap);
+      cwiki_action_registry_free(actions);
+   }
 }
 
 int

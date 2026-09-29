@@ -61,6 +61,8 @@ struct cwiki_keymap_continuation {
 /* The action registry must outlive the keymap. */
 enum cwiki_keymap_status cwiki_keymap_init(struct cwiki_keymap **keymap,
     const struct cwiki_action_registry *actions);
+enum cwiki_keymap_status cwiki_keymap_clone(struct cwiki_keymap **copy,
+    const struct cwiki_keymap *source);
 void cwiki_keymap_free(struct cwiki_keymap *keymap);
 
 enum cwiki_keymap_status cwiki_keymap_bind(struct cwiki_keymap *keymap,

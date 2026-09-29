@@ -211,6 +211,34 @@ cwiki_keymap_init(struct cwiki_keymap **keymap,
    return CWIKI_KEYMAP_OK;
 }
 
+enum cwiki_keymap_status
+cwiki_keymap_clone(struct cwiki_keymap **copy,
+    const struct cwiki_keymap *source)
+{
+   struct cwiki_keymap *created = NULL;
+   size_t i;
+
+   if (copy == NULL || source == NULL) {
+      return CWIKI_KEYMAP_INVALID;
+   }
+   *copy = NULL;
+   if (cwiki_keymap_init(&created, source->actions) != CWIKI_KEYMAP_OK) {
+      return CWIKI_KEYMAP_NO_MEMORY;
+   }
+   for (i = 0U; i < source->count; i++) {
+      enum cwiki_keymap_status status = cwiki_keymap_bind(created,
+          source->bindings[i].mode, &source->bindings[i].sequence,
+          source->bindings[i].action_name);
+
+      if (status != CWIKI_KEYMAP_OK) {
+         cwiki_keymap_free(created);
+         return status;
+      }
+   }
+   *copy = created;
+   return CWIKI_KEYMAP_OK;
+}
+
 void
 cwiki_keymap_free(struct cwiki_keymap *keymap)
 {
@@ -259,8 +287,10 @@ cwiki_keymap_bind(struct cwiki_keymap *keymap, enum cwiki_keymap_mode mode,
       return CWIKI_KEYMAP_NO_MEMORY;
    }
    keymap->bindings = grown;
-   (void)memmove(&keymap->bindings[index + 1U], &keymap->bindings[index],
-       (keymap->count - index) * sizeof(*keymap->bindings));
+   if (index < keymap->count) {
+      (void)memmove(&keymap->bindings[index + 1U], &keymap->bindings[index],
+          (keymap->count - index) * sizeof(*keymap->bindings));
+   }
    keymap->bindings[index].mode = mode;
    keymap->bindings[index].sequence = *sequence;
    keymap->bindings[index].action_name = name;

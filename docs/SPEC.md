@@ -65,6 +65,8 @@ Homebrew formula/cask index, and FreeBSD ports/packages on **2026-09-28**:
 No dependency requires the AUR, a non-core Homebrew tap, or building a FreeBSD
 port from source. Revalidate this matrix before implementation first introduces
 each dependency; package names and versions are not permanent architecture.
+An implementation-time recheck on **2026-09-29** confirmed libyaml 0.2.5 in all
+three package repositories before the configuration parser first linked it.
 
 What the inventory changed or confirmed in decisions already committed:
 

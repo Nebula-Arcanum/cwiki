@@ -34,7 +34,7 @@ jobs:
           restore-keys: arch-pacman-
 
       - name: Install dependencies and analysis tools
-        run: pacman -Syu --needed --noconfirm clang libutf8proc pcre2 pkgconf
+        run: pacman -Syu --needed --noconfirm clang libutf8proc libyaml pcre2 pkgconf
 
       - name: Review changes
         env:
@@ -56,7 +56,7 @@ jobs:
           restore-keys: macos-homebrew-
 
       - name: Install dependencies and LLVM
-        run: brew install llvm utf8proc pcre2 pkgconf
+        run: brew install llvm utf8proc libyaml pcre2 pkgconf
 
       - name: Run strict build and tests
         run: make CC="$(brew --prefix llvm)/bin/clang" check
@@ -76,6 +76,6 @@ jobs:
         with:
           release: "14.5"
           run: |
-            pkg install -y utf8proc pcre2 pkgconf
+            pkg install -y utf8proc libyaml pcre2 pkgconf
             make check
             make sanitize

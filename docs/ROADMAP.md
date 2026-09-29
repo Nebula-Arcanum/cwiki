@@ -102,9 +102,12 @@ and preserves selection across query changes. A bounded float-placement primitiv
 and picker overlay add configurable anchoring, borders, scrolling, clipping, and
 empty-result rendering. A live clue overlay now derives every multi-key-prefix
 continuation from shared keymap and named-action metadata, including action
-availability, and is composed into application redraws. Configuration surfaces,
-configurable clue-group labels, and concrete picker providers are not yet
-implemented.
+availability, and is composed into application redraws. The bounded libyaml
+configuration foundation strictly validates physical-key bindings, unbindings,
+and clue-group labels with source locations, then builds a complete candidate
+keymap without mutating its base. Configuration scope discovery and application,
+the remaining declarative schemas, clue-group display, and concrete picker
+providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
