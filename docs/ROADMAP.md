@@ -80,8 +80,10 @@ Command-line modes, deterministic undo boundaries, `d`/`c`/`y`, the unnamed
 yank and `p`/`P`, dirty-state-preserving saves, and the bounded `:w`/`:q`/`:wq`
 surface. Parser events now route through the shared physical-key keymap and named
 action registry, including prefix sequences, associated text, and literal paste.
-The application loop, builtin snippet catalog, and remaining highlighting work
-are not yet implemented.
+Source highlighting now maps every cached zone kind to immutable, grapheme-safe
+semantic runs with raw fallback for untrusted lines; exact Markdown and LaTeX
+delimiter-token roles still require parser span events. The application loop,
+builtin snippet catalog, and that parser-span extension are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
