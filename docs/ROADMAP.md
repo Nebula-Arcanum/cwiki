@@ -61,7 +61,9 @@ resource limit makes zone state untrustworthy. Typed Vim patterns translate
 across all four magic modes with Unicode smartcase, while unsupported constructs
 are rejected rather than guessed. The conceal foundation supplies the accepted
 category defaults, width-safe substitutions, source↔display mappings, and
-per-run reveal behavior. Strict, sanitizer, model, protocol, fault-injection,
+per-run reveal behavior. Per-window layout adds prose soft wrap, unwrapped code,
+degraded raw rows, and source↔display movement mappings. Strict, sanitizer,
+model, protocol, fault-injection,
 and parser/translator fuzz tests cover these slices. Application integration and
 the remaining editor, highlighting, and snippet work are not yet implemented.
 

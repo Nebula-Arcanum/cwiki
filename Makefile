@@ -29,11 +29,12 @@ REGEX_TEST = $(BUILD_DIR)/test-regex
 VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
 CONCEAL_TEST = $(BUILD_DIR)/test-conceal
+LAYOUT_TEST = $(BUILD_DIR)/test-layout
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
-	$(CONCEAL_TEST)
+	$(CONCEAL_TEST) $(LAYOUT_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -45,7 +46,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/terminal/terminal_test.c src/undo.c tests/undo/test_undo.c \
 	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
 	tests/regex/test_regex.c src/vim_regex.c tests/regex/test_vim_regex.c \
-	tests/regex/fuzz_vim_regex.c src/conceal.c tests/conceal/test_conceal.c
+	tests/regex/fuzz_vim_regex.c src/conceal.c tests/conceal/test_conceal.c \
+	src/layout.c tests/layout/test_layout.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -177,6 +179,15 @@ $(CONCEAL_TEST): src/conceal.c src/conceal.h src/buffer.c src/buffer.h \
 		tests/conceal/test_conceal.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(CONCEAL_TEST)
 
+$(LAYOUT_TEST): src/layout.c src/layout.h src/conceal.c src/conceal.h \
+		src/buffer.c src/buffer.h src/unicode.c src/unicode.h src/zone.c \
+		src/zone.h src/regex.c src/regex.h tests/layout/test_layout.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		src/buffer.c src/unicode.c src/regex.c src/zone.c src/conceal.c \
+		src/layout.c tests/layout/test_layout.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		$(PCRE2_LIBS) -o $(LAYOUT_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -191,6 +202,7 @@ product-test: $(PRODUCT_TESTS)
 	$(VIM_REGEX_TEST)
 	$(VIM_REGEX_FUZZ)
 	$(CONCEAL_TEST)
+	$(LAYOUT_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
