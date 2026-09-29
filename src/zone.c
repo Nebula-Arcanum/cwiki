@@ -109,6 +109,7 @@ struct cwiki_zone_engine {
 };
 
 struct match {
+   size_t start;
    size_t end;
    const char *detail;
    size_t detail_length;
@@ -216,6 +217,7 @@ pattern_match(struct compiled_pattern *pattern, const char *bytes,
    if (result.captures[0].end > limit) {
       return 0;
    }
+   match->start = result.captures[0].start;
    match->end = result.captures[0].end;
    match->found = true;
    if (detail_capture != 0U && (size_t)detail_capture < result.capture_count &&
@@ -445,10 +447,46 @@ cwiki_zone_stack_equal(const struct cwiki_zone_stack *left,
    return true;
 }
 
+static void
+emit_span(struct cwiki_zone_line *line, const char *bytes, size_t length,
+    size_t end, struct cwiki_zone zone, enum cwiki_zone_token token)
+{
+   struct cwiki_zone_span *spans;
+   size_t start;
+   size_t next;
+
+   if (line == NULL) {
+      return;
+   }
+   spans = (struct cwiki_zone_span *)line->spans;
+   start = line->span_count == 0U ? 0U :
+       spans[line->span_count - 1U].source_end;
+   if (start >= end) {
+      return;
+   }
+   next = start;
+   while (next < end) {
+      next = cwiki_grapheme_next(bytes, length, next);
+   }
+   if (line->span_count != 0U) {
+      struct cwiki_zone_span *last = &spans[line->span_count - 1U];
+
+      if (token == CWIKI_ZONE_CONTENT && last->token == token &&
+          last->zone.kind == zone.kind &&
+          last->zone.detail == zone.detail && last->zone.region == zone.region) {
+         last->source_end = next;
+         return;
+      }
+   }
+   spans[line->span_count++] = (struct cwiki_zone_span){start, next, zone,
+       token};
+}
+
 static int
 scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
     size_t limit, const struct cwiki_zone_stack *start,
-    struct cwiki_zone_stack *result, bool finish_line, bool *degraded)
+    struct cwiki_zone_stack *result, bool finish_line, bool *degraded,
+    struct cwiki_zone_line *spans)
 {
    struct cwiki_zone_stack stack;
    size_t offset = 0U;
@@ -465,6 +503,9 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
       uint64_t children;
       size_t region_index;
       bool consumed = false;
+      struct cwiki_zone content = stack.depth == 0U ?
+          (struct cwiki_zone){CWIKI_ZONE_PROSE, 0U, 0U} :
+          stack.zones[stack.depth - 1U];
 
       if (stack.depth != 0U) {
          struct cwiki_zone *top = &stack.zones[stack.depth - 1U];
@@ -477,6 +518,8 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
             return -1;
          }
          if (match.found) {
+            emit_span(spans, bytes, length, match.end, content,
+                CWIKI_ZONE_CONTENT);
             offset = match.end;
             continue;
          }
@@ -491,6 +534,9 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
              strlen(cwiki_zone_detail(engine, top->detail)) ==
              match.detail_length && memcmp(cwiki_zone_detail(engine,
              top->detail), match.detail, match.detail_length) == 0))) {
+            emit_span(spans, bytes, length, match.start, content,
+                CWIKI_ZONE_CONTENT);
+            emit_span(spans, bytes, length, match.end, *top, CWIKI_ZONE_CLOSE);
             offset = match.end;
             stack.depth--;
             continue;
@@ -529,6 +575,11 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
             zone->detail = detail;
             zone->region = (uint8_t)region_index;
          }
+         emit_span(spans, bytes, length, match.start, content,
+             CWIKI_ZONE_CONTENT);
+         emit_span(spans, bytes, length, match.end,
+             (struct cwiki_zone){region->kind, detail, (uint8_t)region_index},
+             CWIKI_ZONE_OPEN);
          offset = match.end;
          consumed = true;
          break;
@@ -539,6 +590,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
             errno = EINVAL;
             return -1;
          }
+         emit_span(spans, bytes, length, offset, content, CWIKI_ZONE_CONTENT);
       }
    }
    if (finish_line) {
@@ -562,7 +614,8 @@ cwiki_zone_scan_line(struct cwiki_zone_engine *engine, const char *bytes,
       errno = EINVAL;
       return -1;
    }
-   return scan(engine, bytes, length, length, start, end, true, &degraded);
+   return scan(engine, bytes, length, length, start, end, true, &degraded,
+       NULL);
 }
 
 int
@@ -594,7 +647,7 @@ cwiki_zone_recompute(struct cwiki_zone_engine *engine,
          return -1;
       }
       if (scan(engine, buffer->lines[line].bytes, buffer->lines[line].length,
-          buffer->lines[line].length, &start, &end, true, &degraded) != 0) {
+          buffer->lines[line].length, &start, &end, true, &degraded, NULL) != 0) {
          return -1;
       }
       changed = !cwiki_zone_stack_equal(&previous, &end) ||
@@ -637,7 +690,7 @@ cwiki_zone_at(struct cwiki_zone_engine *engine,
       start = buffer->lines[line - 1U].end_zones;
    }
    if (scan(engine, buffer->lines[line].bytes, buffer->lines[line].length,
-       byte, &start, &at, false, &degraded) != 0) {
+       byte, &start, &at, false, &degraded, NULL) != 0) {
       return -1;
    }
    if (at.depth == 0U) {
@@ -648,4 +701,58 @@ cwiki_zone_at(struct cwiki_zone_engine *engine,
       *zone = at.zones[at.depth - 1U];
    }
    return 0;
+}
+
+int
+cwiki_zone_build_line(struct cwiki_zone_engine *engine,
+    const struct cwiki_buffer *buffer, size_t line,
+    struct cwiki_zone_line *result)
+{
+   struct cwiki_zone_stack start = {{{CWIKI_ZONE_PROSE, 0U, 0U}}, 0U};
+   struct cwiki_zone_stack end;
+   const struct cwiki_line *source;
+   bool degraded;
+
+   if (engine == NULL || buffer == NULL || result == NULL ||
+       line >= buffer->line_count || buffer->lines[line].zone_dirty ||
+       (line != 0U && buffer->lines[line - 1U].zone_dirty)) {
+      errno = EINVAL;
+      return -1;
+   }
+   memset(result, 0, sizeof(*result));
+   source = &buffer->lines[line];
+   result->degraded = cwiki_buffer_line_degraded(buffer, line);
+   if (result->degraded || source->length == 0U) {
+      return 0;
+   }
+   if (source->length > SIZE_MAX / sizeof(*result->spans)) {
+      errno = ENOMEM;
+      return -1;
+   }
+   result->spans = malloc(source->length * sizeof(*result->spans));
+   if (result->spans == NULL) {
+      return -1;
+   }
+   if (line != 0U) {
+      start = buffer->lines[line - 1U].end_zones;
+   }
+   if (scan(engine, source->bytes, source->length, source->length, &start,
+       &end, true, &degraded, result) != 0) {
+      cwiki_zone_line_free(result);
+      return -1;
+   }
+   if (degraded) {
+      cwiki_zone_line_free(result);
+      result->degraded = true;
+   }
+   return 0;
+}
+
+void
+cwiki_zone_line_free(struct cwiki_zone_line *line)
+{
+   if (line != NULL) {
+      free((void *)line->spans);
+      memset(line, 0, sizeof(*line));
+   }
 }

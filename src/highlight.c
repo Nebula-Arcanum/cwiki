@@ -1,7 +1,6 @@
 #include "highlight.h"
 
 #include "buffer.h"
-#include "unicode.h"
 #include "zone.h"
 
 #include <errno.h>
@@ -11,7 +10,9 @@
 static const char *const role_names[CWIKI_HIGHLIGHT_ROLE_COUNT] = {
    "prose", "code", "inline math", "display math", "chemistry",
    "text hole", "reference", "LaTeX", "TikZ", "comment", "custom",
-   "raw"
+   "raw", "code delimiter", "inline math delimiter", "display math delimiter",
+   "chemistry delimiter", "text hole delimiter", "reference delimiter",
+   "LaTeX delimiter", "TikZ delimiter", "comment delimiter", "custom delimiter"
 };
 
 static const enum cwiki_highlight_role zone_roles[] = {
@@ -28,6 +29,22 @@ static const enum cwiki_highlight_role zone_roles[] = {
    CWIKI_HIGHLIGHT_COMMENT,
    CWIKI_HIGHLIGHT_COMMENT,
    CWIKI_HIGHLIGHT_CUSTOM
+};
+
+static const enum cwiki_highlight_role delimiter_roles[] = {
+   CWIKI_HIGHLIGHT_PROSE,
+   CWIKI_HIGHLIGHT_CODE_DELIMITER,
+   CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER,
+   CWIKI_HIGHLIGHT_MATH_DISPLAY_DELIMITER,
+   CWIKI_HIGHLIGHT_CHEMISTRY_DELIMITER,
+   CWIKI_HIGHLIGHT_TEXT_DELIMITER,
+   CWIKI_HIGHLIGHT_REFERENCE_DELIMITER,
+   CWIKI_HIGHLIGHT_LATEX_DELIMITER,
+   CWIKI_HIGHLIGHT_TIKZ_DELIMITER,
+   CWIKI_HIGHLIGHT_COMMENT_DELIMITER,
+   CWIKI_HIGHLIGHT_COMMENT_DELIMITER,
+   CWIKI_HIGHLIGHT_COMMENT_DELIMITER,
+   CWIKI_HIGHLIGHT_CUSTOM_DELIMITER
 };
 
 const char *
@@ -66,55 +83,59 @@ cwiki_highlight_build_line(struct cwiki_zone_engine *zones,
     struct cwiki_highlight_line *result)
 {
    struct cwiki_highlight_run *runs;
-   const struct cwiki_line *source;
-   size_t offset = 0U;
+   struct cwiki_zone_line parsed;
+   size_t index;
    size_t count = 0U;
 
-   if (zones == NULL || buffer == NULL || result == NULL ||
-       line >= buffer->line_count || buffer->lines[line].zone_dirty ||
-       (line != 0U && buffer->lines[line - 1U].zone_dirty)) {
+   if (result == NULL) {
       errno = EINVAL;
       return -1;
    }
-   (void)memset(result, 0, sizeof(*result));
-   source = &buffer->lines[line];
-   if (cwiki_buffer_line_degraded(buffer, line)) {
-      return raw_line(source->length, result);
+   if (cwiki_zone_build_line(zones, buffer, line, &parsed) != 0) {
+      return -1;
    }
-   if (source->length == 0U) {
+   (void)memset(result, 0, sizeof(*result));
+   if (parsed.degraded) {
+      cwiki_zone_line_free(&parsed);
+      return raw_line(buffer->lines[line].length, result);
+   }
+   if (parsed.span_count == 0U) {
+      cwiki_zone_line_free(&parsed);
       return 0;
    }
-   if (source->length > SIZE_MAX / sizeof(*runs)) {
+   if (parsed.span_count > SIZE_MAX / sizeof(*runs)) {
+      cwiki_zone_line_free(&parsed);
       errno = ENOMEM;
       return -1;
    }
-   runs = malloc(source->length * sizeof(*runs));
+   runs = malloc(parsed.span_count * sizeof(*runs));
    if (runs == NULL) {
+      cwiki_zone_line_free(&parsed);
       return -1;
    }
-   while (offset < source->length) {
-      struct cwiki_zone zone;
+   for (index = 0U; index < parsed.span_count; index++) {
+      const struct cwiki_zone_span *span = &parsed.spans[index];
       enum cwiki_highlight_role role;
-      size_t next = cwiki_grapheme_next(source->bytes, source->length, offset);
 
-      if (next == SIZE_MAX || cwiki_zone_at(zones, buffer, line, offset,
-          &zone) != 0 || zone.kind < 0 ||
-          (size_t)zone.kind >= sizeof(zone_roles) / sizeof(zone_roles[0])) {
+      if (span->zone.kind < 0 || (size_t)span->zone.kind >=
+          sizeof(zone_roles) / sizeof(zone_roles[0])) {
          free(runs);
+         cwiki_zone_line_free(&parsed);
          errno = EINVAL;
          return -1;
       }
-      role = zone_roles[zone.kind];
+      role = span->token == CWIKI_ZONE_CONTENT ? zone_roles[span->zone.kind] :
+          delimiter_roles[span->zone.kind];
       if (count != 0U && runs[count - 1U].role == role) {
-         runs[count - 1U].source_end = next;
+         runs[count - 1U].source_end = span->source_end;
       } else {
-         runs[count].source_start = offset;
-         runs[count].source_end = next;
+         runs[count].source_start = span->source_start;
+         runs[count].source_end = span->source_end;
          runs[count].role = role;
          count++;
       }
-      offset = next;
    }
+   cwiki_zone_line_free(&parsed);
    result->runs = runs;
    result->run_count = count;
    return 0;

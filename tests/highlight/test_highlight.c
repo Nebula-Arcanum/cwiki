@@ -97,16 +97,24 @@ test_inline_math_holes_and_unicode(void)
    const char text[] =
        "# μ prose $α + \\ce{H2O} + \\text{words $β$} + \\ref{eq:γ}$ tail\n";
    const struct cwiki_highlight_run expected[] = {
-      {0U, 12U, CWIKI_HIGHLIGHT_PROSE},
-      {12U, 21U, CWIKI_HIGHLIGHT_MATH_INLINE},
-      {21U, 25U, CWIKI_HIGHLIGHT_CHEMISTRY},
-      {25U, 34U, CWIKI_HIGHLIGHT_MATH_INLINE},
-      {34U, 41U, CWIKI_HIGHLIGHT_TEXT},
-      {41U, 44U, CWIKI_HIGHLIGHT_MATH_INLINE},
-      {44U, 45U, CWIKI_HIGHLIGHT_TEXT},
-      {45U, 53U, CWIKI_HIGHLIGHT_MATH_INLINE},
-      {53U, 59U, CWIKI_HIGHLIGHT_REFERENCE},
-      {59U, 60U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {0U, 11U, CWIKI_HIGHLIGHT_PROSE},
+      {11U, 12U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
+      {12U, 17U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {17U, 21U, CWIKI_HIGHLIGHT_CHEMISTRY_DELIMITER},
+      {21U, 24U, CWIKI_HIGHLIGHT_CHEMISTRY},
+      {24U, 25U, CWIKI_HIGHLIGHT_CHEMISTRY_DELIMITER},
+      {25U, 28U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {28U, 34U, CWIKI_HIGHLIGHT_TEXT_DELIMITER},
+      {34U, 40U, CWIKI_HIGHLIGHT_TEXT},
+      {40U, 41U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
+      {41U, 43U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {43U, 44U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
+      {44U, 45U, CWIKI_HIGHLIGHT_TEXT_DELIMITER},
+      {45U, 48U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {48U, 53U, CWIKI_HIGHLIGHT_REFERENCE_DELIMITER},
+      {53U, 58U, CWIKI_HIGHLIGHT_REFERENCE},
+      {58U, 59U, CWIKI_HIGHLIGHT_REFERENCE_DELIMITER},
+      {59U, 60U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
       {60U, 65U, CWIKI_HIGHLIGHT_PROSE}
    };
    struct cwiki_zone_engine *engine = builtin_engine();
@@ -121,7 +129,7 @@ test_inline_math_holes_and_unicode(void)
    check(!line.degraded, "ordinary Unicode source remains trusted");
    check_runs(&line, expected, sizeof(expected) / sizeof(expected[0]),
        "asymmetric Markdown/math/hole roles preserve exact UTF-8 offsets");
-   check(line.runs[0].source_end == 12U &&
+   check(line.runs[0].source_end == 11U &&
        memcmp(buffer.lines[0].bytes + 11U, "$", 1U) == 0,
        "opening math delimiter follows zone engine ownership");
    cwiki_highlight_line_free(&line);
@@ -139,14 +147,19 @@ test_display_comments_and_empty_line(void)
        "$$\n"
        "left %%NOTE $x$%% right <!--HACK--> end\n";
    const struct cwiki_highlight_run display[] = {
-      {0U, 9U, CWIKI_HIGHLIGHT_MATH_DISPLAY},
+      {0U, 8U, CWIKI_HIGHLIGHT_MATH_DISPLAY},
+      {8U, 9U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
       {9U, 17U, CWIKI_HIGHLIGHT_COMMENT}
    };
    const struct cwiki_highlight_run comments[] = {
-      {0U, 7U, CWIKI_HIGHLIGHT_PROSE},
-      {7U, 17U, CWIKI_HIGHLIGHT_COMMENT},
-      {17U, 28U, CWIKI_HIGHLIGHT_PROSE},
-      {28U, 35U, CWIKI_HIGHLIGHT_COMMENT},
+      {0U, 5U, CWIKI_HIGHLIGHT_PROSE},
+      {5U, 7U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
+      {7U, 15U, CWIKI_HIGHLIGHT_COMMENT},
+      {15U, 17U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
+      {17U, 24U, CWIKI_HIGHLIGHT_PROSE},
+      {24U, 28U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
+      {28U, 32U, CWIKI_HIGHLIGHT_COMMENT},
+      {32U, 35U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
       {35U, 39U, CWIKI_HIGHLIGHT_PROSE}
    };
    struct cwiki_zone_engine *engine = builtin_engine();
@@ -159,9 +172,8 @@ test_display_comments_and_empty_line(void)
    parse(engine, &buffer, text);
    line = highlight(engine, &buffer, 0U);
    check_runs(&line, (const struct cwiki_highlight_run[]){
-       {0U, 1U, CWIKI_HIGHLIGHT_PROSE},
-       {1U, 2U, CWIKI_HIGHLIGHT_MATH_INLINE}}, 2U,
-       "opening display delimiter preserves bounded prefix-query ownership");
+       {0U, 2U, CWIKI_HIGHLIGHT_MATH_DISPLAY_DELIMITER}}, 1U,
+       "both opening dollars are one display delimiter");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 1U);
    check_runs(&line, display, sizeof(display) / sizeof(display[0]),
@@ -173,8 +185,8 @@ test_display_comments_and_empty_line(void)
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 3U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 2U,
-       CWIKI_HIGHLIGHT_MATH_DISPLAY}}, 1U,
-       "closing display delimiter keeps asymmetric inner ownership");
+       CWIKI_HIGHLIGHT_MATH_DISPLAY_DELIMITER}}, 1U,
+       "both closing dollars are one display delimiter");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 4U);
    check_runs(&line, comments, sizeof(comments) / sizeof(comments[0]),
@@ -198,7 +210,8 @@ test_code_latex_and_tikz(void)
        "\\end{tikzpicture}\n"
        "\\end{figure}\n";
    const struct cwiki_highlight_run tikz_comment[] = {
-      {0U, 9U, CWIKI_HIGHLIGHT_TIKZ},
+      {0U, 8U, CWIKI_HIGHLIGHT_TIKZ},
+      {8U, 9U, CWIKI_HIGHLIGHT_COMMENT_DELIMITER},
       {9U, 15U, CWIKI_HIGHLIGHT_COMMENT}
    };
    struct cwiki_zone_engine *engine = builtin_engine();
@@ -211,8 +224,8 @@ test_code_latex_and_tikz(void)
    parse(engine, &buffer, text);
    line = highlight(engine, &buffer, 0U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 9U,
-       CWIKI_HIGHLIGHT_PROSE}}, 1U,
-       "opening fence delimiter follows outer-zone ownership");
+       CWIKI_HIGHLIGHT_CODE_DELIMITER}}, 1U,
+       "opening fence including language is a code delimiter");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 1U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 12U,
@@ -221,13 +234,13 @@ test_code_latex_and_tikz(void)
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 2U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 3U,
-       CWIKI_HIGHLIGHT_CODE}}, 1U,
-       "closing fence delimiter follows inner-zone ownership");
+       CWIKI_HIGHLIGHT_CODE_DELIMITER}}, 1U,
+       "closing fence is a code delimiter");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 3U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 14U,
-       CWIKI_HIGHLIGHT_PROSE}}, 1U,
-       "opening LaTeX environment delimiter remains source prose");
+       CWIKI_HIGHLIGHT_LATEX_DELIMITER}}, 1U,
+       "opening LaTeX environment is a delimiter");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 4U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 8U,
@@ -235,8 +248,8 @@ test_code_latex_and_tikz(void)
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 5U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 19U,
-       CWIKI_HIGHLIGHT_LATEX}}, 1U,
-       "nested TikZ opener follows containing LaTeX ownership");
+       CWIKI_HIGHLIGHT_TIKZ_DELIMITER}}, 1U,
+       "nested TikZ opener has its own delimiter role");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 6U);
    check_runs(&line, tikz_comment,
@@ -245,13 +258,13 @@ test_code_latex_and_tikz(void)
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 7U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 17U,
-       CWIKI_HIGHLIGHT_TIKZ}}, 1U,
-       "TikZ closing delimiter follows inner-zone ownership");
+       CWIKI_HIGHLIGHT_TIKZ_DELIMITER}}, 1U,
+       "TikZ closing delimiter has the TikZ delimiter role");
    cwiki_highlight_line_free(&line);
    line = highlight(engine, &buffer, 8U);
    check_runs(&line, (const struct cwiki_highlight_run[]){{0U, 12U,
-       CWIKI_HIGHLIGHT_LATEX}}, 1U,
-       "LaTeX closing delimiter follows inner-zone ownership");
+       CWIKI_HIGHLIGHT_LATEX_DELIMITER}}, 1U,
+       "LaTeX closing delimiter has the LaTeX delimiter role");
    cwiki_highlight_line_free(&line);
    cwiki_buffer_free(&buffer);
    cwiki_zone_engine_free(engine);
@@ -279,9 +292,10 @@ test_custom_and_degraded_fallback(void)
    parse(engine, &buffer, "<x> tail\n");
    line = highlight(engine, &buffer, 0U);
    check_runs(&line, (const struct cwiki_highlight_run[]){
-       {0U, 1U, CWIKI_HIGHLIGHT_PROSE},
-       {1U, 3U, CWIKI_HIGHLIGHT_CUSTOM},
-       {3U, 8U, CWIKI_HIGHLIGHT_PROSE}}, 3U,
+       {0U, 1U, CWIKI_HIGHLIGHT_CUSTOM_DELIMITER},
+       {1U, 2U, CWIKI_HIGHLIGHT_CUSTOM},
+       {2U, 3U, CWIKI_HIGHLIGHT_CUSTOM_DELIMITER},
+       {3U, 8U, CWIKI_HIGHLIGHT_PROSE}}, 4U,
        "custom zone maps without hard-coded custom syntax");
    cwiki_highlight_line_free(&line);
    cwiki_buffer_free(&buffer);
@@ -336,6 +350,35 @@ test_api_validation_and_role_names(void)
    cwiki_zone_engine_free(engine);
 }
 
+static void
+test_grapheme_delimiters(void)
+{
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_highlight_line line;
+   const struct cwiki_highlight_run expected[] = {
+      {0U, 5U, CWIKI_HIGHLIGHT_PROSE},
+      {5U, 8U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
+      {8U, 9U, CWIKI_HIGHLIGHT_MATH_INLINE},
+      {9U, 10U, CWIKI_HIGHLIGHT_MATH_INLINE_DELIMITER},
+      {10U, 15U, CWIKI_HIGHLIGHT_PROSE},
+      {15U, 17U, CWIKI_HIGHLIGHT_MATH_DISPLAY_DELIMITER},
+      {17U, 19U, CWIKI_HIGHLIGHT_MATH_DISPLAY},
+      {19U, 21U, CWIKI_HIGHLIGHT_MATH_DISPLAY_DELIMITER}
+   };
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, "😀 $́x$ é $$β$$\n");
+   line = highlight(engine, &buffer, 0U);
+   check_runs(&line, expected, sizeof(expected) / sizeof(expected[0]),
+       "delimiter roles preserve combining clusters and four-byte prose");
+   cwiki_highlight_line_free(&line);
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
 int
 main(void)
 {
@@ -344,6 +387,7 @@ main(void)
    test_code_latex_and_tikz();
    test_custom_and_degraded_fallback();
    test_api_validation_and_role_names();
+   test_grapheme_delimiters();
    if (failures != 0) {
       (void)fprintf(stderr, "%d highlight test(s) failed\n", failures);
       return EXIT_FAILURE;

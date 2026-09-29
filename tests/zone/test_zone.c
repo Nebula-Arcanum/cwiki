@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "unicode.h"
 #include "zone.h"
 
 #include <errno.h>
@@ -337,6 +338,7 @@ test_regex_resource_degradation(void)
    };
    struct cwiki_zone_engine *engine = NULL;
    struct cwiki_buffer buffer;
+   struct cwiki_zone_line spans = {0};
    size_t scanned = 0U;
 
    errno = 0;
@@ -353,6 +355,10 @@ test_regex_resource_degradation(void)
    check(cwiki_buffer_line_zone_degraded(&buffer, 0U) &&
        cwiki_buffer_line_degraded(&buffer, 0U),
        "match-limit exhaustion visibly degrades only the affected line");
+   check(cwiki_zone_build_line(engine, &buffer, 0U, &spans) == 0 &&
+       spans.degraded && spans.span_count == 0U && spans.spans == NULL,
+       "degraded snapshot publishes no misleading partial spans");
+   cwiki_zone_line_free(&spans);
    check(!cwiki_buffer_line_zone_degraded(&buffer, 1U) &&
        !cwiki_buffer_line_zone_degraded(&buffer, 2U),
        "asymmetric safe neighboring lines remain trustworthy");
@@ -391,6 +397,147 @@ test_regex_resource_degradation(void)
    cwiki_zone_engine_free(engine);
 }
 
+static void
+test_builtin_spans(void)
+{
+   const struct {
+      const char *open;
+      const char *close;
+      enum cwiki_zone_kind kind;
+      bool in_math;
+   } cases[] = {
+      {"  ```c", " ```\t", CWIKI_ZONE_CODE, false},
+      {" %% ", "%%", CWIKI_ZONE_COMMENT_NOTE, false},
+      {"%%", "%%", CWIKI_ZONE_COMMENT_NOTE, false},
+      {"<!--", "-->", CWIKI_ZONE_COMMENT_HTML, false},
+      {"$$", "$$", CWIKI_ZONE_MATH_DISPLAY, false},
+      {"\\[", "\\]", CWIKI_ZONE_MATH_DISPLAY, false},
+      {"$", "$", CWIKI_ZONE_MATH_INLINE, false},
+      {"\\(", "\\)", CWIKI_ZONE_MATH_INLINE, false},
+      {"\\begin{tikzpicture}", "\\end{tikzpicture}", CWIKI_ZONE_TIKZ, false},
+      {"\\begin{align*}", "\\end{align*}", CWIKI_ZONE_LATEX, false},
+      {"\\ce{", "}", CWIKI_ZONE_CHEMISTRY, true},
+      {"\\text{", "}", CWIKI_ZONE_TEXT, true},
+      {"\\intertext{", "}", CWIKI_ZONE_TEXT, true},
+      {"\\label{", "}", CWIKI_ZONE_REFERENCE, true},
+      {"\\ref{", "}", CWIKI_ZONE_REFERENCE, true},
+      {"\\eqref{", "}", CWIKI_ZONE_REFERENCE, true}
+   };
+   struct cwiki_zone_engine *engine = builtin_engine();
+   size_t index;
+
+   if (engine == NULL) {
+      return;
+   }
+   for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+      struct cwiki_buffer buffer;
+      struct cwiki_zone_line spans = {0};
+      char text[160];
+      size_t first = cases[index].in_math ? 1U : 0U;
+      size_t part;
+
+      (void)snprintf(text, sizeof(text), "%s%s\nαé\n%s\n",
+          cases[index].in_math ? "$\n" : "", cases[index].open,
+          cases[index].close);
+      parse(engine, &buffer, text);
+      for (part = 0U; part < 3U; part++) {
+         enum cwiki_zone_token token = part == 0U ? CWIKI_ZONE_OPEN :
+             (part == 1U ? CWIKI_ZONE_CONTENT : CWIKI_ZONE_CLOSE);
+
+         check(cwiki_zone_build_line(engine, &buffer, first + part,
+             &spans) == 0 && !spans.degraded && spans.span_count == 1U,
+             "built-in opener/content/closer has one trusted span");
+         if (spans.span_count == 1U) {
+            check(spans.spans[0].source_start == 0U &&
+                spans.spans[0].source_end == buffer.lines[first + part].length &&
+                spans.spans[0].zone.kind == cases[index].kind &&
+                spans.spans[0].token == token,
+                "built-in span owns its exact full match and semantic token");
+         }
+         cwiki_zone_line_free(&spans);
+      }
+      cwiki_buffer_free(&buffer);
+   }
+   cwiki_zone_engine_free(engine);
+}
+
+static void
+test_span_boundaries_and_snapshots(void)
+{
+   const char text[] = "π $a$ $$β$$ \\\\$c$ $́d$\n";
+   const struct {
+      size_t start;
+      size_t end;
+      enum cwiki_zone_kind kind;
+      enum cwiki_zone_token token;
+   } expected[] = {
+      {0U, 3U, CWIKI_ZONE_PROSE, CWIKI_ZONE_CONTENT},
+      {3U, 4U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_OPEN},
+      {4U, 5U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CONTENT},
+      {5U, 6U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CLOSE},
+      {6U, 7U, CWIKI_ZONE_PROSE, CWIKI_ZONE_CONTENT},
+      {7U, 9U, CWIKI_ZONE_MATH_DISPLAY, CWIKI_ZONE_OPEN},
+      {9U, 11U, CWIKI_ZONE_MATH_DISPLAY, CWIKI_ZONE_CONTENT},
+      {11U, 13U, CWIKI_ZONE_MATH_DISPLAY, CWIKI_ZONE_CLOSE},
+      {13U, 16U, CWIKI_ZONE_PROSE, CWIKI_ZONE_CONTENT},
+      {16U, 17U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_OPEN},
+      {17U, 18U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CONTENT},
+      {18U, 19U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CLOSE},
+      {19U, 20U, CWIKI_ZONE_PROSE, CWIKI_ZONE_CONTENT},
+      {20U, 23U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_OPEN},
+      {23U, 24U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CONTENT},
+      {24U, 25U, CWIKI_ZONE_MATH_INLINE, CWIKI_ZONE_CLOSE}
+   };
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_zone_line spans = {0};
+   struct cwiki_zone_line fresh = {0};
+   size_t index;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   check(cwiki_zone_build_line(engine, &buffer, 0U, &spans) == 0 &&
+       spans.span_count == sizeof(expected) / sizeof(expected[0]),
+       "mixed dollars, escape prefix and combining mark produce exact spans");
+   for (index = 0U; index < spans.span_count &&
+       index < sizeof(expected) / sizeof(expected[0]); index++) {
+      const struct cwiki_zone_span *span = &spans.spans[index];
+
+      check(span->source_start == expected[index].start &&
+          span->source_end == expected[index].end &&
+          span->zone.kind == expected[index].kind &&
+          span->token == expected[index].token,
+          "span matches independent asymmetric byte-range expectation");
+      check(cwiki_grapheme_boundary(buffer.lines[0].bytes,
+          buffer.lines[0].length, span->source_start) &&
+          cwiki_grapheme_boundary(buffer.lines[0].bytes,
+          buffer.lines[0].length, span->source_end),
+          "neither endpoint splits a Unicode grapheme");
+   }
+   check(cwiki_buffer_delete(&buffer, 0U, 7U, 1U) == 0,
+       "edit display opener after taking an immutable snapshot");
+   errno = 0;
+   check(cwiki_zone_build_line(engine, &buffer, 0U, &fresh) == -1 &&
+       errno == EINVAL, "dirty line rejects span queries");
+   check(cwiki_zone_build_line(engine, &buffer, 1U, &fresh) == -1 &&
+       errno == EINVAL, "dirty predecessor rejects span queries");
+   check(cwiki_zone_recompute(engine, &buffer, 0U, NULL) == 0 &&
+       cwiki_zone_build_line(engine, &buffer, 0U, &fresh) == 0,
+       "recomputed spans follow edited bytes");
+   check(fresh.span_count > 5U && fresh.spans[5].source_end == 8U &&
+       fresh.spans[5].zone.kind == CWIKI_ZONE_MATH_INLINE,
+       "removing one display dollar creates an inline opener");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+   check(spans.span_count > 5U && spans.spans[5].source_end == 9U &&
+       spans.spans[5].zone.kind == CWIKI_ZONE_MATH_DISPLAY,
+       "owned snapshot survives recomputation and buffer/engine destruction");
+   cwiki_zone_line_free(&spans);
+   cwiki_zone_line_free(&fresh);
+}
+
 int
 main(void)
 {
@@ -401,6 +548,8 @@ main(void)
    test_incremental_propagation();
    test_depth_bound_and_malformed_input();
    test_regex_resource_degradation();
+   test_builtin_spans();
+   test_span_boundaries_and_snapshots();
    if (failures != 0) {
       return 1;
    }
