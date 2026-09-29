@@ -66,8 +66,11 @@ degraded raw rows, and source↔display movement mappings. The snippet-engine
 foundation supplies layered zone-aware matching, the approved body syntax,
 mirrors, transforms, nested tab stops, and transactional undo. Strict, sanitizer,
 model, protocol, fault-injection, and parser/translator/snippet fuzz tests cover
-these slices. Application integration, the builtin snippet catalog, key dispatch,
-and the remaining editor and highlighting work are not yet implemented.
+these slices. A bounded shared structural-search primitive and named-action
+registry establish the common paths for later motions, keymaps, clues, palette,
+macros, replay, and command dispatch. Application integration, the builtin
+snippet catalog, key dispatch, and the remaining editor and highlighting work
+are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
