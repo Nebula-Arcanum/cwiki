@@ -57,10 +57,11 @@ The incremental zone-stack foundation covers the first Markdown/LaTeX contexts,
 uses the shared bounded PCRE2 runtime, and visibly marks lines where a regex
 resource limit makes zone state untrustworthy. Typed Vim patterns translate
 across all four magic modes with Unicode smartcase, while unsupported constructs
-are rejected rather than guessed. Strict, sanitizer, model, protocol,
-fault-injection, and parser/translator fuzz tests cover these slices. Application
-integration and the remaining editor, highlighting, and snippet work are not yet
-implemented.
+are rejected rather than guessed. The conceal foundation supplies the accepted
+category defaults, width-safe substitutions, source↔display mappings, and
+per-run reveal behavior. Strict, sanitizer, model, protocol, fault-injection,
+and parser/translator fuzz tests cover these slices. Application integration and
+the remaining editor, highlighting, and snippet work are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

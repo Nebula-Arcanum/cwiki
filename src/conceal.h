@@ -60,9 +60,9 @@ enum cwiki_conceal_mode {
     CWIKI_CONCEAL_MODE_BIT(CWIKI_CONCEAL_MODE_COMMAND))
 
 struct cwiki_conceal_entry {
-   enum cwiki_conceal_category category;
    const char *source;
    const char *replacement;
+   enum cwiki_conceal_category category;
    uint32_t contexts;
 };
 

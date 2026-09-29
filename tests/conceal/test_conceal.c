@@ -115,23 +115,23 @@ test_categories_and_table_validation(void)
 
    {
       const struct cwiki_conceal_entry ambiguous[] = {
-         {CWIKI_CONCEAL_GREEK, "\\custom", "α",
+         {"\\custom", "α", CWIKI_CONCEAL_GREEK,
              CWIKI_CONCEAL_CONTEXT_MATH_INLINE}
       };
       const struct cwiki_conceal_entry multiple[] = {
-         {CWIKI_CONCEAL_GREEK, "\\custom", "ab",
+         {"\\custom", "ab", CWIKI_CONCEAL_GREEK,
              CWIKI_CONCEAL_CONTEXT_MATH_INLINE}
       };
       const struct cwiki_conceal_entry zero_width[] = {
-         {CWIKI_CONCEAL_GREEK, "\\custom", "\xcc\x82",
+         {"\\custom", "\xcc\x82", CWIKI_CONCEAL_GREEK,
              CWIKI_CONCEAL_CONTEXT_MATH_INLINE}
       };
       const struct cwiki_conceal_entry invalid_source[] = {
-         {CWIKI_CONCEAL_GREEK, "\xc3(", "𝛼",
+         {"\xc3(", "𝛼", CWIKI_CONCEAL_GREEK,
              CWIKI_CONCEAL_CONTEXT_MATH_INLINE}
       };
       const struct cwiki_conceal_entry wide[] = {
-         {CWIKI_CONCEAL_CITATIONS, "\\custom", "📖",
+         {"\\custom", "📖", CWIKI_CONCEAL_CITATIONS,
              CWIKI_CONCEAL_CONTEXT_LATEX}
       };
 
