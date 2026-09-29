@@ -343,6 +343,20 @@ config_error_before_terminal(const char *path)
    assert(strstr(diagnostic, "/scope/global.yaml:2:3") != NULL &&
        strstr(diagnostic, "unknown parent") != NULL);
    assert(fclose(errors) == 0);
+
+   write_note(path, "---\nsubject: physics\n---\nBody\n");
+   options.configs = NULL;
+   options.config_count = 0U;
+   errors = tmpfile();
+   assert(errors != NULL);
+   options.error_fd = fileno(errors);
+   assert(cwiki_app_run(path, &options) == 1);
+   assert(fseek(errors, 0L, SEEK_SET) == 0);
+   assert(fgets(diagnostic, sizeof(diagnostic), errors) != NULL);
+   assert(strstr(diagnostic, path) != NULL &&
+       strstr(diagnostic, ":2:10: note subject must be a sequence") != NULL);
+   assert(fclose(errors) == 0);
+   write_note(path, "Yfirst\r\nsecond");
 }
 
 int
@@ -431,6 +445,33 @@ main(void)
       content(path, "HELLO", CWIKI_LINE_ENDING_LF);
       assert(unlink(path) == 0);
       (void)puts("app: layered custom snippet registry reaches insert dispatch passed");
+   }
+
+   {
+      static const char subject_snippets[] =
+          "snippets:\n"
+          "  custom.calculus:\n"
+          "    trigger: cc\n"
+          "    subject: calculus\n"
+          "    bodies: {prose: 'CALC$0'}\n"
+          "  custom.physics:\n"
+          "    trigger: pp\n"
+          "    subject: physics\n"
+          "    bodies: {prose: 'PHYS$0'}\n";
+
+      write_note(path, "---\nsubject: [calculus, physics]\n---\n");
+      session = start_config(path, supported, false, subject_snippets);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("Gicc" TAB " pp" TAB ESCAPE));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "CALC PHYS") != NULL);
+      send_bytes(session.master, wire(":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%sGicc" TAB " pp" TAB ESCAPE ":q" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      assert(unlink(path) == 0);
+      (void)puts("app: note frontmatter activates all subject snippets passed");
    }
 
    /* Pending startup input, new LF file, edits and motions in a single drain.

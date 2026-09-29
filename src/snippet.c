@@ -80,8 +80,9 @@ struct cwiki_snippet_registry {
    size_t count;
    size_t capacity;
    size_t longest_literal;
-   char *subject;
-   size_t subject_length;
+   char **subjects;
+   size_t *subject_lengths;
+   size_t subject_count;
    struct trie_node literal_root;
    struct regex_bucket regex_buckets[CWIKI_ZONE_CUSTOM + 1U][REGEX_BUCKETS];
 };
@@ -405,11 +406,12 @@ cwiki_snippet_registry_free(struct cwiki_snippet_registry *registry)
    size_t i, zone, bucket;
    if (registry == NULL) return;
    for (i = 0U; i < registry->count; i++) definition_free(registry->definitions[i]);
+   for (i = 0U; i < registry->subject_count; i++) free(registry->subjects[i]);
    trie_free(&registry->literal_root); free(registry->definitions);
    for (zone = 0U; zone <= CWIKI_ZONE_CUSTOM; zone++)
       for (bucket = 0U; bucket < REGEX_BUCKETS; bucket++)
          free(registry->regex_buckets[zone][bucket].definitions);
-   free(registry->subject); free(registry);
+   free(registry->subjects); free(registry->subject_lengths); free(registry);
 }
 
 static bool
@@ -565,21 +567,69 @@ enum cwiki_snippet_status
 cwiki_snippet_registry_set_subject(struct cwiki_snippet_registry *registry,
     const char *subject, size_t subject_length)
 {
-   char *copy;
-   if (registry == NULL || (subject == NULL && subject_length != 0U) || !cwiki_utf8_validate(subject, subject_length)) return CWIKI_SNIPPET_INVALID;
-   copy = copy_bytes(subject == NULL ? "" : subject, subject_length);
-   if (copy == NULL) return allocation_status();
-   free(registry->subject); registry->subject = copy; registry->subject_length = subject_length;
+   struct cwiki_snippet_subject selected = {subject, subject_length};
+
+   return cwiki_snippet_registry_set_subjects(registry,
+       subject_length == 0U ? NULL : &selected, subject_length == 0U ? 0U : 1U);
+}
+
+enum cwiki_snippet_status
+cwiki_snippet_registry_set_subjects(struct cwiki_snippet_registry *registry,
+    const struct cwiki_snippet_subject *subjects, size_t subject_count)
+{
+   char **copies = NULL;
+   size_t *lengths = NULL;
+   size_t i;
+
+   if (registry == NULL || (subjects == NULL && subject_count != 0U)) return CWIKI_SNIPPET_INVALID;
+   if (subject_count != 0U) {
+      copies = s_calloc(subject_count, sizeof(*copies));
+      lengths = s_calloc(subject_count, sizeof(*lengths));
+      if (copies == NULL || lengths == NULL) goto no_memory;
+   }
+   for (i = 0U; i < subject_count; i++) {
+      size_t j;
+
+      if (subjects[i].value == NULL || subjects[i].length == 0U ||
+          !cwiki_utf8_validate(subjects[i].value, subjects[i].length)) {
+         goto invalid;
+      }
+      for (j = 0U; j < i; j++) {
+         if (subjects[i].length == lengths[j] &&
+             memcmp(subjects[i].value, copies[j], lengths[j]) == 0) goto invalid;
+      }
+      copies[i] = copy_bytes(subjects[i].value, subjects[i].length);
+      if (copies[i] == NULL) goto no_memory;
+      lengths[i] = subjects[i].length;
+   }
+   for (i = 0U; i < registry->subject_count; i++) free(registry->subjects[i]);
+   free(registry->subjects); free(registry->subject_lengths);
+   registry->subjects = copies; registry->subject_lengths = lengths;
+   registry->subject_count = subject_count;
    return CWIKI_SNIPPET_OK;
+invalid:
+   for (i = 0U; i < subject_count; i++) free(copies == NULL ? NULL : copies[i]);
+   free(copies); free(lengths);
+   return CWIKI_SNIPPET_INVALID;
+no_memory:
+   for (i = 0U; i < subject_count; i++) free(copies == NULL ? NULL : copies[i]);
+   free(copies); free(lengths);
+   return allocation_status();
 }
 
 static bool
 subject_active(const struct cwiki_snippet_registry *registry,
     const struct definition *definition)
 {
-   return definition->subject_length == 0U ||
-       (definition->subject_length == registry->subject_length &&
-       memcmp(definition->subject, registry->subject, registry->subject_length) == 0);
+   size_t i;
+
+   if (definition->subject_length == 0U) return true;
+   for (i = 0U; i < registry->subject_count; i++) {
+      if (definition->subject_length == registry->subject_lengths[i] &&
+          memcmp(definition->subject, registry->subjects[i],
+          definition->subject_length) == 0) return true;
+   }
+   return false;
 }
 
 static bool

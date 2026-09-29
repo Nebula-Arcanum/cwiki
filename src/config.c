@@ -18,6 +18,7 @@
 #define CONFIG_MAX_ENTRIES 4096U
 #define CONFIG_MAX_KEY_TOKEN 64U
 #define CONFIG_MAX_TEXT 1024U
+#define CONFIG_MAX_SUBJECTS 64U
 
 static const char *const builtin_zone_ids[] = {
    "code-fence", "note-block-comment", "note-inline-comment", "html-comment",
@@ -2273,6 +2274,236 @@ cwiki_config_zone_table_free(struct cwiki_config_zone_table *table)
    }
    free(table->regions);
    *table = (struct cwiki_config_zone_table){0};
+}
+
+void
+cwiki_config_subjects_free(struct cwiki_config_subjects *subjects)
+{
+   size_t i;
+
+   if (subjects == NULL) {
+      return;
+   }
+   for (i = 0U; i < subjects->count; i++) {
+      free((char *)subjects->items[i].value);
+   }
+   free(subjects->items);
+   *subjects = (struct cwiki_config_subjects){0};
+}
+
+static enum cwiki_config_status
+note_subject_values(yaml_document_t *document, const yaml_node_t *node,
+    struct cwiki_config_subjects *subjects, struct cwiki_config_error *error)
+{
+   yaml_node_item_t *item;
+   size_t count;
+
+   if (node == NULL || node->type != YAML_SEQUENCE_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line + 1U, at.column,
+          "note subject must be a sequence");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.sequence.items.top -
+       node->data.sequence.items.start);
+   if (count > CONFIG_MAX_SUBJECTS) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line + 1U, at.column, "too many note subjects");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      subjects->items = calloc(count, sizeof(*subjects->items));
+      if (subjects->items == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (item = node->data.sequence.items.start;
+       item < node->data.sequence.items.top; item++) {
+      yaml_node_t *value = yaml_document_get_node(document, *item);
+      size_t i;
+      char *copy;
+
+      if (value == NULL || value->type != YAML_SCALAR_NODE ||
+          value->data.scalar.length == 0U ||
+          value->data.scalar.length > CONFIG_MAX_TEXT ||
+          memchr(value->data.scalar.value, '\0',
+          value->data.scalar.length) != NULL ||
+          !cwiki_utf8_validate((const char *)value->data.scalar.value,
+          value->data.scalar.length)) {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line + 1U, at.column,
+             "note subjects must be non-empty UTF-8 text");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (i = 0U; i < subjects->count; i++) {
+         if (subjects->items[i].length == value->data.scalar.length &&
+             memcmp(subjects->items[i].value, value->data.scalar.value,
+             value->data.scalar.length) == 0) {
+            struct source_mark at = mark(value);
+
+            set_error(error, at.line + 1U, at.column,
+                "duplicate note subject");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      copy = copy_scalar(value);
+      if (copy == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      subjects->items[subjects->count].value = copy;
+      subjects->items[subjects->count].length = value->data.scalar.length;
+      subjects->count++;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_note_subject_document(const unsigned char *bytes, size_t length,
+    struct cwiki_config_subjects *subjects, struct cwiki_config_error *error)
+{
+   yaml_parser_t parser;
+   yaml_document_t document;
+   yaml_document_t trailing;
+   yaml_node_t *root;
+   yaml_node_t *subject = NULL;
+   yaml_node_pair_t *pair;
+   enum cwiki_config_status status = CWIKI_CONFIG_OK;
+   bool document_ready = false;
+
+   if (!yaml_parser_initialize(&parser)) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   yaml_parser_set_input_string(&parser, bytes, length);
+   if (!yaml_parser_load(&parser, &document)) {
+      set_error(error, parser.problem_mark.line + 2U,
+          parser.problem_mark.column + 1U,
+          parser.problem == NULL ? "invalid note frontmatter" : parser.problem);
+      status = parser.error == YAML_MEMORY_ERROR ? CWIKI_CONFIG_NO_MEMORY :
+          CWIKI_CONFIG_YAML_ERROR;
+      goto done;
+   }
+   document_ready = true;
+   root = yaml_document_get_root_node(&document);
+   if (root == NULL) {
+      goto trailing;
+   }
+   if (root->type != YAML_MAPPING_NODE) {
+      struct source_mark at = mark(root);
+
+      set_error(error, at.line + 1U, at.column,
+          "note frontmatter must be a mapping");
+      status = CWIKI_CONFIG_SCHEMA_ERROR;
+      goto done;
+   }
+   for (pair = root->data.mapping.pairs.start;
+       pair < root->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(&document, pair->key);
+
+      if (key != NULL && scalar_is(key, "subject")) {
+         if (subject != NULL) {
+            struct source_mark at = mark(key);
+
+            set_error(error, at.line + 1U, at.column,
+                "duplicate note subject key");
+            status = CWIKI_CONFIG_SCHEMA_ERROR;
+            goto done;
+         }
+         subject = yaml_document_get_node(&document, pair->value);
+      }
+   }
+   if (subject != NULL) {
+      status = note_subject_values(&document, subject, subjects, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+trailing:
+   if (!yaml_parser_load(&parser, &trailing)) {
+      set_error(error, parser.problem_mark.line + 2U,
+          parser.problem_mark.column + 1U,
+          parser.problem == NULL ? "invalid note frontmatter" : parser.problem);
+      status = parser.error == YAML_MEMORY_ERROR ? CWIKI_CONFIG_NO_MEMORY :
+          CWIKI_CONFIG_YAML_ERROR;
+      goto done;
+   }
+   if (yaml_document_get_root_node(&trailing) != NULL) {
+      yaml_node_t *extra = yaml_document_get_root_node(&trailing);
+      struct source_mark at = mark(extra);
+
+      set_error(error, at.line + 1U, at.column,
+          "note frontmatter must contain one YAML document");
+      status = CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   yaml_document_delete(&trailing);
+done:
+   if (document_ready) {
+      yaml_document_delete(&document);
+   }
+   yaml_parser_delete(&parser);
+   return status;
+}
+
+enum cwiki_config_status
+cwiki_config_parse_note_subjects(const struct cwiki_buffer *buffer,
+    struct cwiki_config_subjects *subjects, struct cwiki_config_error *error)
+{
+   unsigned char *bytes = NULL;
+   size_t length = 0U;
+   size_t closing;
+   size_t line;
+   enum cwiki_config_status status;
+
+   if (buffer == NULL || subjects == NULL) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *subjects = (struct cwiki_config_subjects){0};
+   if (error != NULL) {
+      *error = (struct cwiki_config_error){0};
+   }
+   if (buffer->line_count == 0U || buffer->lines[0].length != 3U ||
+       memcmp(buffer->lines[0].bytes, "---", 3U) != 0) {
+      return CWIKI_CONFIG_OK;
+   }
+   for (closing = 1U; closing < buffer->line_count; closing++) {
+      if (buffer->lines[closing].length == 3U &&
+          memcmp(buffer->lines[closing].bytes, "---", 3U) == 0) {
+         break;
+      }
+   }
+   if (closing == buffer->line_count) {
+      set_error(error, 1U, 1U, "note frontmatter has no closing delimiter");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   for (line = 1U; line < closing; line++) {
+      if (buffer->lines[line].length > CONFIG_MAX_BYTES - length ||
+          length + buffer->lines[line].length > CONFIG_MAX_BYTES - 1U) {
+         set_error(error, line + 1U, 1U,
+             "note frontmatter exceeds the 1 MiB limit");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      length += buffer->lines[line].length + 1U;
+   }
+   bytes = malloc(length == 0U ? 1U : length);
+   if (bytes == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   length = 0U;
+   for (line = 1U; line < closing; line++) {
+      memcpy(bytes + length, buffer->lines[line].bytes,
+          buffer->lines[line].length);
+      length += buffer->lines[line].length;
+      bytes[length++] = '\n';
+   }
+   status = parse_note_subject_document(bytes, length, subjects, error);
+   free(bytes);
+   if (status != CWIKI_CONFIG_OK) {
+      cwiki_config_subjects_free(subjects);
+   }
+   return status;
 }
 
 const char *

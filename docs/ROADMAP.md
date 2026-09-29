@@ -116,8 +116,10 @@ startup discovery composes existing global, synchronized-vault, and UUID-keyed
 machine-local files without creating vault metadata. The custom-zone schema adds
 bounded named regions, parent/child containment, line-ending regions, detail
 captures for hosted languages, and layered replacement/disabling without
-allowing builtin grammar removal. Note-scope composition and concrete picker
-providers are not yet implemented.
+allowing builtin grammar removal. Opening YAML frontmatter selects all declared
+subject snippet layers without pulling Milestone 4's typed-property system into
+the editor foundation. Configuration inspection and concrete picker providers
+are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

@@ -868,7 +868,10 @@ viewer.
 
 **R1.10.11** Snippet sets layer: a global set plus per-subject sets, selected
 from the note's own declared subject metadata. Not by switching a symlink, which
-is how the researched workflow does it.
+is how the researched workflow does it. In Milestone 1, an opening YAML
+frontmatter block may supply `subject` as a sequence of non-empty strings; every
+listed subject layer is active. Other frontmatter properties remain ordinary
+note metadata until the typed-property work in Milestone 4.
 
 **R1.10.12** Pasted text never triggers snippet expansion, autopairs or
 abbreviation (follows from R1.5.4).

@@ -90,6 +90,11 @@ struct cwiki_snippet_match {
    size_t capture_count;
 };
 
+struct cwiki_snippet_subject {
+   const char *value;
+   size_t length;
+};
+
 /*
  * The transform set is deliberately closed. upper/lower use utf8proc's simple
  * one-codepoint Unicode mappings (no locale and no multi-codepoint expansion).
@@ -119,6 +124,9 @@ enum cwiki_snippet_status cwiki_snippet_registry_add(
 enum cwiki_snippet_status cwiki_snippet_registry_set_subject(
     struct cwiki_snippet_registry *registry, const char *subject,
     size_t subject_length);
+enum cwiki_snippet_status cwiki_snippet_registry_set_subjects(
+    struct cwiki_snippet_registry *registry,
+    const struct cwiki_snippet_subject *subjects, size_t subject_count);
 enum cwiki_snippet_status cwiki_snippet_match(
     struct cwiki_snippet_registry *registry, struct cwiki_zone_engine *zones,
     const struct cwiki_buffer *buffer, struct cwiki_position cursor,

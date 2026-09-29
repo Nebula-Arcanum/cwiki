@@ -364,6 +364,52 @@ zone_settings_and_precedence(void)
    cwiki_action_registry_free(registry);
 }
 
+static void
+note_subject_frontmatter(void)
+{
+   struct cwiki_buffer buffer;
+   struct cwiki_config_subjects subjects = {0};
+   struct cwiki_config_error error = {0};
+   static const char valid[] =
+       "---\n"
+       "title: Shared topic\n"
+       "subject: [calculus, physics]\n"
+       "---\n"
+       "Body\n";
+
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, valid, sizeof(valid) - 1U) == 0);
+   assert(cwiki_config_parse_note_subjects(&buffer, &subjects, &error) ==
+       CWIKI_CONFIG_OK && subjects.count == 2U &&
+       strcmp(subjects.items[0].value, "calculus") == 0 &&
+       strcmp(subjects.items[1].value, "physics") == 0);
+   cwiki_config_subjects_free(&subjects);
+   cwiki_buffer_free(&buffer);
+
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, "subject: [ignored]\n",
+       strlen("subject: [ignored]\n")) == 0);
+   assert(cwiki_config_parse_note_subjects(&buffer, &subjects, &error) ==
+       CWIKI_CONFIG_OK && subjects.count == 0U);
+   cwiki_buffer_free(&buffer);
+
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, "---\nsubject: physics\n---\n",
+       strlen("---\nsubject: physics\n---\n")) == 0);
+   assert(cwiki_config_parse_note_subjects(&buffer, &subjects, &error) ==
+       CWIKI_CONFIG_SCHEMA_ERROR && error.line == 2U &&
+       strstr(error.message, "sequence") != NULL);
+   cwiki_buffer_free(&buffer);
+
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, "---\nsubject: [physics]\n",
+       strlen("---\nsubject: [physics]\n")) == 0);
+   assert(cwiki_config_parse_note_subjects(&buffer, &subjects, &error) ==
+       CWIKI_CONFIG_SCHEMA_ERROR &&
+       strstr(error.message, "closing delimiter") != NULL);
+   cwiki_buffer_free(&buffer);
+}
+
 static bool
 snippet_matches(struct cwiki_snippet_registry *registry, const char *text,
     enum cwiki_snippet_expand_kind kind)
@@ -529,6 +575,7 @@ main(void)
    scalar_settings_and_precedence();
    snippet_settings_and_precedence();
    zone_settings_and_precedence();
+   note_subject_frontmatter();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;

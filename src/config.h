@@ -49,6 +49,11 @@ struct cwiki_config_zone_table {
    uint64_t top_level;
 };
 
+struct cwiki_config_subjects {
+   struct cwiki_snippet_subject *items;
+   size_t count;
+};
+
 /*
  * M1 schema:
  *
@@ -112,6 +117,12 @@ enum cwiki_config_status cwiki_config_build_zones(
     struct cwiki_config_zone_table *table,
     struct cwiki_config_error *error);
 void cwiki_config_zone_table_free(struct cwiki_config_zone_table *table);
+
+/* Parse only M1's note-scoped subject list from opening YAML frontmatter. */
+enum cwiki_config_status cwiki_config_parse_note_subjects(
+    const struct cwiki_buffer *buffer, struct cwiki_config_subjects *subjects,
+    struct cwiki_config_error *error);
+void cwiki_config_subjects_free(struct cwiki_config_subjects *subjects);
 
 const char *cwiki_config_clue_group(const struct cwiki_config *config,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,

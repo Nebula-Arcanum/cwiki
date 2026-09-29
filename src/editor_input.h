@@ -11,6 +11,7 @@
 struct cwiki_editor_input;
 struct cwiki_layout_window;
 struct cwiki_snippet_registry;
+struct cwiki_snippet_subject;
 struct cwiki_zone_engine;
 
 struct cwiki_editor_input_context {
@@ -30,6 +31,9 @@ enum cwiki_editor_status cwiki_editor_input_replace_keymap(
 enum cwiki_editor_status cwiki_editor_input_replace_snippets(
     struct cwiki_editor_input *input,
     struct cwiki_snippet_registry *candidate);
+enum cwiki_editor_status cwiki_editor_input_set_snippet_subjects(
+    struct cwiki_editor_input *input,
+    const struct cwiki_snippet_subject *subjects, size_t subject_count);
 
 enum cwiki_editor_status cwiki_editor_input_handle(
     struct cwiki_editor_input *input, const struct cwiki_input_event *event,

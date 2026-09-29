@@ -142,6 +142,10 @@ test_matching_layers_flags_and_zones(void)
    struct cwiki_snippet_match match = {0};
    const struct cwiki_snippet_body_spec global[] = {{CWIKI_ZONE_PROSE, "G$0", 3U}};
    const struct cwiki_snippet_body_spec subject[] = {{CWIKI_ZONE_PROSE, "S$0", 3U}};
+   const struct cwiki_snippet_body_spec physics[] = {{CWIKI_ZONE_PROSE, "P$0", 3U}};
+   const struct cwiki_snippet_subject subjects[] = {
+      {"calculus", 8U}, {"physics", 7U}
+   };
    const struct cwiki_snippet_body_spec longest[] = {{CWIKI_ZONE_PROSE, "L$0", 3U}};
    const struct cwiki_snippet_body_spec zones_body[] = {
       {CWIKI_ZONE_PROSE, "text$0", 6U},
@@ -152,6 +156,8 @@ test_matching_layers_flags_and_zones(void)
    check(add(registry, CWIKI_SNIPPET_LITERAL, "x", global, 1U, NULL,
        CWIKI_SNIPPET_TRIGGER_AUTO | CWIKI_SNIPPET_TRIGGER_EXPLICIT, 1, 0U) == CWIKI_SNIPPET_OK &&
        add(registry, CWIKI_SNIPPET_LITERAL, "x", subject, 1U, "calculus",
+       CWIKI_SNIPPET_TRIGGER_AUTO, 1, 0U) == CWIKI_SNIPPET_OK &&
+       add(registry, CWIKI_SNIPPET_LITERAL, "p", physics, 1U, "physics",
        CWIKI_SNIPPET_TRIGGER_AUTO, 1, 0U) == CWIKI_SNIPPET_OK &&
        add(registry, CWIKI_SNIPPET_LITERAL, "ax", longest, 1U, NULL,
        CWIKI_SNIPPET_TRIGGER_AUTO, 1, 0U) == CWIKI_SNIPPET_OK,
@@ -168,6 +174,14 @@ test_matching_layers_flags_and_zones(void)
    check(cwiki_snippet_match(registry, engine, &buffer,
        (struct cwiki_position){0U, 1U}, CWIKI_SNIPPET_AUTO, 0U, &match) ==
        CWIKI_SNIPPET_OK, "subject layer wins equal global match");
+   cwiki_snippet_match_free(&match);
+   cwiki_buffer_free(&buffer);
+   check(cwiki_snippet_registry_set_subjects(registry, subjects, 2U) ==
+       CWIKI_SNIPPET_OK, "activate every declared subject layer");
+   load(&buffer, engine, "p");
+   check(cwiki_snippet_match(registry, engine, &buffer,
+       (struct cwiki_position){0U, 1U}, CWIKI_SNIPPET_AUTO, 0U, &match) ==
+       CWIKI_SNIPPET_OK, "second active subject participates in matching");
    cwiki_snippet_match_free(&match);
    check(cwiki_snippet_match(registry, engine, &buffer,
        (struct cwiki_position){0U, 1U}, CWIKI_SNIPPET_AUTO,

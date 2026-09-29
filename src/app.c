@@ -314,6 +314,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    struct cwiki_input_parser parser;
    struct cwiki_terminal_result start = {0};
    struct cwiki_config_zone_table zone_table = {0};
+   struct cwiki_config_subjects subjects = {0};
    bool activated = false;
    bool redraw = true;
    int result = 1;
@@ -336,7 +337,16 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
       errno = ENOMEM;
       goto system_error;
    }
-   app.config_status = CWIKI_CONFIG_OK;
+   app.config_path = path;
+   app.config_status = cwiki_config_parse_note_subjects(&app.document.buffer,
+       &subjects, &app.config_error);
+   if (app.config_status == CWIKI_CONFIG_NO_MEMORY) {
+      errno = ENOMEM;
+      goto system_error;
+   }
+   if (app.config_status != CWIKI_CONFIG_OK) {
+      goto done;
+   }
    if (options->config_count > CWIKI_CONFIG_SOURCE_MAX ||
        (options->configs == NULL && options->config_count != 0U)) {
       errno = EINVAL;
@@ -408,6 +418,11 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
          cwiki_snippet_registry_free(snippet_candidate);
          goto done;
       }
+   }
+   if (cwiki_editor_input_set_snippet_subjects(app.input, subjects.items,
+       subjects.count) != CWIKI_EDITOR_OK) {
+      errno = ENOMEM;
+      goto system_error;
    }
    {
       const struct cwiki_config *ordered[CWIKI_CONFIG_SOURCE_MAX];
@@ -545,6 +560,7 @@ done:
    cwiki_conceal_table_free(&app.conceal);
    cwiki_zone_engine_free(app.zones);
    cwiki_config_zone_table_free(&zone_table);
+   cwiki_config_subjects_free(&subjects);
    for (size_t i = 0U; i < app.config_count; i++) {
       cwiki_config_free(app.configs[i]);
    }

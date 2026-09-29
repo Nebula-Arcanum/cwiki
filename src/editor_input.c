@@ -397,6 +397,22 @@ cwiki_editor_input_replace_snippets(struct cwiki_editor_input *input,
    return CWIKI_EDITOR_OK;
 }
 
+enum cwiki_editor_status
+cwiki_editor_input_set_snippet_subjects(struct cwiki_editor_input *input,
+    const struct cwiki_snippet_subject *subjects, size_t subject_count)
+{
+   enum cwiki_snippet_status status;
+
+   if (input == NULL || cwiki_snippet_session_depth(input->snippets) != 0U) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   status = cwiki_snippet_registry_set_subjects(input->snippet_registry,
+       subjects, subject_count);
+   return status == CWIKI_SNIPPET_OK ? CWIKI_EDITOR_OK :
+       (status == CWIKI_SNIPPET_NO_MEMORY ? CWIKI_EDITOR_NO_MEMORY :
+       CWIKI_EDITOR_INVALID);
+}
+
 static enum cwiki_editor_status
 dispatch_match(struct cwiki_editor_input *input,
     const struct cwiki_keymap_match *match)
