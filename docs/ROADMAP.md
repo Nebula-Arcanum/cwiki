@@ -67,10 +67,12 @@ foundation supplies layered zone-aware matching, the approved body syntax,
 mirrors, transforms, nested tab stops, and transactional undo. Strict, sanitizer,
 model, protocol, fault-injection, and parser/translator/snippet fuzz tests cover
 these slices. A bounded shared structural-search primitive and named-action
-registry establish the common paths for later motions, keymaps, clues, palette,
-macros, replay, and command dispatch. Application integration, the builtin
-snippet catalog, key dispatch, and the remaining editor and highlighting work
-are not yet implemented. Plain Markdown document ownership now composes buffer
+registry establish the common paths for later motions, clues, palette, macros,
+replay, and command dispatch. The keymap foundation adds mode-scoped physical
+key sequences, rebinding, prefix matching, and deterministic clue metadata.
+Application integration, the builtin snippet catalog, key dispatch, and the
+remaining editor and highlighting work are not yet implemented. Plain Markdown
+document ownership now composes buffer
 encoding with the durable-write outcomes while preserving dirty state unless
 durability is fully confirmed.
 

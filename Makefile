@@ -35,12 +35,13 @@ SNIPPET_FUZZ = $(BUILD_DIR)/fuzz-snippet
 ACTION_TEST = $(BUILD_DIR)/test-action
 STRUCTURAL_SEARCH_TEST = $(BUILD_DIR)/test-structural-search
 DOCUMENT_TEST = $(BUILD_DIR)/test-document
+KEYMAP_TEST = $(BUILD_DIR)/test-keymap
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
 	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
-	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST)
+	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -56,7 +57,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/layout.c tests/layout/test_layout.c src/snippet.c \
 	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c src/action.c \
 	tests/action/test_action.c src/structural_search.c \
-	tests/zone/test_structural_search.c src/document.c tests/io/test_document.c
+	tests/zone/test_structural_search.c src/document.c tests/io/test_document.c \
+	src/keymap.c tests/action/test_keymap.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -240,6 +242,13 @@ $(DOCUMENT_TEST): src/document.c src/document.h src/durable_write.c \
 		src/buffer.c src/unicode.c src/durable_write.c src/document.c \
 		tests/io/test_document.c $(LDFLAGS) $(UTF8PROC_LIBS) -o $(DOCUMENT_TEST)
 
+$(KEYMAP_TEST): src/keymap.c src/keymap.h src/action.c src/action.h \
+		src/input.h tests/action/test_keymap.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCWIKI_KEYMAP_TESTING -DCWIKI_ACTION_TESTING \
+		-Isrc src/action.c src/keymap.c tests/action/test_keymap.c $(LDFLAGS) \
+		-o $(KEYMAP_TEST)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -260,6 +269,7 @@ product-test: $(PRODUCT_TESTS)
 	$(ACTION_TEST)
 	$(STRUCTURAL_SEARCH_TEST)
 	$(DOCUMENT_TEST)
+	$(KEYMAP_TEST)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -279,7 +289,7 @@ analyze:
 		-DCWIKI_TERMINAL_TESTING \
 		-DCWIKI_KEY_RECORD_TESTING \
 		-DCWIKI_UNDO_TESTING -DCWIKI_SNIPPET_TESTING \
-		-DCWIKI_ACTION_TESTING \
+		-DCWIKI_ACTION_TESTING -DCWIKI_KEYMAP_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
 		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
