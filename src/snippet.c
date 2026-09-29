@@ -127,7 +127,7 @@ static bool should_fail(void) { return false; }
 #endif
 
 static void *s_malloc(size_t n) { return should_fail() ? NULL : malloc(n == 0U ? 1U : n); }
-static void *s_calloc(size_t n, size_t z) { return should_fail() ? NULL : calloc(n, z); }
+static void *s_calloc(size_t n, size_t z) { return should_fail() ? NULL : calloc(n == 0U ? 1U : n, z == 0U ? 1U : z); }
 static void *s_realloc(void *p, size_t n) { return should_fail() ? NULL : realloc(p, n); }
 
 static int
@@ -824,7 +824,15 @@ render_body(const struct cwiki_snippet_body *body,
          const struct cwiki_regex_capture *capture;
          if ((size_t)token->number >= match->capture_count) { free(values); return CWIKI_SNIPPET_INVALID; }
          capture = &match->captures[token->number];
-         if (capture->start != CWIKI_REGEX_UNSET) { bytes = source->bytes + capture->start; length = capture->end - capture->start; }
+         if (capture->start != CWIKI_REGEX_UNSET) {
+            if (capture->start > capture->end || capture->end > source->length ||
+                (source->bytes == NULL && capture->end != 0U)) {
+               free(values); return CWIKI_SNIPPET_INVALID;
+            }
+            bytes = capture->start == 0U ? source->bytes :
+                source->bytes + capture->start;
+            length = capture->end - capture->start;
+         }
       } else if (token->number == 0U) {
          rendered->final = rendered->length; continue;
       } else { bytes = values[token->number].bytes; length = values[token->number].length; }
@@ -875,6 +883,7 @@ undo_insert_text(struct cwiki_undo *undo, struct cwiki_position start,
 {
    size_t offset = 0U;
    struct cwiki_position cursor = start;
+   if (length == 0U) return 0;
    while (offset <= length) {
       const char *newline = memchr(bytes + offset, '\n', length - offset);
       size_t segment = newline == NULL ? length - offset : (size_t)(newline - (bytes + offset));
@@ -944,10 +953,14 @@ cwiki_snippet_engine_free(struct cwiki_snippet_engine *engine)
 static int
 add_stop(struct session *session, unsigned number)
 {
+   unsigned *stops;
    size_t i;
    for (i = 0U; i < session->stop_count; i++) if (session->stops[i] == number) return 0;
-   session->stops = s_realloc(session->stops, (session->stop_count + 1U) * sizeof(*session->stops));
-   if (session->stops == NULL) return -1;
+   if (session->stop_count == SIZE_MAX / sizeof(*session->stops)) return -1;
+   stops = s_realloc(session->stops,
+       (session->stop_count + 1U) * sizeof(*session->stops));
+   if (stops == NULL) return -1;
+   session->stops = stops;
    i = session->stop_count;
    while (i > 0U && session->stops[i - 1U] > number) { session->stops[i] = session->stops[i - 1U]; i--; }
    session->stops[i] = number; session->stop_count++; return 0;

@@ -62,10 +62,12 @@ across all four magic modes with Unicode smartcase, while unsupported constructs
 are rejected rather than guessed. The conceal foundation supplies the accepted
 category defaults, width-safe substitutions, source↔display mappings, and
 per-run reveal behavior. Per-window layout adds prose soft wrap, unwrapped code,
-degraded raw rows, and source↔display movement mappings. Strict, sanitizer,
-model, protocol, fault-injection,
-and parser/translator fuzz tests cover these slices. Application integration and
-the remaining editor, highlighting, and snippet work are not yet implemented.
+degraded raw rows, and source↔display movement mappings. The snippet-engine
+foundation supplies layered zone-aware matching, the approved body syntax,
+mirrors, transforms, nested tab stops, and transactional undo. Strict, sanitizer,
+model, protocol, fault-injection, and parser/translator/snippet fuzz tests cover
+these slices. Application integration, the builtin snippet catalog, key dispatch,
+and the remaining editor and highlighting work are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

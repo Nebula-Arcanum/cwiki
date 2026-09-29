@@ -30,11 +30,13 @@ VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
 CONCEAL_TEST = $(BUILD_DIR)/test-conceal
 LAYOUT_TEST = $(BUILD_DIR)/test-layout
+SNIPPET_TEST = $(BUILD_DIR)/test-snippet
+SNIPPET_FUZZ = $(BUILD_DIR)/fuzz-snippet
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
-	$(CONCEAL_TEST) $(LAYOUT_TEST)
+	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -47,7 +49,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
 	tests/regex/test_regex.c src/vim_regex.c tests/regex/test_vim_regex.c \
 	tests/regex/fuzz_vim_regex.c src/conceal.c tests/conceal/test_conceal.c \
-	src/layout.c tests/layout/test_layout.c
+	src/layout.c tests/layout/test_layout.c src/snippet.c \
+	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c
 
 .PHONY: all smoke replay-test support-test product-test test check sanitize \
 	analyze verify demo clean
@@ -188,6 +191,26 @@ $(LAYOUT_TEST): src/layout.c src/layout.h src/conceal.c src/conceal.h \
 		src/layout.c tests/layout/test_layout.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(LAYOUT_TEST)
 
+$(SNIPPET_TEST): src/snippet.c src/snippet.h src/buffer.c src/buffer.h \
+		src/unicode.c src/unicode.h src/undo.c src/undo.h src/regex.c \
+		src/regex.h src/zone.c src/zone.h tests/snippet/test_snippet.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_SNIPPET_TESTING -DCWIKI_UNDO_TESTING -Isrc src/buffer.c \
+		src/unicode.c src/undo.c src/regex.c src/zone.c src/snippet.c \
+		tests/snippet/test_snippet.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
+		-o $(SNIPPET_TEST)
+
+$(SNIPPET_FUZZ): src/snippet.c src/snippet.h src/buffer.c src/buffer.h \
+		src/unicode.c src/unicode.h src/undo.c src/undo.h src/regex.c \
+		src/regex.h src/zone.c src/zone.h tests/snippet/fuzz_snippet.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_SNIPPET_TESTING -DCWIKI_SNIPPET_FUZZ_STANDALONE -Isrc \
+		src/buffer.c src/unicode.c src/undo.c src/regex.c src/zone.c \
+		src/snippet.c tests/snippet/fuzz_snippet.c $(LDFLAGS) \
+		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(SNIPPET_FUZZ)
+
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
 	$(INPUT_TEST)
@@ -203,6 +226,8 @@ product-test: $(PRODUCT_TESTS)
 	$(VIM_REGEX_FUZZ)
 	$(CONCEAL_TEST)
 	$(LAYOUT_TEST)
+	$(SNIPPET_TEST)
+	$(SNIPPET_FUZZ)
 
 test: smoke replay-test support-test product-test
 	$(SMOKE)
@@ -220,8 +245,9 @@ analyze:
 		$(ANALYZE_SOURCES) -- $(CPPFLAGS) $(CFLAGS) \
 		-DCWIKI_DURABLE_WRITE_TESTING -DCWIKI_TERMINAL_TESTING \
 		-DCWIKI_KEY_RECORD_TESTING \
-		-DCWIKI_UNDO_TESTING \
+		-DCWIKI_UNDO_TESTING -DCWIKI_SNIPPET_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
+		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc
 
 verify: check sanitize
