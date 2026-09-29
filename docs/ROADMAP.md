@@ -95,7 +95,9 @@ math, mhchem, and TikZ templates. Insert-mode dispatch now performs automatic
 and Tab-requested expansion, nested forward/backward tab-stop navigation,
 transactional mirror updates, paste suppression, and the specified separate
 undo steps for trigger text, expansion, and subsequent stop fills. Reusable
-picker/clue/configuration surfaces are not yet implemented.
+prompt text input now has a reusable Unicode/grapheme-safe line editor with the
+approved Emacs-style controls. Picker/clue/configuration surfaces are not yet
+implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
