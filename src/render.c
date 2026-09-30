@@ -13,6 +13,8 @@
 
 #include <utf8proc.h>
 
+#define CURSORLINE_STYLE "\x1b[48;5;236m"
+
 struct output {
    char *bytes;
    size_t length;
@@ -199,7 +201,7 @@ paint(struct output *out, const char *bytes, size_t length, size_t left,
                if (role != active) {
                   text(out, style(role));
                   if (cursorline) {
-                     text(out, "\x1b[7m");
+                     text(out, CURSORLINE_STYLE);
                   }
                   active = role;
                }
@@ -249,7 +251,7 @@ source_row(struct output *out, const struct cwiki_layout_window *layout,
    size_t painted = 0U;
 
    if (cursorline) {
-      text(out, "\x1b[0;7m");
+      text(out, "\x1b[0m" CURSORLINE_STYLE);
    }
 
    if (row != NULL) {
@@ -269,7 +271,7 @@ source_row(struct output *out, const struct cwiki_layout_window *layout,
 
          text(out, "\x1b[0;90m");
          if (cursorline) {
-            text(out, "\x1b[7m");
+            text(out, CURSORLINE_STYLE);
          }
          spaces(out, indent);
          painted += indent;
@@ -306,7 +308,7 @@ line_number(struct output *out, const struct cwiki_layout_row *row,
    size_t value;
    int length;
 
-   text(out, cursorline ? "\x1b[0;7m" : "\x1b[0;90m");
+   text(out, cursorline ? "\x1b[0;90m" CURSORLINE_STYLE : "\x1b[0;90m");
    if (row == NULL || row->continuation) {
       spaces(out, width);
       return;

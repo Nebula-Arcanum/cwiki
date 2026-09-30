@@ -15,6 +15,7 @@
 #define START "\x1b[?25l\x1b[0m\x1b[2J\x1b[H"
 #define RESET "\x1b[0m"
 #define STATUS "\x1b[0;7m"
+#define CURSORLINE "\x1b[48;5;236m"
 #define SHOW "\x1b[?25h"
 
 struct fixture {
@@ -308,7 +309,8 @@ line_numbers_and_cursorline(void)
    expect(&f, START
        "\x1b[1;1H\x1b[0;90m2 " RESET "a" RESET "     "
        "\x1b[2;1H\x1b[0;90m1 " RESET "bb" RESET "    "
-       "\x1b[3;1H\x1b[0;7m3 \x1b[0;7m" RESET "\x1b[7mccc   " RESET
+       "\x1b[3;1H\x1b[0;90m" CURSORLINE "3 " RESET CURSORLINE RESET
+       CURSORLINE "ccc   " RESET
        "\x1b[4;1H\x1b[0;90m1 " RESET "d" RESET "     "
        "\x1b[5;1H" STATUS "NORMAL n" RESET "\x1b[3;4H" SHOW);
 
@@ -330,8 +332,8 @@ line_numbers_and_cursorline(void)
    build(&f);
    expect(&f, START
        "\x1b[1;1H\x1b[0;90m1 " RESET "abcdef" RESET
-       "\x1b[2;1H\x1b[0;7m  \x1b[0;7m\x1b[0;90m\x1b[7m>"
-       RESET "\x1b[7mgh   " RESET
+       "\x1b[2;1H\x1b[0;90m" CURSORLINE "  " RESET CURSORLINE
+       "\x1b[0;90m" CURSORLINE ">" RESET CURSORLINE "gh   " RESET
        "\x1b[3;1H\x1b[0;90m1 " RESET "x" RESET "     "
        "\x1b[4;1H" STATUS "NORMAL n" RESET "\x1b[2;5H" SHOW);
    finish(&f);

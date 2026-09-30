@@ -153,6 +153,21 @@ append_codepoint(char *bytes, size_t capacity, size_t *length, uint32_t key)
    return true;
 }
 
+static uint32_t
+shifted_key(uint32_t key)
+{
+   static const char unshifted[] = "`1234567890-=[]\\;',./";
+   static const char shifted[] = "~!@#$%^&*()_+{}|:\"<>?";
+   const char *match;
+
+   if (key >= 'a' && key <= 'z') {
+      return key - ('a' - 'A');
+   }
+   match = strchr(unshifted, (int)key);
+   return match == NULL ? 0U : (uint32_t)(unsigned char)
+       shifted[(size_t)(match - unshifted)];
+}
+
 static bool
 key_label(struct cwiki_key key, char *bytes, size_t capacity)
 {
@@ -166,6 +181,8 @@ key_label(struct cwiki_key key, char *bytes, size_t capacity)
       {CWIKI_INPUT_CAPS_LOCK, "Caps-"}, {CWIKI_INPUT_NUM_LOCK, "Num-"}
    };
    const char *special = NULL;
+   uint32_t display_key = key.key;
+   bool display_shifted = false;
    size_t length = 0U;
    size_t i;
 
@@ -173,13 +190,20 @@ key_label(struct cwiki_key key, char *bytes, size_t capacity)
       return false;
    }
    bytes[0] = '\0';
+   if (key.modifiers == CWIKI_INPUT_SHIFT) {
+      display_key = shifted_key(key.key);
+      display_shifted = display_key != 0U;
+   }
    for (i = 0U; i < sizeof(modifiers) / sizeof(modifiers[0]); i++) {
+      if (display_shifted && modifiers[i].modifier == CWIKI_INPUT_SHIFT) {
+         continue;
+      }
       if ((key.modifiers & modifiers[i].modifier) != 0U &&
           !append(bytes, capacity, &length, modifiers[i].label)) {
          return false;
       }
    }
-   switch (key.key) {
+   switch (display_key) {
    case 8U:
       special = "Backspace";
       break;
@@ -204,13 +228,13 @@ key_label(struct cwiki_key key, char *bytes, size_t capacity)
    if (special != NULL) {
       return append(bytes, capacity, &length, special);
    }
-   if (key.key >= 0x20U && key.key != 0x7fU &&
-       append_codepoint(bytes, capacity, &length, key.key)) {
+   if (display_key >= 0x20U && display_key != 0x7fU &&
+       append_codepoint(bytes, capacity, &length, display_key)) {
       return true;
    }
    {
       char fallback[24];
-      int written = snprintf(fallback, sizeof(fallback), "U+%04X", key.key);
+      int written = snprintf(fallback, sizeof(fallback), "U+%04X", display_key);
 
       return written > 0 && (size_t)written < sizeof(fallback) &&
           append(bytes, capacity, &length, fallback);

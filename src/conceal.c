@@ -30,6 +30,8 @@ static const struct cwiki_conceal_entry builtin_entries[] = {
    {"\\alpha", "𝛼", CWIKI_CONCEAL_GREEK, ALL_CONTEXTS},
    {"\\beta", "𝛽", CWIKI_CONCEAL_GREEK, ALL_CONTEXTS},
    {"\\pi", "𝜋", CWIKI_CONCEAL_GREEK, ALL_CONTEXTS},
+   {"\\sigma", "𝜎", CWIKI_CONCEAL_GREEK, ALL_CONTEXTS},
+   {"\\Sigma", "𝛴", CWIKI_CONCEAL_GREEK, ALL_CONTEXTS},
    {"\\le", "⩽", CWIKI_CONCEAL_MATH_SYMBOLS, MATH_CONTEXTS},
    {"\\ge", "⩾", CWIKI_CONCEAL_MATH_SYMBOLS, MATH_CONTEXTS},
    {"\\notin", "∉", CWIKI_CONCEAL_MATH_SYMBOLS, MATH_CONTEXTS},

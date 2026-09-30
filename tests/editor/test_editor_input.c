@@ -285,6 +285,14 @@ test_operator_sequences_history_and_rebinding(void)
    check(send(&fixture, key('r', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        content_is(&fixture, "alpha beta"),
        "Ctrl-r remains distinct and dispatches redo");
+   check(send(&fixture, key('g', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('-', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "beta"),
+       "g- dispatches chronological history backward");
+   check(send(&fixture, key('g', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('=', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "alpha beta"),
+       "g+ dispatches chronological history forward");
 
    fixture.editor.motion.cursor = (struct cwiki_position){0U, 0U};
    check(send(&fixture, key('g', 0U)) == CWIKI_EDITOR_OK &&

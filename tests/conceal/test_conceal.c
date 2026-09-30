@@ -354,9 +354,9 @@ static void
 test_enabled_representatives(void)
 {
    const char text[] =
-       "$\\^a \\alpha \\le \\AA \\frac{1}{10} "
+       "$\\^a \\alpha \\sigma \\Sigma \\le \\AA \\frac{1}{10} "
        "\\Bigl\\langle x^5 x_0$\n";
-   const char expected[] = "$â 𝛼 ⩽ Å ⅒ ⟨ x⁵ x₀$";
+   const char expected[] = "$â 𝛼 𝜎 𝛴 ⩽ Å ⅒ ⟨ x⁵ x₀$";
    struct cwiki_zone_engine *engine = builtin_engine();
    struct cwiki_buffer buffer;
    struct cwiki_conceal_table table = {0};

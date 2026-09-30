@@ -170,21 +170,27 @@ special_keys_empty_and_errors(void)
    struct cwiki_action_registry *actions = NULL;
    struct cwiki_keymap *keymap = NULL;
    struct cwiki_key_sequence tab = sequence2('z', 9U, 0U);
+   struct cwiki_key_sequence plus = sequence2('z', '=', CWIKI_INPUT_SHIFT);
    struct cwiki_input_event z = event('z');
    struct cwiki_input_event x = event('x');
-   struct cwiki_float_area area = {1U, 1U, 1U, 18U};
+   struct cwiki_float_area area = {1U, 1U, 2U, 18U};
    char output[1024] = "unchanged";
    size_t length = 42U;
 
    assert(cwiki_action_registry_init(&actions) == CWIKI_ACTION_OK);
    register_action(actions, "test.tab", "Complete", NULL);
+   register_action(actions, "test.plus", "Newer", NULL);
    assert(cwiki_keymap_init(&keymap, actions) == CWIKI_KEYMAP_OK);
    assert(cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &tab,
        "test.tab") == CWIKI_KEYMAP_OK);
+   assert(cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &plus,
+       "test.plus") == CWIKI_KEYMAP_OK);
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &z,
        1U, &area, CWIKI_FLOAT_BORDER_NONE, NULL, output, sizeof(output),
        &length) == 0);
-   assert(strstr(output, "Tab  ") != NULL && strstr(output, "Complete") != NULL);
+   assert(strstr(output, "Tab  ") != NULL && strstr(output, "Complete") != NULL &&
+       strstr(output, "+  ") != NULL && strstr(output, "Newer") != NULL &&
+       strstr(output, "S-=") == NULL);
    area = (struct cwiki_float_area){1U, 1U, 3U, 18U};
    assert(cwiki_clue_render_overlay(keymap, actions, CWIKI_KEYMAP_NORMAL, &z,
        1U, &area, CWIKI_FLOAT_BORDER_SINGLE, "Navigation", output,
