@@ -1,0 +1,9 @@
+# Decoded companion for m1-class-note.keys.raw (the raw file is authoritative).
+# The replay creates a class note through cwiki's real PTY application path.
+insert  "# Chemistry / calculus"
+expand  "mk" -> inline math; fill "E = mc^2"
+expand  "mk" -> inline math; fill "\\alpha + \\beta"
+expand  "chem" inside math; fill reaction
+expand  "tikz"; fill its body with one draw command
+normal  append " temporary", leave Insert, undo
+command ":wq"

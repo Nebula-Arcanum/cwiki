@@ -120,7 +120,10 @@ allowing builtin grammar removal. Opening YAML frontmatter selects all declared
 subject snippet layers without pulling Milestone 4's typed-property system into
 the editor foundation. A noninteractive inspection command reports the effective
 M1 scalar settings, subject layers, keybindings, clue groups, snippets, and zones
-with source locations. Concrete picker providers are not yet implemented.
+with source locations. The real-application fixture-vault demo now replays a
+chemistry/calculus note through snippets, tab stops, undo, save, quit, and reopen,
+and checks both the rendered screen and authored Markdown. Concrete picker
+providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

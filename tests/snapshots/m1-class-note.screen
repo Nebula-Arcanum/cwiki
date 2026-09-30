@@ -1,0 +1,14 @@
+# Chemistry / calculus
+Energy: $E = mc^2$
+Angle: $𝛼 + 𝛽$
+Reaction: $\ce{2H2 + O2 -> 2H2O}$
+Diagram: \begin{tikzpicture}
+\draw (0,0) -- (2,1);
+\end{tikzpicture}
+
+
+
+
+
+
+NORMAL Class note.md 8:1

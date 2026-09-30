@@ -52,6 +52,9 @@ CLUE_RENDER_TEST = $(BUILD_DIR)/test-clue-render
 CONFIG_TEST = $(BUILD_DIR)/test-config
 CONFIG_FILES_TEST = $(BUILD_DIR)/test-config-files
 APP_TEST = $(BUILD_DIR)/test-app
+M1_KEYS = tests/fixtures/keys/m1-class-note.keys.raw
+M1_SCREEN = tests/snapshots/m1-class-note.screen
+M1_MARKDOWN = tests/snapshots/m1-class-note.md
 APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/conceal.c src/layout.c src/highlight.c src/render.c src/input.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
@@ -96,8 +99,8 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
 	tests/app/test_app.c
 
-.PHONY: all smoke replay-test support-test product-test test check sanitize \
-	analyze verify demo clean
+.PHONY: all smoke replay-test support-test product-test m1-demo-test test check \
+	sanitize analyze verify demo clean
 
 all: $(CWIKI)
 
@@ -413,10 +416,12 @@ $(CONFIG_FILES_TEST): src/config_files.c src/config_files.h \
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc src/config_files.c \
 		tests/config/test_config_files.c $(LDFLAGS) -o $(CONFIG_FILES_TEST)
 
-$(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c
+$(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c \
+		tests/support/fixture_vault.c tests/support/fixture_vault.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) \
-		-DCWIKI_APP_TESTING -Isrc $(APP_SOURCES) tests/app/test_app.c \
+		-DCWIKI_APP_TESTING -Isrc -Itests/support $(APP_SOURCES) \
+		tests/support/fixture_vault.c tests/app/test_app.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) -o $(APP_TEST)
 
 product-test: $(PRODUCT_TESTS)
@@ -454,7 +459,10 @@ product-test: $(PRODUCT_TESTS)
 	$(CONFIG_FILES_TEST)
 	$(APP_TEST)
 
-test: smoke replay-test support-test product-test
+m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
+	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
+
+test: smoke replay-test support-test product-test m1-demo-test
 	$(SMOKE)
 
 check: test
@@ -476,11 +484,11 @@ analyze:
 		-DCWIKI_LINE_EDIT_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
 		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
-		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) -Isrc
+		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) -Isrc -Itests/support
 
 verify: check sanitize
 
-demo: replay-test
+demo: replay-test m1-demo-test
 
 clean:
 	rm -rf $(BUILD_DIR)

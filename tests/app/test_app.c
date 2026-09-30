@@ -1,6 +1,7 @@
 #include "app.h"
 #include "capabilities.h"
 #include "document.h"
+#include "fixture_vault.h"
 #include "key_record.h"
 #include "terminal.h"
 
@@ -13,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
@@ -26,6 +28,13 @@ static const char supported[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?1;2c";
 static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
+static const char class_note_keys[] =
+    "i# Chemistry / calculus" ENTER
+    "Energy: mk" TAB "E = mc^2" TAB ENTER
+    "Angle: mk" TAB "\\alpha + \\beta" TAB ENTER
+    "Reaction: $chem" TAB "2H2 + O2 -> 2H2O" TAB "$" ENTER
+    "Diagram: tikz" TAB "\\draw (0,0) -- (2,1);" TAB ENTER
+    ESCAPE "a temporary" ESCAPE "u:wq" ENTER;
 
 struct session {
    int master;
@@ -100,6 +109,38 @@ send_bytes(int fd, const char *bytes)
       bytes += (size_t)count;
       length -= (size_t)count;
    }
+}
+
+static void
+send_data(int fd, const unsigned char *bytes, size_t length)
+{
+   while (length != 0U) {
+      ssize_t count = write(fd, bytes, length);
+
+      assert(count > 0);
+      bytes += (size_t)count;
+      length -= (size_t)count;
+   }
+}
+
+static unsigned char *
+read_file(const char *path, size_t *length)
+{
+   FILE *file = fopen(path, "rb");
+   unsigned char *bytes;
+   long size;
+
+   assert(file != NULL);
+   assert(fseek(file, 0L, SEEK_END) == 0);
+   size = ftell(file);
+   assert(size > 0 && size <= 1024L * 1024L);
+   assert(fseek(file, 0L, SEEK_SET) == 0);
+   bytes = malloc((size_t)size);
+   assert(bytes != NULL);
+   assert(fread(bytes, 1U, (size_t)size, file) == (size_t)size);
+   assert(fclose(file) == 0);
+   *length = (size_t)size;
+   return bytes;
 }
 
 static void
@@ -279,7 +320,8 @@ finish(struct session *session, int expected, bool modes,
 }
 
 static void
-content(const char *path, const char *expected, enum cwiki_line_ending ending)
+content_bytes(const char *path, const char *expected, size_t expected_length,
+    enum cwiki_line_ending ending)
 {
    struct cwiki_document document;
    char *bytes;
@@ -288,9 +330,15 @@ content(const char *path, const char *expected, enum cwiki_line_ending ending)
    assert(cwiki_document_load(&document, path) == 0);
    assert(document.buffer.line_ending == ending);
    assert(cwiki_buffer_encode(&document.buffer, &bytes, &length) == 0);
-   assert(length == strlen(expected) && memcmp(bytes, expected, length) == 0);
+   assert(length == expected_length && memcmp(bytes, expected, length) == 0);
    free(bytes);
    cwiki_document_free(&document);
+}
+
+static void
+content(const char *path, const char *expected, enum cwiki_line_ending ending)
+{
+   content_bytes(path, expected, strlen(expected), ending);
 }
 
 static void
@@ -301,6 +349,149 @@ write_note(const char *path, const char *bytes)
    assert(fd >= 0);
    send_bytes(fd, bytes);
    assert(close(fd) == 0);
+}
+
+static size_t
+snapshot(const char *frame_bytes, char *screen, size_t capacity)
+{
+   const char *cursor = strstr(frame_bytes, CWIKI_TERMINAL_SYNC_BEGIN);
+   size_t current_row = 0U;
+   size_t length = 0U;
+
+   assert(cursor != NULL);
+   cursor += sizeof(CWIKI_TERMINAL_SYNC_BEGIN) - 1U;
+   while (*cursor != '\0' &&
+       strncmp(cursor, CWIKI_TERMINAL_SYNC_END,
+       sizeof(CWIKI_TERMINAL_SYNC_END) - 1U) != 0) {
+      if ((unsigned char)*cursor != 27U) {
+         assert(length + 1U < capacity);
+         screen[length++] = *cursor++;
+         continue;
+      }
+      assert(cursor[1] == '[');
+      {
+         const char *sequence = cursor + 2;
+         const char *end = sequence;
+
+         while (*end != '\0' &&
+             ((unsigned char)*end < 0x40U || (unsigned char)*end > 0x7eU)) {
+            end++;
+         }
+         assert(*end != '\0');
+         if (*end == 'H') {
+            size_t row = 1U;
+
+            if (*sequence >= '0' && *sequence <= '9') {
+               row = 0U;
+               while (*sequence >= '0' && *sequence <= '9') {
+                  row = row * 10U + (size_t)(*sequence - '0');
+                  sequence++;
+               }
+            }
+            if (current_row != 0U && row < current_row) {
+               break;
+            }
+            while (current_row < row) {
+               while (length != 0U && screen[length - 1U] == ' ') length--;
+               if (current_row != 0U) {
+                  assert(length + 1U < capacity);
+                  screen[length++] = '\n';
+               }
+               current_row++;
+            }
+         }
+         cursor = end + 1;
+      }
+   }
+   while (length != 0U && screen[length - 1U] == ' ') length--;
+   assert(length + 2U <= capacity);
+   screen[length++] = '\n';
+   screen[length] = '\0';
+   return length;
+}
+
+static void
+class_note_demo(const char *keys_path, const char *screen_path,
+    const char *markdown_path)
+{
+   struct fixture_vault vault = {0};
+   unsigned char *keys;
+   unsigned char *expected_screen;
+   unsigned char *expected_markdown;
+   char note[4096];
+   char marker[4096];
+   char output[65536];
+   char rendered[32768];
+   char transcript[65536];
+   char *resolved = NULL;
+   size_t keys_length;
+   size_t screen_length;
+   size_t markdown_length;
+   size_t rendered_length;
+   struct session session;
+
+   keys = read_file(keys_path, &keys_length);
+   expected_screen = read_file(screen_path, &screen_length);
+   expected_markdown = read_file(markdown_path, &markdown_length);
+   assert(keys_length == strlen(wire(class_note_keys)) &&
+       memcmp(keys, wire(class_note_keys), keys_length) == 0);
+   assert(fixture_vault_create(&vault) == 0);
+   assert(snprintf(marker, sizeof(marker), "%s/.cwiki",
+       fixture_vault_root(&vault)) > 0);
+   assert(mkdir(marker, 0700) == 0);
+   assert(snprintf(note, sizeof(note), "%s/Class note.md",
+       fixture_vault_root(&vault)) > 0);
+   write_note(note, "");
+   assert(fixture_vault_resolve(&vault, "Class note.md", &resolved) == 0);
+
+   session = start(resolved, supported, false);
+   frame(&session, output, sizeof(output));
+   {
+      struct winsize size = {14U, 64U, 0U, 0U};
+      assert(ioctl(session.slave, TIOCSWINSZ, &size) == 0);
+   }
+   frame(&session, output, sizeof(output));
+   send_data(session.master, keys, keys_length);
+   frame(&session, output, sizeof(output));
+   rendered_length = snapshot(output, rendered, sizeof(rendered));
+   if (rendered_length != screen_length ||
+       memcmp(rendered, expected_screen, screen_length) != 0) {
+      (void)fprintf(stderr, "M1 screen snapshot mismatch; actual screen:\n%s",
+          rendered);
+   }
+   assert(rendered_length == screen_length &&
+       memcmp(rendered, expected_screen, screen_length) == 0);
+   assert(snprintf(transcript, sizeof(transcript), "%s%s", supported,
+       class_note_keys) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   content_bytes(resolved, (const char *)expected_markdown, markdown_length,
+       CWIKI_LINE_ENDING_LF);
+
+   session = start(resolved, supported, false);
+   frame(&session, output, sizeof(output));
+   {
+      struct winsize size = {14U, 64U, 0U, 0U};
+      assert(ioctl(session.slave, TIOCSWINSZ, &size) == 0);
+   }
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("G"));
+   frame(&session, output, sizeof(output));
+   rendered_length = snapshot(output, rendered, sizeof(rendered));
+   assert(rendered_length == screen_length &&
+       memcmp(rendered, expected_screen, screen_length) == 0);
+   send_bytes(session.master, wire(":q" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript), "%sG:q" ENTER,
+       supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+
+   assert(fwrite(rendered, 1U, rendered_length, stdout) == rendered_length);
+   (void)printf("saved Markdown matches %s\n", markdown_path);
+   free(resolved);
+   assert(fixture_vault_destroy(&vault) == 0);
+   free(expected_markdown);
+   free(expected_screen);
+   free(keys);
 }
 
 static void
@@ -421,13 +612,26 @@ config_inspection_before_terminal(const char *path)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
    char path[] = "/tmp/cwiki-app-test-XXXXXX";
    char output[32768];
    char transcript[4096];
    struct session session;
-   int fd = mkstemp(path);
+   int fd;
+
+   if (argc == 2 && strcmp(argv[1], "--write-demo-keys") == 0) {
+      const char *bytes = wire(class_note_keys);
+
+      assert(fwrite(bytes, 1U, strlen(bytes), stdout) == strlen(bytes));
+      return 0;
+   }
+   if (argc == 5 && strcmp(argv[1], "--demo") == 0) {
+      class_note_demo(argv[2], argv[3], argv[4]);
+      return 0;
+   }
+   assert(argc == 1);
+   fd = mkstemp(path);
 
    assert(fd >= 0 && close(fd) == 0 && unlink(path) == 0);
 
