@@ -160,7 +160,7 @@ start_configs(const char *path, const char *reply, bool fault,
       struct cwiki_config_source sources[CWIKI_CONFIG_SOURCE_MAX] = {{0}};
       struct cwiki_app_options options = {
          session.slave, session.slave, fileno(session.errors),
-         fileno(session.record), &record, sources, config_count
+         fileno(session.record), &record, sources, config_count, false
       };
       int result;
 
@@ -315,7 +315,7 @@ config_error_before_terminal(const char *path)
    };
    FILE *errors = tmpfile();
    struct cwiki_app_options options = {
-      -1, -1, -1, -1, NULL, configs, 2U
+      -1, -1, -1, -1, NULL, configs, 2U, false
    };
    char diagnostic[512];
 
@@ -356,6 +356,67 @@ config_error_before_terminal(const char *path)
    assert(strstr(diagnostic, path) != NULL &&
        strstr(diagnostic, ":2:10: note subject must be a sequence") != NULL);
    assert(fclose(errors) == 0);
+   write_note(path, "Yfirst\r\nsecond");
+}
+
+static void
+config_inspection_before_terminal(const char *path)
+{
+   static unsigned char global[] =
+       "save-policy: manual\n"
+       "snippets:\n"
+       "  custom.inspect:\n"
+       "    trigger: ci\n"
+       "    bodies: {prose: 'INSPECT$0'}\n";
+   static unsigned char vault[] =
+       "display:\n  wrap: false\n"
+       "keymaps:\n"
+       "  normal:\n"
+       "    - keys: [x]\n"
+       "      action: mode.insert-before\n"
+       "zones:\n"
+       "  custom.inspect:\n"
+       "    kind: text\n"
+       "    start: OPEN\n"
+       "    end: CLOSE\n";
+   struct cwiki_config_source configs[] = {
+      {CWIKI_CONFIG_GLOBAL, "/scope/global.yaml", global, sizeof(global) - 1U},
+      {CWIKI_CONFIG_VAULT, "/scope/vault.yaml", vault, sizeof(vault) - 1U}
+   };
+   struct cwiki_app_options options = {
+      -1, -1, -1, -1, NULL, configs, 2U, true
+   };
+   FILE *output = tmpfile();
+   FILE *errors = tmpfile();
+   char inspection[32768];
+   char *definition;
+   size_t length;
+
+   assert(output != NULL && errors != NULL);
+   write_note(path, "---\nsubject: [calculus]\n---\nBody\n");
+   options.output_fd = fileno(output);
+   options.error_fd = fileno(errors);
+   assert(cwiki_app_run(path, &options) == 0);
+   assert(fseek(output, 0L, SEEK_SET) == 0);
+   length = fread(inspection, 1U, sizeof(inspection) - 1U, output);
+   inspection[length] = '\0';
+   assert(strstr(inspection,
+       "setting save-policy=manual source=/scope/global.yaml:1:14") != NULL);
+   assert(strstr(inspection,
+       "setting display.wrap=false source=/scope/vault.yaml:2:9") != NULL);
+   assert(strstr(inspection, "subject value=calculus source=") != NULL &&
+       strstr(inspection, ":2:11") != NULL);
+   assert(strstr(inspection,
+       "action=mode.insert-before source=/scope/vault.yaml:5:7") != NULL);
+   definition = strstr(inspection, "snippet name=custom.inspect ");
+   assert(definition != NULL &&
+       strstr(definition, "source=/scope/global.yaml:3:3") != NULL);
+   definition = strstr(inspection, "zone name=custom.inspect ");
+   assert(definition != NULL &&
+       strstr(definition, "source=/scope/vault.yaml:8:3") != NULL);
+   assert(strstr(inspection, "source=<builtin>:0:0") != NULL);
+   assert(fseek(errors, 0L, SEEK_END) == 0 && ftell(errors) == 0L);
+   assert(fclose(errors) == 0 && fclose(output) == 0);
    write_note(path, "Yfirst\r\nsecond");
 }
 
@@ -682,6 +743,8 @@ main(void)
    }
    config_error_before_terminal(path);
    (void)puts("app: later-scope errors abort before terminal startup passed");
+   config_inspection_before_terminal(path);
+   (void)puts("app: config inspection reports effective provenance passed");
 
    write_note(path, "one\ntwo\nthree\nfour\nfive\nsix\nseven");
    session = start(path, supported, false);

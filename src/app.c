@@ -426,9 +426,15 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    }
    {
       const struct cwiki_config *ordered[CWIKI_CONFIG_SOURCE_MAX];
+      const char *paths[CWIKI_CONFIG_SOURCE_MAX];
 
+      if (app.config_count != 0U && options->configs == NULL) {
+         errno = EINVAL;
+         goto system_error;
+      }
       for (size_t i = 0U; i < app.config_count; i++) {
          ordered[i] = app.configs[i];
+         paths[i] = options->configs[i].path;
       }
       app.config_status = cwiki_config_build_zones(ordered, app.config_count,
           &zone_table, &app.config_error);
@@ -442,6 +448,15 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
          goto system_error;
       }
       if (app.config_status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+      if (options->inspect_config) {
+         if (cwiki_config_inspect(options->output_fd, ordered,
+             app.config_count, paths, &app.settings, &subjects, path,
+             cwiki_editor_input_keymap(app.input)) != 0) {
+            goto system_error;
+         }
+         result = 0;
          goto done;
       }
    }

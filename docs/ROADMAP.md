@@ -118,8 +118,9 @@ bounded named regions, parent/child containment, line-ending regions, detail
 captures for hosted languages, and layered replacement/disabling without
 allowing builtin grammar removal. Opening YAML frontmatter selects all declared
 subject snippet layers without pulling Milestone 4's typed-property system into
-the editor foundation. Configuration inspection and concrete picker providers
-are not yet implemented.
+the editor foundation. A noninteractive inspection command reports the effective
+M1 scalar settings, subject layers, keybindings, clue groups, snippets, and zones
+with source locations. Concrete picker providers are not yet implemented.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not

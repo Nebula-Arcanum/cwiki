@@ -51,7 +51,31 @@ struct cwiki_config_zone_table {
 
 struct cwiki_config_subjects {
    struct cwiki_snippet_subject *items;
+   size_t *lines;
+   size_t *columns;
    size_t count;
+};
+
+enum cwiki_config_value {
+   CWIKI_CONFIG_VALUE_CONCEAL,
+   CWIKI_CONFIG_VALUE_CONCEAL_CATEGORIES,
+   CWIKI_CONFIG_VALUE_CONCEAL_CURSOR,
+   CWIKI_CONFIG_VALUE_WRAP,
+   CWIKI_CONFIG_VALUE_BREAK_INDENT,
+   CWIKI_CONFIG_VALUE_CONTINUATION_MARKER,
+   CWIKI_CONFIG_VALUE_SAVE_POLICY,
+   CWIKI_CONFIG_VALUE_COUNT
+};
+
+struct cwiki_config_location {
+   size_t line;
+   size_t column;
+};
+
+struct cwiki_config_named_info {
+   const char *name;
+   struct cwiki_config_location location;
+   bool disabled;
 };
 
 /*
@@ -132,5 +156,21 @@ void cwiki_config_settings_defaults(struct cwiki_config_settings *settings);
 /* Apply only values explicitly present in config. String storage is config-owned. */
 void cwiki_config_apply_settings(const struct cwiki_config *config,
     struct cwiki_config_settings *settings);
+
+bool cwiki_config_value_location(const struct cwiki_config *config,
+    enum cwiki_config_value value, struct cwiki_config_location *location);
+size_t cwiki_config_snippet_count(const struct cwiki_config *config);
+bool cwiki_config_snippet_at(const struct cwiki_config *config, size_t index,
+    struct cwiki_config_named_info *info);
+size_t cwiki_config_zone_count(const struct cwiki_config *config);
+bool cwiki_config_zone_at(const struct cwiki_config *config, size_t index,
+    struct cwiki_config_named_info *info);
+
+/* Write effective M1 settings and objects with source provenance. */
+int cwiki_config_inspect(int fd,
+    const struct cwiki_config *const *configs, size_t config_count,
+    const char *const *paths, const struct cwiki_config_settings *settings,
+    const struct cwiki_config_subjects *subjects, const char *note_path,
+    const struct cwiki_keymap *keymap);
 
 #endif

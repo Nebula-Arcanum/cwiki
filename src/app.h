@@ -3,6 +3,7 @@
 
 #include "config_files.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <sys/types.h>
 
@@ -19,6 +20,8 @@ struct cwiki_app_options {
    /* Ordered declarative sources, parsed before terminal startup. */
    const struct cwiki_config_source *configs;
    size_t config_count;
+   /* Compose and print configuration without starting the terminal. */
+   bool inspect_config;
 };
 
 /* Returns 0 on requested exit, 1 on failure; diagnostics follow restoration. */

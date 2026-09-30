@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <utf8proc.h>
 #include <yaml.h>
@@ -43,6 +44,7 @@ struct clue_group {
    enum cwiki_keymap_mode mode;
    struct cwiki_key_sequence prefix;
    char *label;
+   struct source_mark mark;
 };
 
 struct config_snippet {
@@ -90,6 +92,7 @@ struct cwiki_config {
    bool has_break_indent;
    bool has_continuation_marker;
    bool has_save_policy;
+   struct source_mark value_marks[CWIKI_CONFIG_VALUE_COUNT];
 };
 
 static void
@@ -454,16 +457,23 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
          return status;
       }
       config->has_conceal = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_CONCEAL] = mark(value);
    }
    value = mapping_get(document, node, "conceal-categories");
    if (value != NULL && (status = parse_conceal_categories(document, config,
        value, error)) != CWIKI_CONFIG_OK) {
       return status;
    }
+   if (value != NULL) {
+      config->value_marks[CWIKI_CONFIG_VALUE_CONCEAL_CATEGORIES] = mark(value);
+   }
    value = mapping_get(document, node, "conceal-cursor");
    if (value != NULL && (status = parse_concealcursor(config, value, error)) !=
        CWIKI_CONFIG_OK) {
       return status;
+   }
+   if (value != NULL) {
+      config->value_marks[CWIKI_CONFIG_VALUE_CONCEAL_CURSOR] = mark(value);
    }
    value = mapping_get(document, node, "wrap");
    if (value != NULL) {
@@ -472,6 +482,7 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
          return status;
       }
       config->has_wrap = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_WRAP] = mark(value);
    }
    value = mapping_get(document, node, "break-indent");
    if (value != NULL) {
@@ -480,11 +491,15 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
          return status;
       }
       config->has_break_indent = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_BREAK_INDENT] = mark(value);
    }
    value = mapping_get(document, node, "continuation-marker");
    if (value != NULL && (status = parse_marker(config, value, error)) !=
        CWIKI_CONFIG_OK) {
       return status;
+   }
+   if (value != NULL) {
+      config->value_marks[CWIKI_CONFIG_VALUE_CONTINUATION_MARKER] = mark(value);
    }
    return CWIKI_CONFIG_OK;
 }
@@ -508,6 +523,7 @@ parse_save_policy(struct cwiki_config *config, const yaml_node_t *node,
       return CWIKI_CONFIG_SCHEMA_ERROR;
    }
    config->has_save_policy = true;
+   config->value_marks[CWIKI_CONFIG_VALUE_SAVE_POLICY] = mark(node);
    return CWIKI_CONFIG_OK;
 }
 
@@ -1587,7 +1603,7 @@ add_group(struct cwiki_config *config, enum cwiki_keymap_mode mode,
    }
    config->groups = grown;
    config->groups[config->group_count++] =
-       (struct clue_group){mode, *prefix_value, label};
+       (struct clue_group){mode, *prefix_value, label, at};
    return CWIKI_CONFIG_OK;
 }
 
@@ -2288,6 +2304,8 @@ cwiki_config_subjects_free(struct cwiki_config_subjects *subjects)
       free((char *)subjects->items[i].value);
    }
    free(subjects->items);
+   free(subjects->lines);
+   free(subjects->columns);
    *subjects = (struct cwiki_config_subjects){0};
 }
 
@@ -2316,7 +2334,10 @@ note_subject_values(yaml_document_t *document, const yaml_node_t *node,
    }
    if (count != 0U) {
       subjects->items = calloc(count, sizeof(*subjects->items));
-      if (subjects->items == NULL) {
+      subjects->lines = calloc(count, sizeof(*subjects->lines));
+      subjects->columns = calloc(count, sizeof(*subjects->columns));
+      if (subjects->items == NULL || subjects->lines == NULL ||
+          subjects->columns == NULL) {
          return CWIKI_CONFIG_NO_MEMORY;
       }
    }
@@ -2356,6 +2377,8 @@ note_subject_values(yaml_document_t *document, const yaml_node_t *node,
       }
       subjects->items[subjects->count].value = copy;
       subjects->items[subjects->count].length = value->data.scalar.length;
+      subjects->lines[subjects->count] = mark(value).line + 1U;
+      subjects->columns[subjects->count] = mark(value).column;
       subjects->count++;
    }
    return CWIKI_CONFIG_OK;
@@ -2582,4 +2605,440 @@ cwiki_config_apply_settings(const struct cwiki_config *config,
    if (config->has_save_policy) {
       settings->save_policy = config->save_policy;
    }
+}
+
+bool
+cwiki_config_value_location(const struct cwiki_config *config,
+    enum cwiki_config_value value, struct cwiki_config_location *location)
+{
+   static const size_t offsets[CWIKI_CONFIG_VALUE_COUNT] = {
+      offsetof(struct cwiki_config, has_conceal),
+      offsetof(struct cwiki_config, has_conceal_categories),
+      offsetof(struct cwiki_config, has_concealcursor_modes),
+      offsetof(struct cwiki_config, has_wrap),
+      offsetof(struct cwiki_config, has_break_indent),
+      offsetof(struct cwiki_config, has_continuation_marker),
+      offsetof(struct cwiki_config, has_save_policy)
+   };
+   const bool *present;
+
+   if (config == NULL || location == NULL || value < 0 ||
+       value >= CWIKI_CONFIG_VALUE_COUNT) {
+      return false;
+   }
+   present = (const bool *)((const unsigned char *)config + offsets[value]);
+   if (!*present) {
+      return false;
+   }
+   location->line = config->value_marks[value].line;
+   location->column = config->value_marks[value].column;
+   return true;
+}
+
+size_t
+cwiki_config_snippet_count(const struct cwiki_config *config)
+{
+   return config == NULL ? 0U : config->snippet_count;
+}
+
+bool
+cwiki_config_snippet_at(const struct cwiki_config *config, size_t index,
+    struct cwiki_config_named_info *info)
+{
+   if (config == NULL || info == NULL || index >= config->snippet_count) {
+      return false;
+   }
+   info->name = config->snippets[index].name;
+   info->location.line = config->snippets[index].mark.line;
+   info->location.column = config->snippets[index].mark.column;
+   info->disabled = config->snippets[index].disabled;
+   return true;
+}
+
+size_t
+cwiki_config_zone_count(const struct cwiki_config *config)
+{
+   return config == NULL ? 0U : config->zone_count;
+}
+
+bool
+cwiki_config_zone_at(const struct cwiki_config *config, size_t index,
+    struct cwiki_config_named_info *info)
+{
+   if (config == NULL || info == NULL || index >= config->zone_count) {
+      return false;
+   }
+   info->name = config->zones[index].id;
+   info->location.line = config->zones[index].mark.line;
+   info->location.column = config->zones[index].mark.column;
+   info->disabled = config->zones[index].disabled;
+   return true;
+}
+
+static int
+inspect_bytes(int fd, const char *bytes, size_t length)
+{
+   size_t offset = 0U;
+
+   while (offset < length) {
+      ssize_t written = write(fd, bytes + offset, length - offset);
+
+      if (written > 0) {
+         offset += (size_t)written;
+      } else if (written < 0 && errno == EINTR) {
+         continue;
+      } else {
+         errno = written == 0 ? EIO : errno;
+         return -1;
+      }
+   }
+   return 0;
+}
+
+static int
+inspect_text(int fd, const char *bytes, size_t length)
+{
+   static const char hex[] = "0123456789abcdef";
+   size_t start = 0U;
+   size_t i;
+
+   for (i = 0U; i < length; i++) {
+      unsigned char value = (unsigned char)bytes[i];
+      char escaped[4];
+      size_t escaped_length;
+
+      if (value != '\\' && value != '\n' && value != '\r' && value != '\t' &&
+          value >= 0x20U && value != 0x7fU) {
+         continue;
+      }
+      if (inspect_bytes(fd, bytes + start, i - start) != 0) {
+         return -1;
+      }
+      escaped[0] = '\\';
+      if (value == '\\') {
+         escaped[1] = '\\'; escaped_length = 2U;
+      } else if (value == '\n' || value == '\r' || value == '\t') {
+         escaped[1] = value == '\n' ? 'n' : (value == '\r' ? 'r' : 't');
+         escaped_length = 2U;
+      } else {
+         escaped[1] = 'x'; escaped[2] = hex[value >> 4U];
+         escaped[3] = hex[value & 0x0fU]; escaped_length = 4U;
+      }
+      if (inspect_bytes(fd, escaped, escaped_length) != 0) {
+         return -1;
+      }
+      start = i + 1U;
+   }
+   return inspect_bytes(fd, bytes + start, length - start);
+}
+
+static int
+inspect_source(int fd, size_t source, const char *const *paths,
+    size_t line, size_t column)
+{
+   return dprintf(fd, " source=%s:%zu:%zu\n",
+       source == SIZE_MAX ? "<builtin>" : paths[source], line, column) < 0 ?
+       -1 : 0;
+}
+
+static bool
+effective_group(const struct cwiki_config *const *configs, size_t config_count,
+    size_t source, size_t index)
+{
+   const struct clue_group *group = &configs[source]->groups[index];
+   size_t i;
+
+   for (i = config_count; i != source + 1U; i--) {
+      size_t j;
+
+      for (j = 0U; j < configs[i - 1U]->group_count; j++) {
+         const struct clue_group *later = &configs[i - 1U]->groups[j];
+
+         if (later->mode == group->mode &&
+             same_sequence(&later->prefix, &group->prefix)) return false;
+      }
+   }
+   return true;
+}
+
+static const struct config_binding *
+effective_binding_source(const struct cwiki_config *const *configs,
+    size_t config_count, const struct cwiki_keymap_binding_info *binding,
+    size_t *source)
+{
+   size_t i;
+
+   for (i = config_count; i != 0U; i--) {
+      size_t j;
+
+      for (j = configs[i - 1U]->binding_count; j != 0U; j--) {
+         const struct config_binding *candidate =
+             &configs[i - 1U]->bindings[j - 1U];
+
+         if (candidate->mode == binding->mode &&
+             same_sequence(&candidate->sequence, &binding->sequence)) {
+            *source = i - 1U;
+            return candidate;
+         }
+      }
+   }
+   *source = SIZE_MAX;
+   return NULL;
+}
+
+static int
+inspect_settings(int fd, const struct cwiki_config *const *configs,
+    size_t config_count, const char *const *paths,
+    const struct cwiki_config_settings *settings)
+{
+   static const char *const names[CWIKI_CONFIG_VALUE_COUNT] = {
+      "display.conceal", "display.conceal-categories",
+      "display.conceal-cursor", "display.wrap", "display.break-indent",
+      "display.continuation-marker", "save-policy"
+   };
+   enum cwiki_config_value value;
+
+   for (value = CWIKI_CONFIG_VALUE_CONCEAL; value < CWIKI_CONFIG_VALUE_COUNT;
+       value++) {
+      struct cwiki_config_location location = {0};
+      size_t source = SIZE_MAX;
+      size_t i;
+
+      for (i = config_count; i != 0U; i--) {
+         if (cwiki_config_value_location(configs[i - 1U], value, &location)) {
+            source = i - 1U; break;
+         }
+      }
+      if (dprintf(fd, "setting %s=", names[value]) < 0) return -1;
+      switch (value) {
+      case CWIKI_CONFIG_VALUE_CONCEAL:
+         if (dprintf(fd, "%s", settings->conceal ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_CONCEAL_CATEGORIES:
+         if (dprintf(fd, "0x%08x", settings->conceal_categories) < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_CONCEAL_CURSOR:
+         if (dprintf(fd, "0x%08x", settings->concealcursor_modes) < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_WRAP:
+         if (dprintf(fd, "%s", settings->wrap ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_BREAK_INDENT:
+         if (dprintf(fd, "%s", settings->break_indent ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_CONTINUATION_MARKER:
+         if (inspect_text(fd, settings->continuation_marker,
+             strlen(settings->continuation_marker)) != 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_SAVE_POLICY:
+         if (dprintf(fd, "%s", settings->save_policy == CWIKI_SAVE_MANUAL ?
+             "manual" : (settings->save_policy == CWIKI_SAVE_IDLE ? "idle" :
+             "insert-leave")) < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_COUNT: return -1;
+      }
+      if (inspect_source(fd, source, paths, location.line, location.column) != 0)
+         return -1;
+   }
+   return 0;
+}
+
+static int
+inspect_keymaps(int fd, const struct cwiki_config *const *configs,
+    size_t config_count, const char *const *paths,
+    const struct cwiki_keymap *keymap)
+{
+   size_t i;
+
+   for (i = 0U; i < cwiki_keymap_binding_count(keymap); i++) {
+      struct cwiki_keymap_binding_info binding;
+      const struct config_binding *origin;
+      size_t source;
+      size_t j;
+
+      if (cwiki_keymap_binding_at(keymap, i, &binding) != CWIKI_KEYMAP_OK ||
+          dprintf(fd, "keymap mode=%u keys=", (unsigned int)binding.mode) < 0)
+         return -1;
+      for (j = 0U; j < binding.sequence.length; j++) {
+         if ((j != 0U && dprintf(fd, ",") < 0) ||
+             dprintf(fd, "U+%08x+0x%x", binding.sequence.keys[j].key,
+             binding.sequence.keys[j].modifiers) < 0) return -1;
+      }
+      if (dprintf(fd, " action=%s", binding.action_name) < 0) return -1;
+      origin = effective_binding_source(configs, config_count, &binding, &source);
+      if (inspect_source(fd, source, paths,
+          origin == NULL ? 0U : origin->mark.line,
+          origin == NULL ? 0U : origin->mark.column) != 0) return -1;
+   }
+   return 0;
+}
+
+static int
+inspect_snippet_spec(int fd, const struct cwiki_snippet_spec *spec)
+{
+   const char *subject = spec->subject == NULL ? "" : spec->subject;
+   size_t subject_length = spec->subject == NULL ? 0U : spec->subject_length;
+   size_t i;
+
+   if (dprintf(fd, " kind=%u trigger=", (unsigned int)spec->kind) < 0 ||
+       inspect_text(fd, spec->trigger, spec->trigger_length) != 0 ||
+       dprintf(fd, " required-zone=%u subject=", (unsigned int)spec->required_zone) < 0 ||
+       inspect_text(fd, subject, subject_length) != 0 ||
+       dprintf(fd, " flags=0x%x priority=%d match-limit=%u depth-limit=%u",
+       spec->flags, spec->priority, spec->match_limit, spec->depth_limit) < 0)
+      return -1;
+   for (i = 0U; i < spec->body_count; i++) {
+      if (dprintf(fd, " body[%u]=", (unsigned int)spec->bodies[i].zone) < 0 ||
+          inspect_text(fd, spec->bodies[i].body,
+          spec->bodies[i].body_length) != 0) return -1;
+   }
+   return 0;
+}
+
+static int
+inspect_zone_region(int fd, const struct cwiki_zone_region *region,
+    bool top_level)
+{
+   if (dprintf(fd, " kind=%u start=", (unsigned int)region->kind) < 0 ||
+       inspect_text(fd, region->start, strlen(region->start)) != 0 ||
+       dprintf(fd, " end=") < 0 ||
+       inspect_text(fd, region->end == NULL ? "" : region->end,
+       region->end == NULL ? 0U : strlen(region->end)) != 0 ||
+       dprintf(fd, " skip=") < 0 ||
+       inspect_text(fd, region->skip == NULL ? "" : region->skip,
+       region->skip == NULL ? 0U : strlen(region->skip)) != 0 ||
+       dprintf(fd,
+       " contains=0x%016llx detail=%u start-detail=%u end-detail=%u "
+       "ends-at-line=%s top-level=%s",
+       (unsigned long long)region->contains, region->detail,
+       region->start_detail_capture,
+       region->end_detail_capture, region->ends_at_line ? "true" : "false",
+       top_level ? "true" : "false") < 0) return -1;
+   return 0;
+}
+
+static int
+inspect_definitions(int fd, const struct cwiki_config *const *configs,
+    size_t config_count, const char *const *paths)
+{
+   const struct cwiki_snippet_catalog_entry *catalog;
+   size_t catalog_count;
+   size_t i;
+
+   catalog = cwiki_snippet_catalog_entries(&catalog_count);
+   for (i = 0U; i < catalog_count; i++) {
+      const struct config_snippet *snippet = last_snippet(configs, config_count,
+          catalog[i].name);
+      size_t source = SIZE_MAX;
+      size_t j;
+
+      if (snippet != NULL && snippet->disabled) continue;
+      if (snippet != NULL) {
+         for (j = 0U; j < config_count; j++) {
+            size_t k;
+            for (k = 0U; k < configs[j]->snippet_count; k++) {
+               if (&configs[j]->snippets[k] == snippet) source = j;
+            }
+         }
+      }
+      if (dprintf(fd, "snippet name=%s", catalog[i].name) < 0 ||
+          inspect_snippet_spec(fd, snippet == NULL ? &catalog[i].spec :
+          &snippet->spec) != 0 ||
+          inspect_source(fd, source, paths, snippet == NULL ? 0U :
+          snippet->mark.line, snippet == NULL ? 0U : snippet->mark.column) != 0)
+         return -1;
+   }
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+      for (j = 0U; j < configs[i]->snippet_count; j++) {
+         const struct config_snippet *snippet = &configs[i]->snippets[j];
+         if (builtin_snippet(snippet->name) || snippet->disabled ||
+             last_snippet(configs, config_count, snippet->name) != snippet) continue;
+         if (dprintf(fd, "snippet name=%s", snippet->name) < 0 ||
+             inspect_snippet_spec(fd, &snippet->spec) != 0 ||
+             inspect_source(fd, i, paths, snippet->mark.line,
+             snippet->mark.column) != 0) return -1;
+      }
+   }
+   {
+      const struct cwiki_zone_region *regions;
+      size_t region_count;
+      uint64_t top_level;
+
+      regions = cwiki_zone_builtin_regions(&region_count, &top_level);
+      for (i = 0U; i < region_count; i++) {
+         if (dprintf(fd, "zone name=%s", builtin_zone_ids[i]) < 0 ||
+          inspect_zone_region(fd, &regions[i],
+          (top_level & CWIKI_ZONE_REGION_BIT(i)) != 0U) != 0 ||
+          inspect_source(fd, SIZE_MAX, paths, 0U, 0U) != 0) return -1;
+      }
+   }
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+      for (j = 0U; j < configs[i]->zone_count; j++) {
+         const struct config_zone *zone = &configs[i]->zones[j];
+         if (zone->disabled || last_zone(configs, config_count, zone->id) != zone)
+            continue;
+         if (dprintf(fd, "zone name=%s", zone->id) < 0 ||
+             inspect_zone_region(fd, &zone->region, zone->top_level) != 0)
+            return -1;
+         for (size_t k = 0U; k < zone->parents.count; k++) {
+            if (dprintf(fd, " parent=%s", zone->parents.values[k]) < 0) return -1;
+         }
+         for (size_t k = 0U; k < zone->contains.count; k++) {
+            if (dprintf(fd, " child=%s", zone->contains.values[k]) < 0) return -1;
+         }
+         if (inspect_source(fd, i, paths, zone->mark.line,
+             zone->mark.column) != 0) return -1;
+      }
+   }
+   return 0;
+}
+
+int
+cwiki_config_inspect(int fd, const struct cwiki_config *const *configs,
+    size_t config_count, const char *const *paths,
+    const struct cwiki_config_settings *settings,
+    const struct cwiki_config_subjects *subjects, const char *note_path,
+    const struct cwiki_keymap *keymap)
+{
+   size_t i;
+
+   if (fd < 0 || settings == NULL || subjects == NULL || note_path == NULL ||
+       keymap == NULL || (config_count != 0U &&
+       (configs == NULL || paths == NULL))) {
+      errno = EINVAL;
+      return -1;
+   }
+   if (inspect_settings(fd, configs, config_count, paths, settings) != 0)
+      return -1;
+   for (i = 0U; i < subjects->count; i++) {
+      if (dprintf(fd, "subject value=") < 0 ||
+          inspect_text(fd, subjects->items[i].value,
+          subjects->items[i].length) != 0 ||
+          dprintf(fd, " source=%s:%zu:%zu\n", note_path, subjects->lines[i],
+          subjects->columns[i]) < 0) return -1;
+   }
+   if (inspect_keymaps(fd, configs, config_count, paths, keymap) != 0)
+      return -1;
+   for (i = 0U; i < config_count; i++) {
+      size_t j;
+      for (j = 0U; j < configs[i]->group_count; j++) {
+         const struct clue_group *group = &configs[i]->groups[j];
+         size_t k;
+         if (!effective_group(configs, config_count, i, j)) continue;
+         if (dprintf(fd, "clue-group mode=%u prefix=", (unsigned int)group->mode) < 0)
+            return -1;
+         for (k = 0U; k < group->prefix.length; k++) {
+            if ((k != 0U && dprintf(fd, ",") < 0) ||
+                dprintf(fd, "U+%08x+0x%x", group->prefix.keys[k].key,
+                group->prefix.keys[k].modifiers) < 0) return -1;
+         }
+         if (dprintf(fd, " label=") < 0 ||
+             inspect_text(fd, group->label, strlen(group->label)) != 0 ||
+             inspect_source(fd, i, paths, group->mark.line,
+             group->mark.column) != 0) return -1;
+      }
+   }
+   return inspect_definitions(fd, configs, config_count, paths);
 }

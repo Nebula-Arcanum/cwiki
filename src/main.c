@@ -12,7 +12,7 @@ int
 main(int argc, char **argv)
 {
    struct cwiki_app_options options = {
-      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL, NULL, 0U
+      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL, NULL, 0U, false
    };
    struct cwiki_config_sources configs = {0};
    struct cwiki_config_files_error config_error = {0};
@@ -27,11 +27,16 @@ main(int argc, char **argv)
       perror("cwiki: reset terminal");
       return 1;
    }
-   if (argc != 2 || argv[1][0] == '\0') {
-      (void)fprintf(stderr, "usage: cwiki NOTE | cwiki --reset-terminal\n");
+   if ((argc != 2 && argc != 3) ||
+       (argc == 3 && strcmp(argv[1], "--inspect-config") != 0) ||
+       argv[argc - 1][0] == '\0') {
+      (void)fprintf(stderr,
+          "usage: cwiki NOTE | cwiki --inspect-config NOTE | "
+          "cwiki --reset-terminal\n");
       return 1;
    }
-   config_status = cwiki_config_sources_discover(&configs, argv[1],
+   options.inspect_config = argc == 3;
+   config_status = cwiki_config_sources_discover(&configs, argv[argc - 1],
        getenv("HOME"), getenv("XDG_CONFIG_HOME"),
 #ifdef __APPLE__
        true,
@@ -56,13 +61,18 @@ main(int argc, char **argv)
    }
    options.configs = configs.items;
    options.config_count = configs.count;
+   if (options.inspect_config) {
+      result = cwiki_app_run(argv[argc - 1], &options);
+      cwiki_config_sources_free(&configs);
+      return result;
+   }
    options.crash_fd = mkstemp(crash_path);
    if (options.crash_fd < 0) {
       perror("cwiki: crash recording");
       cwiki_config_sources_free(&configs);
       return 1;
    }
-   result = cwiki_app_run(argv[1], &options);
+   result = cwiki_app_run(argv[argc - 1], &options);
    (void)close(options.crash_fd);
    (void)unlink(crash_path);
    cwiki_config_sources_free(&configs);

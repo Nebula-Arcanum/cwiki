@@ -290,6 +290,18 @@ test_prefix_matching_and_clues(void)
        matches_action(keymap, CWIKI_KEYMAP_NORMAL, events, 1U,
        "cursor.first", true),
        "an exact binding may also prefix longer bindings without hiding either");
+   {
+      struct cwiki_keymap_binding_info binding;
+      size_t count = cwiki_keymap_binding_count(keymap);
+
+      check(count == 4U && cwiki_keymap_binding_at(keymap, 0U,
+          &binding) == CWIKI_KEYMAP_OK &&
+          strcmp(binding.action_name, "cursor.first") == 0 &&
+          binding.mode == CWIKI_KEYMAP_NORMAL && binding.sequence.length == 1U,
+          "inspection enumerates stable effective bindings");
+      check(cwiki_keymap_binding_at(keymap, count, &binding) ==
+          CWIKI_KEYMAP_INVALID, "binding inspection rejects an invalid index");
+   }
 
    cwiki_keymap_free(keymap);
    cwiki_action_registry_free(actions);

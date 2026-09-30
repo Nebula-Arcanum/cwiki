@@ -2141,7 +2141,11 @@ are machine-local and cannot be enabled by synchronized files or note
 frontmatter.
 
 **R7.2.3** The state-dump/config-inspection command shows every effective value
-and the scope and source location that supplied it.
+and the scope and source location that supplied it. Milestone 1 exposes this as
+`cwiki --inspect-config NOTE`: it validates and composes the same candidate as
+interactive startup, writes the effective scalar settings, subject layers,
+keybindings, clue groups, snippet definitions, and zone regions with provenance,
+and exits without entering raw mode or modifying the note or vault.
 
 Rejected:
 

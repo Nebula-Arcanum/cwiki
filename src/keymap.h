@@ -58,6 +58,12 @@ struct cwiki_keymap_continuation {
    struct cwiki_action_info action;
 };
 
+struct cwiki_keymap_binding_info {
+   enum cwiki_keymap_mode mode;
+   struct cwiki_key_sequence sequence;
+   const char *action_name;
+};
+
 /* The action registry must outlive the keymap. */
 enum cwiki_keymap_status cwiki_keymap_init(struct cwiki_keymap **keymap,
     const struct cwiki_action_registry *actions);
@@ -87,6 +93,12 @@ enum cwiki_keymap_status cwiki_keymap_continuation_at(
     const struct cwiki_keymap *keymap, enum cwiki_keymap_mode mode,
     const struct cwiki_input_event *prefix, size_t prefix_count, size_t index,
     struct cwiki_keymap_continuation *continuation);
+
+size_t cwiki_keymap_binding_count(const struct cwiki_keymap *keymap);
+/* Returned action_name remains owned by keymap. */
+enum cwiki_keymap_status cwiki_keymap_binding_at(
+    const struct cwiki_keymap *keymap, size_t index,
+    struct cwiki_keymap_binding_info *binding);
 
 #ifdef CWIKI_KEYMAP_TESTING
 void cwiki_keymap_test_fail_allocation_after(size_t successful_allocations);

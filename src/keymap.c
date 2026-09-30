@@ -518,3 +518,22 @@ cwiki_keymap_continuation_at(const struct cwiki_keymap *keymap,
    return next_continuation(keymap, mode, &sequence, index, continuation) ?
        CWIKI_KEYMAP_OK : CWIKI_KEYMAP_NOT_FOUND;
 }
+
+size_t
+cwiki_keymap_binding_count(const struct cwiki_keymap *keymap)
+{
+   return keymap == NULL ? 0U : keymap->count;
+}
+
+enum cwiki_keymap_status
+cwiki_keymap_binding_at(const struct cwiki_keymap *keymap, size_t index,
+    struct cwiki_keymap_binding_info *binding)
+{
+   if (keymap == NULL || binding == NULL || index >= keymap->count) {
+      return CWIKI_KEYMAP_INVALID;
+   }
+   binding->mode = keymap->bindings[index].mode;
+   binding->sequence = keymap->bindings[index].sequence;
+   binding->action_name = keymap->bindings[index].action_name;
+   return CWIKI_KEYMAP_OK;
+}
