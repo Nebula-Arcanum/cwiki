@@ -95,6 +95,16 @@ struct cwiki_snippet_subject {
    size_t length;
 };
 
+/* Borrowed immutable metadata; byte spans remain valid until registry_free. */
+struct cwiki_snippet_info {
+   enum cwiki_snippet_trigger_kind kind;
+   const char *trigger;
+   size_t trigger_length;
+   const char *subject; /* NULL for the global layer. */
+   size_t subject_length;
+   uint32_t flags;
+};
+
 /*
  * The transform set is deliberately closed. upper/lower use utf8proc's simple
  * one-codepoint Unicode mappings (no locale and no multi-codepoint expansion).
@@ -127,6 +137,17 @@ enum cwiki_snippet_status cwiki_snippet_registry_set_subject(
 enum cwiki_snippet_status cwiki_snippet_registry_set_subjects(
     struct cwiki_snippet_registry *registry,
     const struct cwiki_snippet_subject *subjects, size_t subject_count);
+/*
+ * Lists definitions with a body for zone in stable registration order whose
+ * subject layer is active. Boundary and trigger matching are intentionally not
+ * evaluated. At most capacity entries are written and count receives the full
+ * eligible count; infos may be NULL only when capacity is zero (a sizing
+ * query). Invalid input leaves both infos and count untouched. No allocation
+ * is performed.
+ */
+enum cwiki_snippet_status cwiki_snippet_registry_list_active(
+    const struct cwiki_snippet_registry *registry, enum cwiki_zone_kind zone,
+    struct cwiki_snippet_info *infos, size_t capacity, size_t *count);
 enum cwiki_snippet_status cwiki_snippet_match(
     struct cwiki_snippet_registry *registry, struct cwiki_zone_engine *zones,
     const struct cwiki_buffer *buffer, struct cwiki_position cursor,

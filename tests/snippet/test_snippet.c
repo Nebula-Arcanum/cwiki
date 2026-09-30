@@ -248,6 +248,101 @@ test_matching_layers_flags_and_zones(void)
 }
 
 static void
+test_active_listing(void)
+{
+   struct cwiki_snippet_registry *registry = NULL;
+   struct cwiki_snippet_info infos[4];
+   const struct cwiki_snippet_body_spec prose = {
+      CWIKI_ZONE_PROSE, "prose$0", 7U
+   };
+   const struct cwiki_snippet_body_spec math = {
+      CWIKI_ZONE_MATH_INLINE, "math$0", 6U
+   };
+   const struct cwiki_snippet_body_spec zoned[] = {
+      {CWIKI_ZONE_PROSE, "p$0", 3U},
+      {CWIKI_ZONE_MATH_INLINE, "m$0", 3U}
+   };
+   const struct cwiki_snippet_spec math_spec = {
+      CWIKI_SNIPPET_LITERAL, "math-only", 9U, CWIKI_ZONE_MATH_INLINE,
+      &math, 1U, NULL, 0U, CWIKI_SNIPPET_TRIGGER_AUTO, 0, 0U,
+      CWIKI_SNIPPET_DEFAULT_DEPTH_LIMIT
+   };
+   size_t count = SIZE_MAX;
+
+   check(cwiki_snippet_registry_init(&registry) == CWIKI_SNIPPET_OK &&
+       add(registry, CWIKI_SNIPPET_LITERAL, "global", &prose, 1U, NULL,
+       CWIKI_SNIPPET_TRIGGER_AUTO, 0, 0U) == CWIKI_SNIPPET_OK &&
+       add(registry, CWIKI_SNIPPET_REGEX, "([a-z]+)@", zoned, 2U, NULL,
+       CWIKI_SNIPPET_TRIGGER_EXPLICIT, 0, 0U) == CWIKI_SNIPPET_OK &&
+       add(registry, CWIKI_SNIPPET_LITERAL, "calc", &prose, 1U, "calculus",
+       CWIKI_SNIPPET_TRIGGER_AUTO | CWIKI_SNIPPET_TRIGGER_EXPLICIT,
+       0, 0U) == CWIKI_SNIPPET_OK &&
+       add(registry, CWIKI_SNIPPET_LITERAL, "physics", &prose, 1U, "physics",
+       CWIKI_SNIPPET_TRIGGER_AUTO, 0, 0U) == CWIKI_SNIPPET_OK &&
+       cwiki_snippet_registry_add(registry, &math_spec) == CWIKI_SNIPPET_OK,
+       "register active-list fixtures");
+
+   check(cwiki_snippet_registry_set_subject(registry, "calculus", 8U) ==
+       CWIKI_SNIPPET_OK, "select active-list subject");
+   check(cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_PROSE,
+       NULL, 0U, &count) == CWIKI_SNIPPET_OK && count == 3U,
+       "zero-capacity sizing query returns full eligible count");
+
+   memset(infos, 0, sizeof(infos));
+   count = 0U;
+   check(cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_PROSE,
+       infos, 2U, &count) == CWIKI_SNIPPET_OK && count == 3U &&
+       infos[0].kind == CWIKI_SNIPPET_LITERAL &&
+       infos[0].trigger_length == 6U &&
+       memcmp(infos[0].trigger, "global", 6U) == 0 &&
+       infos[0].subject == NULL && infos[0].subject_length == 0U &&
+       infos[0].flags == CWIKI_SNIPPET_TRIGGER_AUTO &&
+       infos[1].kind == CWIKI_SNIPPET_REGEX &&
+       infos[1].trigger_length == strlen("([a-z]+)@") &&
+       memcmp(infos[1].trigger, "([a-z]+)@", infos[1].trigger_length) == 0 &&
+       infos[1].flags == CWIKI_SNIPPET_TRIGGER_EXPLICIT,
+       "bounded listing exposes borrowed clue metadata in registration order");
+
+   count = 0U;
+   check(cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_PROSE,
+       infos, 4U, &count) == CWIKI_SNIPPET_OK && count == 3U &&
+       infos[2].subject_length == 8U &&
+       memcmp(infos[2].subject, "calculus", 8U) == 0 &&
+       infos[2].flags == (CWIKI_SNIPPET_TRIGGER_AUTO |
+       CWIKI_SNIPPET_TRIGGER_EXPLICIT),
+       "active subject is included and inactive subject is excluded");
+
+   count = 0U;
+   check(cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_MATH_INLINE,
+       infos, 4U, &count) == CWIKI_SNIPPET_OK && count == 2U &&
+       infos[0].kind == CWIKI_SNIPPET_REGEX &&
+       infos[1].trigger_length == 9U &&
+       memcmp(infos[1].trigger, "math-only", 9U) == 0,
+       "zone-dependent body and zone-only trigger use explicit innermost zone");
+   count = 0U;
+   check(cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_CODE,
+       infos, 4U, &count) == CWIKI_SNIPPET_OK && count == 0U,
+       "inactive zone returns no definitions");
+
+   memset(infos, 0x5a, sizeof(infos));
+   count = 77U;
+   check(cwiki_snippet_registry_list_active(NULL, CWIKI_ZONE_PROSE,
+       infos, 4U, &count) == CWIKI_SNIPPET_INVALID && count == 77U &&
+       ((const unsigned char *)infos)[0] == 0x5aU &&
+       cwiki_snippet_registry_list_active(registry,
+       (enum cwiki_zone_kind)(CWIKI_ZONE_CUSTOM + 1), infos, 4U,
+       &count) == CWIKI_SNIPPET_INVALID && count == 77U &&
+       ((const unsigned char *)infos)[0] == 0x5aU &&
+       cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_PROSE,
+       NULL, 1U, &count) == CWIKI_SNIPPET_INVALID && count == 77U &&
+       cwiki_snippet_registry_list_active(registry, CWIKI_ZONE_PROSE,
+       infos, 4U, NULL) == CWIKI_SNIPPET_INVALID && count == 77U,
+       "invalid listing arguments leave outputs transactionally untouched");
+
+   cwiki_snippet_registry_free(registry);
+}
+
+static void
 test_nested_sessions_and_position_fixup(void)
 {
    struct cwiki_snippet_registry *registry = NULL;
@@ -443,6 +538,7 @@ main(void)
 {
    test_body_parser_and_transforms();
    test_matching_layers_flags_and_zones();
+   test_active_listing();
    test_nested_sessions_and_position_fixup();
    test_expansion_mirrors_undo_and_sessions();
    test_regex_captures_limits_and_rollback();

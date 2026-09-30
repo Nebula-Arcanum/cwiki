@@ -640,6 +640,35 @@ has_body(const struct definition *definition, enum cwiki_zone_kind zone)
    return false;
 }
 
+enum cwiki_snippet_status
+cwiki_snippet_registry_list_active(const struct cwiki_snippet_registry *registry,
+    enum cwiki_zone_kind zone, struct cwiki_snippet_info *infos,
+    size_t capacity, size_t *count)
+{
+   size_t i, found = 0U;
+
+   if (registry == NULL || zone < CWIKI_ZONE_PROSE ||
+       zone > CWIKI_ZONE_CUSTOM || count == NULL ||
+       (infos == NULL && capacity != 0U)) return CWIKI_SNIPPET_INVALID;
+   for (i = 0U; i < registry->count; i++) {
+      const struct definition *definition = registry->definitions[i];
+      struct cwiki_snippet_info info;
+
+      if (!has_body(definition, zone) ||
+          !subject_active(registry, definition)) continue;
+      info.kind = definition->kind;
+      info.trigger = definition->trigger;
+      info.trigger_length = definition->trigger_length;
+      info.subject = definition->subject_length == 0U ? NULL : definition->subject;
+      info.subject_length = definition->subject_length;
+      info.flags = definition->flags;
+      if (found < capacity) infos[found] = info;
+      found++;
+   }
+   *count = found;
+   return CWIKI_SNIPPET_OK;
+}
+
 static bool
 kind_active(const struct definition *definition, enum cwiki_snippet_expand_kind kind)
 {
