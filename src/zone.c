@@ -530,7 +530,8 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
          }
          if (!region->ends_at_line && match.found &&
              (region->end_detail_capture == 0U ||
-             (cwiki_zone_detail(engine, top->detail) != NULL &&
+             (match.detail != NULL &&
+             cwiki_zone_detail(engine, top->detail) != NULL &&
              strlen(cwiki_zone_detail(engine, top->detail)) ==
              match.detail_length && memcmp(cwiki_zone_detail(engine,
              top->detail), match.detail, match.detail_length) == 0))) {

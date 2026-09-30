@@ -658,8 +658,10 @@ main(int argc, char **argv)
       };
       size_t used = strlen(supported);
 
-      (void)strcpy(transcript, supported);
+      memcpy(transcript, supported, used + 1U);
       for (size_t i = 0U; i < sizeof(steps) / sizeof(steps[0]); i++) {
+         size_t key_length = strlen(steps[i].keys);
+
          send_bytes(session.master, wire(steps[i].keys));
          frame(&session, output, sizeof(output));
          assert((strstr(output, "𝛼") != NULL) == steps[i].alpha);
@@ -667,9 +669,9 @@ main(int argc, char **argv)
          if (i < 12U) {
             assert((strstr(output, "\\alpha") != NULL) == !steps[i].alpha);
          }
-         assert(used + strlen(steps[i].keys) < sizeof(transcript));
-         (void)strcpy(transcript + used, steps[i].keys);
-         used += strlen(steps[i].keys);
+         assert(used + key_length < sizeof(transcript));
+         memcpy(transcript + used, steps[i].keys, key_length + 1U);
+         used += key_length;
       }
    }
    finish(&session, 0, true, transcript, NULL);
