@@ -122,8 +122,10 @@ the editor foundation. A noninteractive inspection command reports the effective
 M1 scalar settings, subject layers, keybindings, clue groups, snippets, and zones
 with source locations. The real-application fixture-vault demo now replays a
 chemistry/calculus note through snippets, tab stops, undo, save, quit, and reopen,
-and checks both the rendered screen and authored Markdown. Concrete picker
-providers are not yet implemented.
+and checks both the rendered screen and authored Markdown. The M1 picker model
+and floating surface are complete; concrete providers follow their owning
+workflows: indexed notes and full-text search in M4, then buffers, help, resume,
+and the command palette in M5.
 
 **Outcome.** A fixture vault can be opened in kitty and used to take a source-mode
 class note quickly, with snippets and source highlighting. Rendered mode is not
