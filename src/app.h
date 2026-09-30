@@ -15,6 +15,8 @@ struct cwiki_app_options {
    int error_fd;
    /* Caller-owned, preopened outside the vault; -1 disables crash persistence. */
    int crash_fd;
+   /* Caller-owned decoded companion for crash_fd; -1 disables it. */
+   int sidecar_fd;
    /* Optional caller-owned initialized recorder, also useful for replay tests. */
    struct cwiki_key_record *record;
    /* Ordered declarative sources, parsed before terminal startup. */

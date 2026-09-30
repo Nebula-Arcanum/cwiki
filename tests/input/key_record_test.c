@@ -446,6 +446,75 @@ test_sidecar(void)
 }
 
 static void
+test_streaming_sidecar(void)
+{
+   static const unsigned char key[] = "\033[97::65;6:2;65:34u";
+   static const unsigned char after[] = "\033[98;1;98u";
+   unsigned char storage[128];
+   unsigned char sidecar[OUTPUT_CAPACITY];
+   struct cwiki_key_record record;
+   FILE *file = tmpfile();
+   int descriptor;
+   size_t split = 7U;
+   size_t length;
+
+   check(file != NULL, "create streaming sidecar file");
+   if (file == NULL) {
+      return;
+   }
+   descriptor = fileno(file);
+   check(cwiki_key_record_init(&record, storage, sizeof(storage)) == 0,
+       "initialize streaming sidecar recorder");
+   cwiki_key_record_test_set_write(NULL);
+   check(cwiki_key_record_activate_sidecar_fd(&record, descriptor) == 0,
+       "activate streaming decoded sidecar");
+   check(cwiki_key_record_append_at(&record, key, split, UINT64_C(111)) == 0 &&
+       cwiki_key_record_append_at(&record, key + split,
+       sizeof(key) - 1U - split, UINT64_C(222)) == 0,
+       "stream fragmented CSI-u bytes through the real parser");
+   {
+      const unsigned char rejected = 0U;
+
+      check(cwiki_key_record_append_at(&record, &rejected, 1U,
+          UINT64_C(333)) == 0,
+          "stream parser-rejected bytes with their timestamp");
+   }
+   cwiki_key_record_deactivate_sidecar_fd(&record);
+   check(cwiki_key_record_append_at(&record, after, sizeof(after) - 1U,
+       UINT64_C(444)) == 0,
+       "deactivated sidecar leaves raw recording active");
+   length = read_descriptor(descriptor, sidecar, sizeof(sidecar) - 1U);
+   sidecar[length] = 0U;
+   check(strstr((const char *)sidecar,
+       "CWKEYREC sidecar version=1\n") == (const char *)sidecar,
+       "streaming sidecar starts with its version header");
+   check(strstr((const char *)sidecar,
+       "key timestamp_ns=222 code=97 modifiers=5 action=repeat") != NULL &&
+       strstr((const char *)sidecar, "timestamp_ns=111 code=97") == NULL,
+       "fragmented key receives its completion-read timestamp");
+   check(strstr((const char *)sidecar,
+       "rejected timestamp_ns=333 count=1 ending_byte=\"\\0\"") != NULL,
+       "streaming sidecar records rejected bytes explicitly");
+   check(strstr((const char *)sidecar, "timestamp_ns=444") == NULL,
+       "deactivation stops decoded sidecar output");
+   cwiki_key_record_destroy(&record);
+   check(fclose(file) == 0, "close streaming sidecar file");
+
+   check(cwiki_key_record_init(&record, storage, sizeof(storage)) == 0,
+       "initialize streaming sidecar write-failure recorder");
+   reset_writer(WRITER_FAIL);
+   cwiki_key_record_test_set_write(injected_write);
+   check(cwiki_key_record_activate_sidecar_fd(&record, 17) == 0,
+       "activate injected-failure sidecar");
+   errno = 0;
+   check(cwiki_key_record_append_at(&record, after, sizeof(after) - 1U,
+       UINT64_C(555)) == -1 && errno == ENOSPC &&
+       record.length == sizeof(after) - 1U,
+       "sidecar write failure is reported without losing raw bytes");
+   cwiki_key_record_destroy(&record);
+}
+
+static void
 test_replay_equivalence(void)
 {
    static const unsigned char raw[] =
@@ -503,6 +572,7 @@ main(void)
    test_crash_flush();
    test_reader_validation();
    test_sidecar();
+   test_streaming_sidecar();
    test_replay_equivalence();
    cwiki_key_record_test_set_write(NULL);
    if (failures != 0) {

@@ -426,6 +426,8 @@ cwiki_terminal_record_input(struct cwiki_terminal *terminal,
     const unsigned char *bytes, size_t length)
 {
    sigset_t previous_mask;
+   struct timespec now;
+   uint64_t timestamp;
    int result;
    int saved_errno;
 
@@ -439,7 +441,16 @@ cwiki_terminal_record_input(struct cwiki_terminal *terminal,
    if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
       return -1;
    }
-   result = cwiki_key_record_append(terminal->key_record, bytes, length);
+   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+      saved_errno = errno;
+      (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+      errno = saved_errno;
+      return -1;
+   }
+   timestamp = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
+       (uint64_t)now.tv_nsec;
+   result = cwiki_key_record_append_at(terminal->key_record, bytes, length,
+       timestamp);
    saved_errno = errno;
    if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0 && result == 0) {
       return -1;
@@ -476,6 +487,38 @@ cwiki_terminal_key_record_deactivate(struct cwiki_key_record *record)
       return -1;
    }
    cwiki_key_record_deactivate_crash_fd(record);
+   return sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+}
+
+int
+cwiki_terminal_key_record_activate_sidecar(struct cwiki_key_record *record,
+    int sidecar_fd)
+{
+   sigset_t previous_mask;
+   int result;
+   int saved_errno;
+
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   result = cwiki_key_record_activate_sidecar_fd(record, sidecar_fd);
+   saved_errno = errno;
+   if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0 && result == 0) {
+      return -1;
+   }
+   errno = saved_errno;
+   return result;
+}
+
+int
+cwiki_terminal_key_record_deactivate_sidecar(struct cwiki_key_record *record)
+{
+   sigset_t previous_mask;
+
+   if (set_handled_signal_mask(SIG_BLOCK, &previous_mask) != 0) {
+      return -1;
+   }
+   cwiki_key_record_deactivate_sidecar_fd(record);
    return sigprocmask(SIG_SETMASK, &previous_mask, NULL);
 }
 

@@ -22,7 +22,10 @@
 
 #define ESCAPE "\x1b[27u"
 #define ENTER "\x1b[13u"
+#define CTRL_A "\x1b[97;5u"
+#define CTRL_K "\x1b[107;5u"
 #define CTRL_L "\x1b[108;5u"
+#define CTRL_N "\x1b[110;5u"
 #define TAB "\x1b[9u"
 #define LEFT_SHIFT "\x1b[57441u"
 #define SHIFT_HASH "\x1b[51;2;35u"
@@ -45,6 +48,7 @@ struct session {
    pid_t child;
    FILE *errors;
    FILE *record;
+   FILE *sidecar;
    struct termios original;
 };
 
@@ -196,15 +200,23 @@ start_configs(const char *path, const char *reply, bool fault,
    assert(tcgetattr(session.slave, &session.original) == 0);
    session.errors = tmpfile();
    session.record = tmpfile();
-   assert(session.errors != NULL && session.record != NULL);
+   session.sidecar = tmpfile();
+   assert(session.errors != NULL && session.record != NULL &&
+       session.sidecar != NULL);
    session.child = fork();
    assert(session.child >= 0);
    if (session.child == 0) {
       struct cwiki_key_record record;
       struct cwiki_config_source sources[CWIKI_CONFIG_SOURCE_MAX] = {{0}};
       struct cwiki_app_options options = {
-         session.slave, session.slave, fileno(session.errors),
-         fileno(session.record), &record, sources, config_count, false
+         .input_fd = session.slave,
+         .output_fd = session.slave,
+         .error_fd = fileno(session.errors),
+         .crash_fd = fileno(session.record),
+         .sidecar_fd = fileno(session.sidecar),
+         .record = &record,
+         .configs = sources,
+         .config_count = config_count
       };
       int result;
 
@@ -307,6 +319,11 @@ finish(struct session *session, int expected, bool modes,
    assert(cwiki_key_record_read(recording, (size_t)length, &view) == 0);
    assert(view.length == strlen(wire(recorded)));
    assert(memcmp(view.bytes, wire(recorded), view.length) == 0);
+   length = pread(fileno(session->sidecar), output, sizeof(output) - 1U, 0);
+   assert(length > 0);
+   output[(size_t)length] = '\0';
+   assert(strstr(output, "CWKEYREC sidecar version=1\n") == output &&
+       strstr(output, "timestamp_ns=") != NULL);
    length = pread(fileno(session->errors), output, sizeof(output) - 1U, 0);
    assert(length >= 0);
    output[(size_t)length] = '\0';
@@ -318,7 +335,8 @@ finish(struct session *session, int expected, bool modes,
    } else {
       assert(strstr(output, diagnostic) != NULL);
    }
-   assert(fclose(session->errors) == 0 && fclose(session->record) == 0);
+   assert(fclose(session->errors) == 0 && fclose(session->record) == 0 &&
+       fclose(session->sidecar) == 0);
    assert(close(session->master) == 0 && close(session->slave) == 0);
 }
 
@@ -509,7 +527,13 @@ config_error_before_terminal(const char *path)
    };
    FILE *errors = tmpfile();
    struct cwiki_app_options options = {
-      -1, -1, -1, -1, NULL, configs, 2U, false
+      .input_fd = -1,
+      .output_fd = -1,
+      .error_fd = -1,
+      .crash_fd = -1,
+      .sidecar_fd = -1,
+      .configs = configs,
+      .config_count = 2U
    };
    char diagnostic[512];
 
@@ -578,7 +602,14 @@ config_inspection_before_terminal(const char *path)
       {CWIKI_CONFIG_VAULT, "/scope/vault.yaml", vault, sizeof(vault) - 1U}
    };
    struct cwiki_app_options options = {
-      -1, -1, -1, -1, NULL, configs, 2U, true
+      .input_fd = -1,
+      .output_fd = -1,
+      .error_fd = -1,
+      .crash_fd = -1,
+      .sidecar_fd = -1,
+      .configs = configs,
+      .config_count = 2U,
+      .inspect_config = true
    };
    FILE *output = tmpfile();
    FILE *errors = tmpfile();
@@ -956,7 +987,8 @@ main(int argc, char **argv)
        strstr(output, "Toggle numbers") != NULL &&
        strstr(output, "Toggle cursorline") != NULL &&
        strstr(output, "Toggle conceal") != NULL &&
-       strstr(output, "Active snippets") != NULL);
+       strstr(output, "Active snippets") != NULL &&
+       strstr(output, "Undo history") != NULL);
    send_bytes(session.master, wire(ESCAPE "\\c"));
    frame(&session, output, sizeof(output));
    (void)snapshot(output, screen, sizeof(screen));
@@ -975,6 +1007,33 @@ main(int argc, char **argv)
        "%s\\" ESCAPE "\\c\\n\\s:q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: option namespace and active-snippet overlay passed");
+
+   write_note(path, "");
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   {
+      struct winsize size = {12U, 100U, 0U, 0U};
+
+      assert(ioctl(session.slave, TIOCSWINSZ, &size) == 0);
+   }
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("iA" ESCAPE "aB" ESCAPE "uaC" ESCAPE
+       "\\u"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "state 3") != NULL &&
+       strstr(output, "timestamp ") != NULL &&
+       strstr(output, "2 children") != NULL);
+   send_bytes(session.master, wire("state 1"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "state 1") != NULL &&
+       strstr(output, "state 3") == NULL);
+   send_bytes(session.master, wire(CTRL_A CTRL_K CTRL_N ESCAPE ":q" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript),
+       "%siA" ESCAPE "aB" ESCAPE "uaC" ESCAPE "\\ustate 1"
+       CTRL_A CTRL_K CTRL_N ESCAPE ":q" ENTER, supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   (void)puts("app: searchable undo branch timestamps use shared picker passed");
 
    assert(unlink(path) == 0);
    session = start(path, supported, false);

@@ -3,6 +3,7 @@
 #include "terminal.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,12 +13,17 @@ int
 main(int argc, char **argv)
 {
    struct cwiki_app_options options = {
-      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, NULL, NULL, 0U, false
+      .input_fd = STDIN_FILENO,
+      .output_fd = STDOUT_FILENO,
+      .error_fd = STDERR_FILENO,
+      .crash_fd = -1,
+      .sidecar_fd = -1
    };
    struct cwiki_config_sources configs = {0};
    struct cwiki_config_files_error config_error = {0};
    enum cwiki_config_files_status config_status;
    char crash_path[] = "/tmp/cwiki-keys-XXXXXX";
+   char sidecar_path[sizeof(crash_path) + 8U];
    int result;
 
    if (argc == 2 && strcmp(argv[1], "--reset-terminal") == 0) {
@@ -72,8 +78,19 @@ main(int argc, char **argv)
       cwiki_config_sources_free(&configs);
       return 1;
    }
+   if (snprintf(sidecar_path, sizeof(sidecar_path), "%s.txt", crash_path) < 0 ||
+       (options.sidecar_fd = open(sidecar_path,
+       O_WRONLY | O_CREAT | O_EXCL, 0600)) < 0) {
+      perror("cwiki: crash sidecar");
+      (void)close(options.crash_fd);
+      (void)unlink(crash_path);
+      cwiki_config_sources_free(&configs);
+      return 1;
+   }
    result = cwiki_app_run(argv[argc - 1], &options);
+   (void)close(options.sidecar_fd);
    (void)close(options.crash_fd);
+   (void)unlink(sidecar_path);
    (void)unlink(crash_path);
    cwiki_config_sources_free(&configs);
    return result;

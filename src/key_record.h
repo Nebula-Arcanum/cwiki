@@ -31,6 +31,7 @@ struct cwiki_key_record {
    volatile sig_atomic_t crash_errno;
    volatile sig_atomic_t crash_write_calls;
    unsigned char header[CWIKI_KEY_RECORD_HEADER_SIZE];
+   struct cwiki_key_record_sidecar *sidecar;
 };
 
 struct cwiki_key_recording_view {
@@ -51,6 +52,14 @@ int cwiki_key_record_init(struct cwiki_key_record *record,
 void cwiki_key_record_destroy(struct cwiki_key_record *record);
 int cwiki_key_record_append(struct cwiki_key_record *record,
     const unsigned char *bytes, size_t length);
+/* Appends raw bytes and streams decoded events using their read timestamp. */
+int cwiki_key_record_append_at(struct cwiki_key_record *record,
+    const unsigned char *bytes, size_t length, uint64_t timestamp_ns);
+
+/* The caller owns sidecar_fd. Activation writes a version header immediately. */
+int cwiki_key_record_activate_sidecar_fd(struct cwiki_key_record *record,
+    int sidecar_fd);
+void cwiki_key_record_deactivate_sidecar_fd(struct cwiki_key_record *record);
 
 /* The caller opens, configures, and eventually closes crash_fd in normal code. */
 int cwiki_key_record_activate_crash_fd(struct cwiki_key_record *record,

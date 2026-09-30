@@ -65,6 +65,10 @@ int cwiki_terminal_record_input(struct cwiki_terminal *terminal,
 int cwiki_terminal_key_record_activate(struct cwiki_key_record *record,
     int crash_fd);
 int cwiki_terminal_key_record_deactivate(struct cwiki_key_record *record);
+int cwiki_terminal_key_record_activate_sidecar(
+    struct cwiki_key_record *record, int sidecar_fd);
+int cwiki_terminal_key_record_deactivate_sidecar(
+    struct cwiki_key_record *record);
 int cwiki_terminal_key_record_rotate(struct cwiki_key_record *record);
 void cwiki_terminal_cleanup(struct cwiki_terminal *terminal);
 int cwiki_terminal_begin_update(const struct cwiki_terminal *terminal);

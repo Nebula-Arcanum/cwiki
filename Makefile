@@ -60,7 +60,8 @@ APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
 	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
 	src/keymap.c src/snippet.c src/snippet_catalog.c src/editor_input.c \
-	src/line_edit.c src/float.c src/clue_render.c src/config.c src/config_files.c
+	src/line_edit.c src/picker.c src/picker_render.c src/float.c \
+	src/clue_render.c src/config.c src/config_files.c
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \

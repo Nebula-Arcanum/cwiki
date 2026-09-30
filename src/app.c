@@ -8,11 +8,14 @@
 #include "highlight.h"
 #include "key_record.h"
 #include "layout.h"
+#include "picker.h"
+#include "picker_render.h"
 #include "render.h"
 #include "terminal.h"
 #include "zone.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +32,7 @@ enum app_action_id {
    APP_ACTION_TOGGLE_CURSORLINE,
    APP_ACTION_TOGGLE_CONCEAL,
    APP_ACTION_LIST_SNIPPETS,
+   APP_ACTION_LIST_UNDO,
    APP_ACTION_COUNT
 };
 
@@ -52,12 +56,19 @@ struct app {
    struct cwiki_config_error config_error;
    enum cwiki_config_status config_status;
    const char *config_path;
+   struct cwiki_picker *picker;
    uint64_t last_input_ns;
    struct app_action_context action_contexts[APP_ACTION_COUNT];
    const char *status_message;
    int error;
    unsigned int statuses;
    bool snippet_overlay;
+};
+
+struct undo_picker_text {
+   char id[32];
+   char label[48];
+   char detail[128];
 };
 
 #ifdef CWIKI_APP_TESTING
@@ -147,6 +158,44 @@ event(const struct cwiki_input_event *event_value, void *context)
       app->error = errno;
       return;
    }
+   if (app->picker != NULL) {
+      enum cwiki_picker_status picker_status = CWIKI_PICKER_NOT_HANDLED;
+      uint32_t key = event_value->has_base_layout_key ?
+          event_value->base_layout_key : event_value->key;
+
+      if (event_value->kind == CWIKI_INPUT_PASTE) {
+         picker_status = cwiki_picker_insert(app->picker,
+             (const char *)event_value->text, event_value->text_len);
+      } else if (event_value->action != CWIKI_INPUT_RELEASE) {
+         if (event_value->key == 27U || event_value->key == 13U ||
+             event_value->key == 10U) {
+            cwiki_picker_free(app->picker);
+            app->picker = NULL;
+            picker_status = CWIKI_PICKER_OK;
+         } else if (event_value->modifiers == CWIKI_INPUT_CTRL && key == 'n') {
+            picker_status = cwiki_picker_select_next(app->picker);
+         } else if (event_value->modifiers == CWIKI_INPUT_CTRL && key == 'p') {
+            picker_status = cwiki_picker_select_previous(app->picker);
+         } else if (event_value->modifiers == CWIKI_INPUT_CTRL) {
+            picker_status = cwiki_picker_control(app->picker,
+                key & UINT32_C(0x1f));
+         } else if ((event_value->key == 127U || event_value->key == 8U) &&
+             event_value->modifiers == 0U) {
+            picker_status = cwiki_picker_control(app->picker, 8U);
+         } else if (event_value->text_len != 0U) {
+            picker_status = cwiki_picker_insert(app->picker,
+                (const char *)event_value->text, event_value->text_len);
+         }
+      }
+      app->last_input_ns = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
+          (uint64_t)now.tv_nsec;
+      if (picker_status == CWIKI_PICKER_NO_MEMORY) {
+         app->error = ENOMEM;
+      } else if (picker_status == CWIKI_PICKER_INVALID) {
+         app->error = EINVAL;
+      }
+      return;
+   }
    app->snippet_overlay = false;
    app->status_message = NULL;
    app->viewport.status_message = NULL;
@@ -181,6 +230,56 @@ app_action_available(void *context)
    return action->app->editor.mode == CWIKI_EDITOR_NORMAL;
 }
 
+static enum cwiki_picker_status
+open_undo_picker(struct app *app)
+{
+   size_t count = cwiki_undo_state_count(&app->editor.undo);
+   struct cwiki_picker_spec *specs = calloc(count, sizeof(*specs));
+   struct undo_picker_text *text = calloc(count, sizeof(*text));
+   enum cwiki_picker_status status = CWIKI_PICKER_NO_MEMORY;
+
+   if (specs == NULL || text == NULL) {
+      goto done;
+   }
+   for (size_t i = 0U; i < count; i++) {
+      struct cwiki_undo_state_info info;
+      size_t sequence = count - i - 1U;
+      int id_length;
+      int label_length;
+      int detail_length;
+
+      if (cwiki_undo_state_info(&app->editor.undo, sequence, &info) != 0) {
+         status = CWIKI_PICKER_INVALID;
+         goto done;
+      }
+      id_length = snprintf(text[i].id, sizeof(text[i].id), "%" PRIu64,
+          info.sequence);
+      label_length = snprintf(text[i].label, sizeof(text[i].label),
+          "%sstate %" PRIu64, info.current ? "* " : "", info.sequence);
+      detail_length = snprintf(text[i].detail, sizeof(text[i].detail),
+          "timestamp %" PRIu64 " ns · parent %" PRIu64 " · %zu children",
+          info.timestamp, info.parent_sequence, info.child_count);
+      if (id_length < 0 || (size_t)id_length >= sizeof(text[i].id) ||
+          label_length < 0 ||
+          (size_t)label_length >= sizeof(text[i].label) ||
+          detail_length < 0 ||
+          (size_t)detail_length >= sizeof(text[i].detail)) {
+         status = CWIKI_PICKER_INVALID;
+         goto done;
+      }
+      specs[i] = (struct cwiki_picker_spec){
+         text[i].id, text[i].label, text[i].detail
+      };
+   }
+   cwiki_picker_free(app->picker);
+   app->picker = NULL;
+   status = cwiki_picker_init(&app->picker, specs, count);
+done:
+   free(text);
+   free(specs);
+   return status;
+}
+
 static int
 handle_app_action(void *context, const struct cwiki_action_argument *argument)
 {
@@ -211,6 +310,18 @@ handle_app_action(void *context, const struct cwiki_action_argument *argument)
    case APP_ACTION_LIST_SNIPPETS:
       app->snippet_overlay = true;
       break;
+   case APP_ACTION_LIST_UNDO:
+      switch (open_undo_picker(app)) {
+      case CWIKI_PICKER_OK:
+         break;
+      case CWIKI_PICKER_NO_MEMORY:
+         return (int)CWIKI_EDITOR_NO_MEMORY;
+      case CWIKI_PICKER_INVALID:
+      case CWIKI_PICKER_NOT_HANDLED:
+      case CWIKI_PICKER_NOT_FOUND:
+         return (int)CWIKI_EDITOR_INVALID;
+      }
+      break;
    case APP_ACTION_COUNT:
       return (int)CWIKI_EDITOR_INVALID;
    }
@@ -234,7 +345,9 @@ register_app_actions(struct app *app)
       {"option.toggle-conceal", "Toggle conceal",
           "Toggle source conceal substitutions", 'c'},
       {"snippet.list-active", "Active snippets",
-          "List snippets active at the cursor", 's'}
+          "List snippets active at the cursor", 's'},
+      {"history.list-branches", "Undo history",
+          "List retained undo states and branch timestamps", 'u'}
    };
    struct cwiki_action_registry *actions =
        cwiki_editor_input_actions(app->input);
@@ -347,7 +460,19 @@ draw(struct app *app, struct cwiki_terminal *terminal)
          goto fail;
       }
    }
-   if (app->snippet_overlay && app->viewport.rows >= 4U &&
+   if (app->picker != NULL && app->viewport.rows >= 5U &&
+       app->viewport.columns >= 5U) {
+      struct cwiki_float_options picker_options = {
+         {1U, 1U, app->viewport.rows - 1U, app->viewport.columns},
+         12U, 72U, CWIKI_FLOAT_CENTER, 0, 0
+      };
+
+      if (cwiki_float_place(&picker_options, &clue_area) != 0 ||
+          cwiki_picker_render_overlay(app->picker, &clue_area,
+          CWIKI_FLOAT_BORDER_SINGLE, NULL, 0U, &clue_length) != 0) {
+         goto fail;
+      }
+   } else if (app->snippet_overlay && app->viewport.rows >= 4U &&
        app->viewport.columns >= 5U) {
       struct cwiki_float_options snippet_options;
 
@@ -401,7 +526,8 @@ draw(struct app *app, struct cwiki_terminal *terminal)
       }
    }
    pending = cwiki_editor_input_pending(app->input, &pending_count);
-   if (pending_count != 0U && app->viewport.rows >= 4U &&
+   if (app->picker == NULL && pending_count != 0U &&
+       app->viewport.rows >= 4U &&
        app->viewport.columns >= 5U) {
       size_t continuation_count = cwiki_keymap_continuation_count(
           cwiki_editor_input_keymap(app->input), CWIKI_KEYMAP_NORMAL, pending,
@@ -435,12 +561,17 @@ draw(struct app *app, struct cwiki_terminal *terminal)
        (bytes = malloc(frame_length + clue_length + 1U)) == NULL ||
        cwiki_render_frame(&app->layout, highlights, &app->editor,
        &app->viewport, bytes, frame_length + 1U, &frame_length) != 0 ||
-       (clue_length != 0U && !app->snippet_overlay &&
+       (clue_length != 0U && app->picker != NULL &&
+       cwiki_picker_render_overlay(app->picker, &clue_area,
+       CWIKI_FLOAT_BORDER_SINGLE, bytes + frame_length, clue_length + 1U,
+       &clue_length) != 0) ||
+       (clue_length != 0U && app->picker == NULL &&
+       !app->snippet_overlay &&
        cwiki_clue_render_overlay(cwiki_editor_input_keymap(app->input),
        cwiki_editor_input_actions(app->input), CWIKI_KEYMAP_NORMAL, pending,
        pending_count, &clue_area, CWIKI_FLOAT_BORDER_SINGLE, clue_title,
        bytes + frame_length, clue_length + 1U, &clue_length) != 0) ||
-       (clue_length != 0U && app->snippet_overlay &&
+       (clue_length != 0U && app->picker == NULL && app->snippet_overlay &&
        cwiki_clue_render_list_overlay(snippet_items, snippet_count, &clue_area,
        CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
        bytes + frame_length, clue_length + 1U, &clue_length) != 0)) {
@@ -494,6 +625,7 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
    struct cwiki_config_zone_table zone_table = {0};
    struct cwiki_config_subjects subjects = {0};
    bool activated = false;
+   bool sidecar_activated = false;
    bool redraw = true;
    int result = 1;
 
@@ -650,6 +782,13 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
       }
       activated = true;
    }
+   if (options->sidecar_fd >= 0) {
+      if (cwiki_terminal_key_record_activate_sidecar(record,
+          options->sidecar_fd) != 0) {
+         goto system_error;
+      }
+      sidecar_activated = true;
+   }
    start = cwiki_terminal_start_recording(&terminal, options->input_fd,
        options->output_fd, record);
    if (start.status != CWIKI_TERMINAL_SUCCESS) {
@@ -724,6 +863,9 @@ done:
    if (activated) {
       (void)cwiki_terminal_key_record_deactivate(record);
    }
+   if (sidecar_activated) {
+      (void)cwiki_terminal_key_record_deactivate_sidecar(record);
+   }
    if (start.status != CWIKI_TERMINAL_SUCCESS) {
       (void)dprintf(options->error_fd, "cwiki: %s\n",
           cwiki_terminal_status_message(start.status));
@@ -749,6 +891,7 @@ done:
       (void)dprintf(options->error_fd, "cwiki: unsupported command or input\n");
    }
    cwiki_input_parser_destroy(&parser);
+   cwiki_picker_free(app.picker);
    cwiki_editor_input_free(app.input);
    cwiki_layout_window_free(&app.layout);
    cwiki_conceal_table_free(&app.conceal);

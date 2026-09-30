@@ -14,6 +14,8 @@ static const unsigned char recording_magic[8] = {
    'C', 'W', 'K', 'E', 'Y', 'R', 'E', 'C'
 };
 
+static void sidecar_destroy(struct cwiki_key_record *record);
+
 #ifdef CWIKI_KEY_RECORD_TESTING
 static cwiki_key_record_test_write_fn record_write = write;
 
@@ -125,6 +127,7 @@ cwiki_key_record_destroy(struct cwiki_key_record *record)
       return;
    }
    record->crash_active = 0;
+   sidecar_destroy(record);
    if (record->owns_storage != 0) {
       free(record->storage);
    }
@@ -132,8 +135,8 @@ cwiki_key_record_destroy(struct cwiki_key_record *record)
    record->crash_fd = -1;
 }
 
-int
-cwiki_key_record_append(struct cwiki_key_record *record,
+static int
+append_raw(struct cwiki_key_record *record,
     const unsigned char *bytes, size_t length)
 {
    size_t available;
@@ -165,6 +168,13 @@ cwiki_key_record_append(struct cwiki_key_record *record,
    record->dropped += (uint64_t)to_drop;
    update_header(record);
    return 0;
+}
+
+int
+cwiki_key_record_append(struct cwiki_key_record *record,
+    const unsigned char *bytes, size_t length)
+{
+   return append_raw(record, bytes, length);
 }
 
 int
@@ -343,6 +353,12 @@ struct sidecar_context {
    int failed;
 };
 
+struct cwiki_key_record_sidecar {
+   struct cwiki_input_parser parser;
+   struct sidecar_context context;
+   size_t rejected;
+};
+
 static int
 sidecar_text(struct sidecar_context *context, const char *text, size_t length)
 {
@@ -494,6 +510,92 @@ sidecar_event(const struct cwiki_input_event *event, void *opaque)
        sidecar_text(context, "\n", 1U) != 0) {
       context->failed = 1;
    }
+}
+
+static void
+sidecar_destroy(struct cwiki_key_record *record)
+{
+   if (record == NULL || record->sidecar == NULL) {
+      return;
+   }
+   cwiki_input_parser_destroy(&record->sidecar->parser);
+   free(record->sidecar);
+   record->sidecar = NULL;
+}
+
+int
+cwiki_key_record_activate_sidecar_fd(struct cwiki_key_record *record,
+    int sidecar_fd)
+{
+   static const char header[] = "CWKEYREC sidecar version=1\n";
+   struct cwiki_key_record_sidecar *sidecar;
+
+   if (record == NULL || record->storage == NULL || sidecar_fd < 0 ||
+       record->sidecar != NULL) {
+      errno = EINVAL;
+      return -1;
+   }
+   sidecar = calloc(1U, sizeof(*sidecar));
+   if (sidecar == NULL) {
+      return -1;
+   }
+   sidecar->context.fd = sidecar_fd;
+   cwiki_input_parser_init(&sidecar->parser);
+   if (sidecar_text(&sidecar->context, header, sizeof(header) - 1U) != 0) {
+      cwiki_input_parser_destroy(&sidecar->parser);
+      free(sidecar);
+      return -1;
+   }
+   record->sidecar = sidecar;
+   return 0;
+}
+
+void
+cwiki_key_record_deactivate_sidecar_fd(struct cwiki_key_record *record)
+{
+   sidecar_destroy(record);
+}
+
+int
+cwiki_key_record_append_at(struct cwiki_key_record *record,
+    const unsigned char *bytes, size_t length, uint64_t timestamp_ns)
+{
+   struct cwiki_key_record_sidecar *sidecar;
+
+   if (append_raw(record, bytes, length) != 0) {
+      return -1;
+   }
+   sidecar = record->sidecar;
+   if (sidecar == NULL) {
+      return 0;
+   }
+   for (size_t i = 0U; i < length; i++) {
+      size_t rejected;
+      char line[160];
+      int formatted;
+
+      sidecar->context.timestamp_ns = timestamp_ns;
+      if (cwiki_input_parser_feed(&sidecar->parser, bytes + i, 1U,
+          sidecar_event, &sidecar->context) != 0 ||
+          sidecar->context.failed != 0) {
+         return -1;
+      }
+      rejected = cwiki_input_parser_rejected(&sidecar->parser);
+      if (rejected == sidecar->rejected) {
+         continue;
+      }
+      formatted = snprintf(line, sizeof(line),
+          "rejected timestamp_ns=%" PRIu64 " count=%zu ending_byte=",
+          timestamp_ns, rejected - sidecar->rejected);
+      if (formatted < 0 || (size_t)formatted >= sizeof(line) ||
+          sidecar_text(&sidecar->context, line, (size_t)formatted) != 0 ||
+          sidecar_escaped(&sidecar->context, bytes + i, 1U) != 0 ||
+          sidecar_text(&sidecar->context, "\n", 1U) != 0) {
+         return -1;
+      }
+      sidecar->rejected = rejected;
+   }
+   return 0;
 }
 
 int
