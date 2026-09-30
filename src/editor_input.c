@@ -28,7 +28,8 @@ enum editor_action_id {
    ACTION_OLDER,
    ACTION_NEWER,
    ACTION_MOTION_FIRST,
-   ACTION_MOTION_LAST = ACTION_MOTION_FIRST + CWIKI_MOTION_SENTENCE_FORWARD,
+   ACTION_MOTION_LAST = ACTION_MOTION_FIRST +
+       (int)CWIKI_MOTION_SENTENCE_FORWARD,
    ACTION_COUNT
 };
 
@@ -58,7 +59,8 @@ struct cwiki_editor_input {
 };
 
 #define MOTION_ACTION(motion, name, label) \
-   { ACTION_MOTION_FIRST + motion, name, label, "Move the editing cursor" }
+   { ACTION_MOTION_FIRST + (int)(motion), name, label, \
+       "Move the editing cursor" }
 
 static const struct action_definition action_definitions[] = {
    {ACTION_INSERT_BEFORE, "mode.insert-before", "Insert before",
