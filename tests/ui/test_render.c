@@ -32,6 +32,8 @@ static void
 build(struct fixture *f)
 {
    size_t line;
+   size_t gutter = f->view.line_numbers ? cwiki_render_line_number_width(
+       f->document.buffer.line_count, f->view.columns) : 0U;
 
    assert(f->document.buffer.line_count <= 16U);
    for (line = 0U; line < f->document.buffer.line_count; line++) {
@@ -39,7 +41,7 @@ build(struct fixture *f)
       assert(cwiki_highlight_build_line(f->zones, &f->document.buffer,
           line, &f->highlights[line]) == 0);
    }
-   f->options.content_width = f->view.columns;
+   f->options.content_width = f->view.columns - gutter;
    f->options.cursor = f->editor.motion.cursor;
    assert(cwiki_layout_rebuild(&f->layout, &f->document.buffer, f->zones,
        &f->conceal, &f->options) == 0);
@@ -276,6 +278,60 @@ roles_and_status(void)
 }
 
 static void
+line_numbers_and_cursorline(void)
+{
+   struct fixture f;
+
+   assert(cwiki_render_line_number_width(9U, 8U) == 2U);
+   assert(cwiki_render_line_number_width(10U, 8U) == 3U);
+   assert(cwiki_render_line_number_width(10U, 3U) == 0U);
+
+   init(&f, "a\nbb\nccc\nd", 5U, 8U);
+   f.editor.motion.cursor = (struct cwiki_position){ 2U, 1U };
+   f.view.line_numbers = true;
+   f.view.cursorline = true;
+   build(&f);
+   expect(&f, START
+       "\x1b[1;1H\x1b[0;90m2 " RESET "a" RESET "     "
+       "\x1b[2;1H\x1b[0;90m1 " RESET "bb" RESET "    "
+       "\x1b[3;1H\x1b[0;7m3 \x1b[0;7m" RESET "\x1b[7mccc   " RESET
+       "\x1b[4;1H\x1b[0;90m1 " RESET "d" RESET "     "
+       "\x1b[5;1H" STATUS "NORMAL n" RESET "\x1b[3;4H" SHOW);
+
+   f.view.first_row = 1U;
+   f.editor.motion.cursor = (struct cwiki_position){ 0U, 0U };
+   build(&f);
+   expect(&f, START
+       "\x1b[1;1H\x1b[0;90m1 " RESET "bb" RESET "    "
+       "\x1b[2;1H\x1b[0;90m2 " RESET "ccc" RESET "   "
+       "\x1b[3;1H\x1b[0;90m3 " RESET "d" RESET "     "
+       "\x1b[4;1H\x1b[0;90m  " RESET "      "
+       "\x1b[5;1H" STATUS "NORMAL n" RESET);
+   finish(&f);
+
+   init(&f, "abcdefgh\nx", 4U, 8U);
+   f.editor.motion.cursor = (struct cwiki_position){ 0U, 7U };
+   f.view.line_numbers = true;
+   f.view.cursorline = true;
+   build(&f);
+   expect(&f, START
+       "\x1b[1;1H\x1b[0;90m1 " RESET "abcdef" RESET
+       "\x1b[2;1H\x1b[0;7m  \x1b[0;7m\x1b[0;90m\x1b[7m>"
+       RESET "\x1b[7mgh   " RESET
+       "\x1b[3;1H\x1b[0;90m1 " RESET "x" RESET "     "
+       "\x1b[4;1H" STATUS "NORMAL n" RESET "\x1b[2;5H" SHOW);
+   finish(&f);
+
+   /* Too narrow for a complete gutter and one content cell: no gutter. */
+   init(&f, "ab", 2U, 2U);
+   f.view.line_numbers = true;
+   build(&f);
+   expect(&f, START "\x1b[1;1H" RESET "ab" RESET
+       "\x1b[2;1H" STATUS "NO" RESET "\x1b[1;1H" SHOW);
+   finish(&f);
+}
+
+static void
 errors(void)
 {
    struct fixture f;
@@ -347,6 +403,7 @@ main(int argc, char **argv)
    clipping_raw();
    small_and_controls();
    roles_and_status();
+   line_numbers_and_cursorline();
    errors();
    (void)puts("render: byte-exact modes, Unicode, conceal, wrap, clipping, raw, "
        "scroll, cursor, small sizes, controls and transactional capacity checks passed");

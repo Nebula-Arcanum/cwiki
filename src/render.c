@@ -19,6 +19,21 @@ struct output {
    int error;
 };
 
+size_t
+cwiki_render_line_number_width(size_t source_lines, size_t columns)
+{
+   size_t digits = 1U;
+
+   while (source_lines >= 10U) {
+      source_lines /= 10U;
+      digits++;
+   }
+   if (digits >= SIZE_MAX - 1U || digits + 1U >= columns) {
+      return 0U;
+   }
+   return digits + 1U;
+}
+
 static void
 emit(struct output *out, const char *bytes, size_t length)
 {
@@ -132,7 +147,7 @@ static void
 paint(struct output *out, const char *bytes, size_t length, size_t left,
     size_t right, size_t *column, size_t *painted,
     const struct cwiki_conceal_line *display,
-    const struct cwiki_highlight_line *highlight, bool raw)
+    const struct cwiki_highlight_line *highlight, bool raw, bool cursorline)
 {
    size_t offset = 0U;
    size_t run = 0U;
@@ -183,6 +198,9 @@ paint(struct output *out, const char *bytes, size_t length, size_t left,
                }
                if (role != active) {
                   text(out, style(role));
+                  if (cursorline) {
+                     text(out, "\x1b[7m");
+                  }
                   active = role;
                }
             }
@@ -225,9 +243,14 @@ cell_width(struct output *out, const char *bytes, size_t length)
 static void
 source_row(struct output *out, const struct cwiki_layout_window *layout,
     const struct cwiki_highlight_line *highlights,
-    const struct cwiki_layout_row *row, size_t left, size_t width)
+    const struct cwiki_layout_row *row, size_t left, size_t width,
+    bool cursorline)
 {
    size_t painted = 0U;
+
+   if (cursorline) {
+      text(out, "\x1b[0;7m");
+   }
 
    if (row != NULL) {
       const struct cwiki_layout_line *line = &layout->lines[row->line];
@@ -245,11 +268,14 @@ source_row(struct output *out, const struct cwiki_layout_window *layout,
              prefix - layout->marker_columns : 0U;
 
          text(out, "\x1b[0;90m");
+         if (cursorline) {
+            text(out, "\x1b[7m");
+         }
          spaces(out, indent);
          painted += indent;
          paint(out, layout->continuation_marker,
              strlen(layout->continuation_marker), 0U, prefix - indent,
-             &column, &painted, NULL, NULL, false);
+             &column, &painted, NULL, NULL, false, cursorline);
          spaces(out, prefix - painted);
          painted = prefix;
       }
@@ -259,11 +285,44 @@ source_row(struct output *out, const struct cwiki_layout_window *layout,
           row->column_start + left,
           row->column_start + right - prefix,
           &column, &ignored, &line->display,
-          highlights == NULL ? NULL : &highlights[row->line], row->degraded);
+          highlights == NULL ? NULL : &highlights[row->line], row->degraded,
+          cursorline);
       painted += ignored;
    }
-   text(out, "\x1b[0m");
-   spaces(out, width - painted);
+   if (cursorline) {
+      spaces(out, width - painted);
+      text(out, "\x1b[0m");
+   } else {
+      text(out, "\x1b[0m");
+      spaces(out, width - painted);
+   }
+}
+
+static void
+line_number(struct output *out, const struct cwiki_layout_row *row,
+    size_t current_line, size_t width, bool cursorline)
+{
+   char number[64];
+   size_t value;
+   int length;
+
+   text(out, cursorline ? "\x1b[0;7m" : "\x1b[0;90m");
+   if (row == NULL || row->continuation) {
+      spaces(out, width);
+      return;
+   }
+   value = row->line == current_line ? row->line + 1U :
+       (row->line > current_line ? row->line - current_line :
+       current_line - row->line);
+   length = snprintf(number, sizeof(number), "%zu", value);
+   if (length < 0 || (size_t)length >= sizeof(number) ||
+       (size_t)length >= width) {
+      out->error = EOVERFLOW;
+      return;
+   }
+   spaces(out, width - (size_t)length - 1U);
+   emit(out, number, (size_t)length);
+   spaces(out, 1U);
 }
 
 static size_t
@@ -287,7 +346,8 @@ status_row(struct output *out, const struct cwiki_editor *editor,
       painted = 1U;
       if (available > 0U) {
          paint(out, editor->command, editor->command_length,
-             left, left + available, &column, &painted, NULL, NULL, false);
+             left, left + available, &column, &painted, NULL, NULL, false,
+             false);
       }
       cursor = painted < width ? painted : width - 1U;
    } else {
@@ -301,13 +361,14 @@ status_row(struct output *out, const struct cwiki_editor *editor,
 
       base = path == NULL ? base : (base == NULL ? path : base + 1);
       paint(out, modes[editor->mode], strlen(modes[editor->mode]),
-          0U, width, &column, &painted, NULL, NULL, false);
-      paint(out, " ", 1U, 0U, width, &column, &painted, NULL, NULL, false);
+          0U, width, &column, &painted, NULL, NULL, false, false);
+      paint(out, " ", 1U, 0U, width, &column, &painted, NULL, NULL, false,
+          false);
       paint(out, base, strlen(base), 0U, width, &column, &painted,
-          NULL, NULL, false);
+          NULL, NULL, false, false);
       if (editor->document->dirty) {
          paint(out, " [+]", 4U, 0U, width, &column, &painted,
-             NULL, NULL, false);
+             NULL, NULL, false, false);
       }
       length = snprintf(coordinates, sizeof(coordinates), " %zu:%zu",
           at->line + 1U, source_column + 1U);
@@ -316,7 +377,7 @@ status_row(struct output *out, const struct cwiki_editor *editor,
          return 0U;
       }
       paint(out, coordinates, (size_t)length, 0U, width, &column,
-          &painted, NULL, NULL, false);
+          &painted, NULL, NULL, false, false);
    }
    spaces(out, width - painted);
    text(out, "\x1b[0m");
@@ -332,6 +393,8 @@ frame(struct output *out, const struct cwiki_layout_window *layout,
 {
    size_t row;
    size_t command_cursor;
+   size_t gutter = view->line_numbers ? cwiki_render_line_number_width(
+       layout->line_count, view->columns) : 0U;
    const struct cwiki_layout_line *cursor_line =
        &layout->lines[editor->motion.cursor.line];
    size_t left = layout->wrap && !cursor_line->code && !cursor_line->degraded ?
@@ -339,10 +402,16 @@ frame(struct output *out, const struct cwiki_layout_window *layout,
 
    text(out, CWIKI_TERMINAL_CURSOR_HIDE "\x1b[0m\x1b[2J\x1b[H");
    for (row = 0U; row + 1U < view->rows; row++) {
+      const struct cwiki_layout_row *source = cwiki_layout_row_at(layout,
+          view->first_row + row);
+      bool active = view->cursorline && view->first_row + row == cursor_row;
+
       position(out, row + 1U, 1U);
-      source_row(out, layout, highlights,
-          cwiki_layout_row_at(layout, view->first_row + row),
-          view->horizontal_offset, view->columns);
+      if (gutter > 0U) {
+         line_number(out, source, editor->motion.cursor.line, gutter, active);
+      }
+      source_row(out, layout, highlights, source, view->horizontal_offset,
+          layout->content_width, active);
    }
    position(out, view->rows, 1U);
    command_cursor = status_row(out, editor, view->columns);
@@ -352,13 +421,14 @@ frame(struct output *out, const struct cwiki_layout_window *layout,
    } else if (cursor_row >= view->first_row &&
        cursor_row - view->first_row < view->rows - 1U &&
        cursor_column >= left &&
-       (cursor_column - left < view->columns ||
+       (cursor_column - left < layout->content_width ||
        (editor->motion.cursor.byte == cursor_line->source_length &&
-       cursor_column - left == view->columns))) {
+       cursor_column - left == layout->content_width))) {
       size_t column = cursor_column - left;
 
       position(out, cursor_row - view->first_row + 1U,
-          column < view->columns ? column + 1U : view->columns);
+          gutter + (column < layout->content_width ? column + 1U :
+          layout->content_width));
       text(out, CWIKI_TERMINAL_CURSOR_SHOW);
    }
 }
@@ -373,13 +443,13 @@ cwiki_render_frame(const struct cwiki_layout_window *layout,
    struct output out = { NULL, 0U, 0 };
    size_t cursor_row;
    size_t cursor_column;
+   size_t gutter;
 
    if (layout == NULL || editor == NULL || editor->document == NULL ||
        viewport == NULL || length == NULL ||
        (bytes == NULL && capacity != 0U) ||
        viewport->rows == 0U || viewport->rows > 4096U ||
        viewport->columns == 0U || viewport->columns > 4096U ||
-       viewport->columns != layout->content_width ||
        viewport->first_row > SIZE_MAX - viewport->rows ||
        viewport->horizontal_offset > SIZE_MAX - viewport->columns ||
        editor->mode < CWIKI_EDITOR_NORMAL ||
@@ -387,6 +457,12 @@ cwiki_render_frame(const struct cwiki_layout_window *layout,
        (editor->command == NULL && editor->command_length != 0U) ||
        cwiki_layout_source_to_display(layout, &editor->document->buffer,
        editor->motion.cursor, &cursor_row, &cursor_column) != 0) {
+      errno = EINVAL;
+      return -1;
+   }
+   gutter = viewport->line_numbers ? cwiki_render_line_number_width(
+       layout->line_count, viewport->columns) : 0U;
+   if (layout->content_width != viewport->columns - gutter) {
       errno = EINVAL;
       return -1;
    }

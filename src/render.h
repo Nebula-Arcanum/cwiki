@@ -2,6 +2,7 @@
 #define CWIKI_RENDER_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct cwiki_editor;
 struct cwiki_highlight_line;
@@ -9,10 +10,15 @@ struct cwiki_layout_window;
 
 struct cwiki_render_viewport {
    size_t rows; /* Includes the persistent final status row; both sizes > 0. */
-   size_t columns; /* Must match layout.content_width. */
+   size_t columns; /* Terminal columns, including any line-number gutter. */
    size_t first_row; /* Absolute display row, not source line. */
    size_t horizontal_offset; /* Applies only to unwrapped/code/raw lines. */
+   bool line_numbers;
+   bool cursorline;
 };
+
+/* Leaves at least one content column; returns 0 when columns cannot fit both. */
+size_t cwiki_render_line_number_width(size_t source_lines, size_t columns);
 
 /*
  * Build a complete ANSI frame, without I/O or allocation. The application owns
@@ -21,6 +27,8 @@ struct cwiki_render_viewport {
  * Layout and highlights must describe the current document; highlights contains
  * one entry per source line. NULL highlights selects unstyled source (raw rows
  * remain visibly marked). Inputs must not alias output and must remain stable.
+ * layout.content_width must equal viewport.columns minus the line-number width
+ * when line_numbers is enabled, and viewport.columns otherwise.
  *
  * NULL bytes with capacity 0 queries the required byte length (excluding NUL).
  * Otherwise capacity must be > length. On any error (-1, errno), output and
