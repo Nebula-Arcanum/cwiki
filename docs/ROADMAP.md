@@ -50,7 +50,7 @@ implemented.
 
 ## Milestone 1 — daily class-note skeleton
 
-Status: **closure in progress; not yet ready for user acceptance.** The
+Status: **release validation in progress; manual acceptance pending.** The
 requirement-to-evidence gate is `docs/ACCEPTANCE.md`; Milestone 2 remains paused
 until every M1 row is verified or explicitly deferred and the user accepts the
 production demo. The UTF-8 line buffer and
@@ -117,7 +117,13 @@ locations, then builds a complete candidate keymap without mutating its base.
 Validated configuration bytes now replace the live keymap transactionally
 before terminal startup; configured clue-group labels title the live popup;
 layered display settings reach layout; and manual, insert-leave, and idle save
-policies drive writes. Name-keyed snippet configuration transactionally composes
+policies drive writes. Relative line numbers, smart cursorline, three-cell Tab
+indentation, runtime display toggles, active-snippet listing, and searchable
+in-session undo history are integrated through named actions. All production
+controls now dispatch through the action/keymap path. Layered module switches
+independently disable the M1 syntax presentation, snippet, clue, and picker
+subsystems, while conceal retains its per-window display switch. Name-keyed
+snippet configuration transactionally composes
 builtin replacement/disabling and custom literal or bounded-regex definitions,
 zone-dependent bodies, trigger flags, priorities, and subject layers. Read-only
 startup discovery composes existing global, synchronized-vault, and UUID-keyed
