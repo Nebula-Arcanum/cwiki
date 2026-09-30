@@ -23,6 +23,20 @@
 
 #define SAVE_IDLE_NS UINT64_C(1000000000)
 
+enum app_action_id {
+   APP_ACTION_TOGGLE_WRAP,
+   APP_ACTION_TOGGLE_NUMBERS,
+   APP_ACTION_TOGGLE_CURSORLINE,
+   APP_ACTION_TOGGLE_CONCEAL,
+   APP_ACTION_LIST_SNIPPETS,
+   APP_ACTION_COUNT
+};
+
+struct app_action_context {
+   struct app *app;
+   enum app_action_id id;
+};
+
 struct app {
    struct cwiki_document document;
    struct cwiki_editor editor;
@@ -39,8 +53,11 @@ struct app {
    enum cwiki_config_status config_status;
    const char *config_path;
    uint64_t last_input_ns;
+   struct app_action_context action_contexts[APP_ACTION_COUNT];
+   const char *status_message;
    int error;
    unsigned int statuses;
+   bool snippet_overlay;
 };
 
 #ifdef CWIKI_APP_TESTING
@@ -59,11 +76,17 @@ static int
 refresh(struct app *app)
 {
    struct cwiki_layout_options options = {0};
+   size_t gutter;
    size_t row;
    size_t column;
    size_t height = app->viewport.rows > 1U ? app->viewport.rows - 1U : 1U;
 
-   options.content_width = app->viewport.columns;
+   app->viewport.line_numbers = app->settings.line_numbers;
+   app->viewport.cursorline = app->settings.cursorline;
+   app->viewport.status_message = app->status_message;
+   gutter = app->viewport.line_numbers ? cwiki_render_line_number_width(
+       app->document.buffer.line_count, app->viewport.columns) : 0U;
+   options.content_width = app->viewport.columns - gutter;
    options.wrap = app->settings.wrap;
    options.break_indent = app->settings.break_indent;
    options.continuation_marker = app->settings.continuation_marker;
@@ -124,11 +147,16 @@ event(const struct cwiki_input_event *event_value, void *context)
       app->error = errno;
       return;
    }
+   app->snippet_overlay = false;
+   app->status_message = NULL;
+   app->viewport.status_message = NULL;
    input_context.layout = &app->layout;
    input_context.zones = app->zones;
    input_context.viewport = &app->motion_viewport;
    input_context.timestamp = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
        (uint64_t)now.tv_nsec;
+   input_context.tabstop = app->settings.tabstop;
+   input_context.expandtab = app->settings.expandtab;
    app->last_input_ns = input_context.timestamp;
    status = cwiki_editor_input_handle(app->input, event_value, &input_context);
    if (status == CWIKI_EDITOR_OK &&
@@ -143,6 +171,94 @@ event(const struct cwiki_input_event *event_value, void *context)
    } else if (refresh(app) != 0) {
       app->error = errno;
    }
+}
+
+static bool
+app_action_available(void *context)
+{
+   const struct app_action_context *action = context;
+
+   return action->app->editor.mode == CWIKI_EDITOR_NORMAL;
+}
+
+static int
+handle_app_action(void *context, const struct cwiki_action_argument *argument)
+{
+   struct app_action_context *action = context;
+   struct app *app = action->app;
+
+   (void)argument;
+   switch (action->id) {
+   case APP_ACTION_TOGGLE_WRAP:
+      app->settings.wrap = !app->settings.wrap;
+      app->status_message = app->settings.wrap ? "wrap on" : "wrap off";
+      break;
+   case APP_ACTION_TOGGLE_NUMBERS:
+      app->settings.line_numbers = !app->settings.line_numbers;
+      app->status_message = app->settings.line_numbers ?
+          "numbers on" : "numbers off";
+      break;
+   case APP_ACTION_TOGGLE_CURSORLINE:
+      app->settings.cursorline = !app->settings.cursorline;
+      app->status_message = app->settings.cursorline ?
+          "cursorline on" : "cursorline off";
+      break;
+   case APP_ACTION_TOGGLE_CONCEAL:
+      app->settings.conceal = !app->settings.conceal;
+      app->status_message = app->settings.conceal ?
+          "conceal on" : "conceal off";
+      break;
+   case APP_ACTION_LIST_SNIPPETS:
+      app->snippet_overlay = true;
+      break;
+   case APP_ACTION_COUNT:
+      return (int)CWIKI_EDITOR_INVALID;
+   }
+   return (int)CWIKI_EDITOR_OK;
+}
+
+static int
+register_app_actions(struct app *app)
+{
+   static const struct {
+      const char *name;
+      const char *label;
+      const char *description;
+      char key;
+   } definitions[] = {
+      {"option.toggle-wrap", "Toggle wrap", "Toggle soft wrap", 'w'},
+      {"option.toggle-line-numbers", "Toggle numbers",
+          "Toggle relative line numbers", 'n'},
+      {"option.toggle-cursorline", "Toggle cursorline",
+          "Toggle the smart cursorline", 'l'},
+      {"option.toggle-conceal", "Toggle conceal",
+          "Toggle source conceal substitutions", 'c'},
+      {"snippet.list-active", "Active snippets",
+          "List snippets active at the cursor", 's'}
+   };
+   struct cwiki_action_registry *actions =
+       cwiki_editor_input_actions(app->input);
+   struct cwiki_keymap *keymap = cwiki_editor_input_keymap(app->input);
+
+   for (size_t i = 0U; i < APP_ACTION_COUNT; i++) {
+      struct cwiki_action_spec spec = {
+         definitions[i].name, definitions[i].label, definitions[i].description,
+         CWIKI_ACTION_PARAMETER_NONE, NULL, handle_app_action,
+         app_action_available, &app->action_contexts[i]
+      };
+      struct cwiki_key_sequence sequence = {
+         {{'\\', 0U}, {(uint32_t)definitions[i].key, 0U}}, 2U
+      };
+
+      app->action_contexts[i].app = app;
+      app->action_contexts[i].id = (enum app_action_id)i;
+      if (cwiki_action_register(actions, &spec) != CWIKI_ACTION_OK ||
+          cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &sequence,
+          definitions[i].name) != CWIKI_KEYMAP_OK) {
+         return -1;
+      }
+   }
+   return 0;
 }
 
 static bool
@@ -210,8 +326,11 @@ draw(struct app *app, struct cwiki_terminal *terminal)
    struct cwiki_highlight_line *highlights = calloc(count, sizeof(*highlights));
    const struct cwiki_input_event *pending;
    struct cwiki_float_area clue_area = {0};
+   struct cwiki_snippet_info *snippet_infos = NULL;
+   struct cwiki_clue_item *snippet_items = NULL;
    char *bytes = NULL;
    size_t pending_count;
+   size_t snippet_count = 0U;
    const char *clue_title = NULL;
    size_t frame_length = 0U;
    size_t clue_length = 0U;
@@ -225,6 +344,59 @@ draw(struct app *app, struct cwiki_terminal *terminal)
    for (size_t i = 0U; i < count; i++) {
       if (cwiki_highlight_build_line(app->zones, &app->document.buffer, i,
           &highlights[i]) != 0) {
+         goto fail;
+      }
+   }
+   if (app->snippet_overlay && app->viewport.rows >= 4U &&
+       app->viewport.columns >= 5U) {
+      struct cwiki_float_options snippet_options;
+
+      if (cwiki_editor_input_list_active_snippets(app->input, app->zones,
+          NULL, 0U, &snippet_count) != CWIKI_SNIPPET_OK ||
+          snippet_count > SIZE_MAX / sizeof(*snippet_infos) ||
+          snippet_count > SIZE_MAX / sizeof(*snippet_items)) {
+         errno = EINVAL;
+         goto fail;
+      }
+      if (snippet_count != 0U) {
+         snippet_infos = malloc(snippet_count * sizeof(*snippet_infos));
+         snippet_items = malloc(snippet_count * sizeof(*snippet_items));
+         if (snippet_infos == NULL || snippet_items == NULL) {
+            goto fail;
+         }
+         if (cwiki_editor_input_list_active_snippets(app->input, app->zones,
+             snippet_infos, snippet_count, &snippet_count) !=
+             CWIKI_SNIPPET_OK) {
+            errno = EINVAL;
+            goto fail;
+         }
+         for (size_t i = 0U; i < snippet_count; i++) {
+            bool automatic = (snippet_infos[i].flags &
+                CWIKI_SNIPPET_TRIGGER_AUTO) != 0U;
+            bool explicit = (snippet_infos[i].flags &
+                CWIKI_SNIPPET_TRIGGER_EXPLICIT) != 0U;
+            const char *label = snippet_infos[i].kind == CWIKI_SNIPPET_REGEX ?
+                (automatic && explicit ? "auto/manual regex" :
+                (automatic ? "auto regex" : "manual regex")) :
+                (automatic && explicit ? "auto/manual" :
+                (automatic ? "auto" : "manual"));
+
+            snippet_items[i] = (struct cwiki_clue_item){
+               snippet_infos[i].trigger, snippet_infos[i].trigger_length,
+               label, strlen(label)
+            };
+         }
+      }
+      snippet_options = (struct cwiki_float_options){
+         {1U, 1U, app->viewport.rows - 1U, app->viewport.columns},
+         snippet_count == 0U ? 3U :
+         (snippet_count > 10U ? 10U : snippet_count) + 2U,
+         44U, CWIKI_FLOAT_SOUTH_EAST, 0, 0
+      };
+      if (cwiki_float_place(&snippet_options, &clue_area) != 0 ||
+          cwiki_clue_render_list_overlay(snippet_items, snippet_count,
+          &clue_area, CWIKI_FLOAT_BORDER_SINGLE, "Active snippets",
+          "No active snippets", NULL, 0U, &clue_length) != 0) {
          goto fail;
       }
    }
@@ -263,10 +435,14 @@ draw(struct app *app, struct cwiki_terminal *terminal)
        (bytes = malloc(frame_length + clue_length + 1U)) == NULL ||
        cwiki_render_frame(&app->layout, highlights, &app->editor,
        &app->viewport, bytes, frame_length + 1U, &frame_length) != 0 ||
-       (clue_length != 0U &&
+       (clue_length != 0U && !app->snippet_overlay &&
        cwiki_clue_render_overlay(cwiki_editor_input_keymap(app->input),
        cwiki_editor_input_actions(app->input), CWIKI_KEYMAP_NORMAL, pending,
        pending_count, &clue_area, CWIKI_FLOAT_BORDER_SINGLE, clue_title,
+       bytes + frame_length, clue_length + 1U, &clue_length) != 0) ||
+       (clue_length != 0U && app->snippet_overlay &&
+       cwiki_clue_render_list_overlay(snippet_items, snippet_count, &clue_area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
        bytes + frame_length, clue_length + 1U, &clue_length) != 0)) {
       goto fail;
    }
@@ -299,6 +475,8 @@ done:
       cwiki_highlight_line_free(&highlights[i]);
    }
    free(highlights);
+   free(snippet_infos);
+   free(snippet_items);
    free(bytes);
    errno = error_number;
    return error_number == 0 ? 0 : -1;
@@ -333,7 +511,8 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
       goto system_error;
    }
    if (cwiki_editor_init(&app.editor, &app.document) != CWIKI_EDITOR_OK ||
-       cwiki_editor_input_init(&app.input, &app.editor) != CWIKI_EDITOR_OK) {
+       cwiki_editor_input_init(&app.input, &app.editor) != CWIKI_EDITOR_OK ||
+       register_app_actions(&app) != 0) {
       errno = ENOMEM;
       goto system_error;
    }

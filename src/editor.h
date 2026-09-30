@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 struct cwiki_layout_window;
+struct cwiki_line_edit;
 struct cwiki_snippet_engine;
 struct cwiki_snippet_match;
 struct cwiki_zone_engine;
@@ -50,9 +51,11 @@ struct cwiki_editor {
    size_t reveal_line;
    struct cwiki_conceal_reveal reveal;
    struct cwiki_editor_yank yank;
+   struct cwiki_line_edit *command_edit;
+   /* Borrowed from command_edit; retained for renderer/test compatibility. */
    char *command;
    size_t command_length;
-   size_t command_capacity;
+   size_t command_cursor;
    uint64_t pending_timestamp;
    uint64_t saved_sequence;
    enum cwiki_editor_mode mode;
@@ -114,6 +117,8 @@ enum cwiki_editor_status cwiki_editor_command_insert(
     struct cwiki_editor *editor, const char *bytes, size_t length);
 enum cwiki_editor_status cwiki_editor_command_backspace(
     struct cwiki_editor *editor);
+enum cwiki_editor_status cwiki_editor_command_control(
+    struct cwiki_editor *editor, uint32_t key);
 enum cwiki_editor_status cwiki_editor_save(struct cwiki_editor *editor);
 enum cwiki_editor_status cwiki_editor_execute_command(
     struct cwiki_editor *editor);

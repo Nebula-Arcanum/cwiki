@@ -5,6 +5,7 @@
 #include "editor.h"
 #include "input.h"
 #include "keymap.h"
+#include "snippet.h"
 
 #include <stdint.h>
 
@@ -19,6 +20,8 @@ struct cwiki_editor_input_context {
    struct cwiki_zone_engine *zones;
    const struct cwiki_motion_viewport *viewport;
    uint64_t timestamp;
+   size_t tabstop;
+   bool expandtab;
 };
 
 enum cwiki_editor_status cwiki_editor_input_init(
@@ -45,5 +48,8 @@ struct cwiki_keymap *cwiki_editor_input_keymap(struct cwiki_editor_input *input)
 /* Returned events remain owned by input and valid until its next handle call. */
 const struct cwiki_input_event *cwiki_editor_input_pending(
     const struct cwiki_editor_input *input, size_t *count);
+enum cwiki_snippet_status cwiki_editor_input_list_active_snippets(
+    const struct cwiki_editor_input *input, struct cwiki_zone_engine *zones,
+    struct cwiki_snippet_info *infos, size_t capacity, size_t *count);
 
 #endif

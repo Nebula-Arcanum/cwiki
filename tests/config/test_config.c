@@ -242,6 +242,12 @@ strict_schema_errors(void)
        "only n, i, v and c");
    expect_error("display:\n  continuation-marker: \"\\t\"\n",
        CWIKI_CONFIG_SCHEMA_ERROR, "display text");
+   expect_error("indentation:\n  shiftwidth: 0\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "integer from 1 to 16");
+   expect_error("indentation:\n  tabstop: 17\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "integer from 1 to 16");
+   expect_error("indentation:\n  tabstop: '3'\n", CWIKI_CONFIG_SCHEMA_ERROR,
+       "integer from 1 to 16");
    expect_error("save-policy: often\n", CWIKI_CONFIG_SCHEMA_ERROR,
        "insert-leave, manual or idle");
    expect_error("snippets: []\n", CWIKI_CONFIG_SCHEMA_ERROR, "mapping");
@@ -509,12 +515,22 @@ scalar_settings_and_precedence(void)
        "  conceal-cursor: iv\n"
        "  wrap: false\n"
        "  break-indent: false\n"
+       "  line-numbers: false\n"
+       "  cursorline: false\n"
        "  continuation-marker: '↪ '\n"
+       "indentation:\n"
+       "  shiftwidth: 4\n"
+       "  tabstop: 5\n"
+       "  expandtab: false\n"
        "save-policy: manual\n";
    static const char local[] =
        "display:\n"
        "  conceal: true\n"
        "  wrap: true\n"
+       "  line-numbers: true\n"
+       "indentation:\n"
+       "  tabstop: 3\n"
+       "  expandtab: true\n"
        "save-policy: idle\n";
    struct cwiki_action_registry *registry = actions();
    struct cwiki_config *first = NULL;
@@ -524,9 +540,12 @@ scalar_settings_and_precedence(void)
 
    cwiki_config_settings_defaults(&settings);
    assert(settings.conceal && settings.wrap && settings.break_indent &&
+       settings.line_numbers && settings.cursorline &&
        settings.conceal_categories == CWIKI_CONCEAL_DEFAULT_MASK &&
        settings.concealcursor_modes == CWIKI_CONCEALCURSOR_DEFAULT &&
        strcmp(settings.continuation_marker, "") == 0 &&
+       settings.shiftwidth == 3U && settings.tabstop == 3U &&
+       settings.expandtab &&
        settings.save_policy == CWIKI_SAVE_INSERT_LEAVE);
    assert(cwiki_config_parse(&first, (const unsigned char *)global,
        sizeof(global) - 1U, registry, &error) == CWIKI_CONFIG_OK);
@@ -534,6 +553,7 @@ scalar_settings_and_precedence(void)
        sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
    cwiki_config_apply_settings(first, &settings);
    assert(!settings.conceal && !settings.wrap && !settings.break_indent &&
+       !settings.line_numbers && !settings.cursorline &&
        settings.conceal_categories ==
        (CWIKI_CONCEAL_CATEGORY_BIT(CWIKI_CONCEAL_GREEK) |
        CWIKI_CONCEAL_CATEGORY_BIT(CWIKI_CONCEAL_SECTIONS)) &&
@@ -541,10 +561,15 @@ scalar_settings_and_precedence(void)
        (CWIKI_CONCEAL_MODE_BIT(CWIKI_CONCEAL_MODE_INSERT) |
        CWIKI_CONCEAL_MODE_BIT(CWIKI_CONCEAL_MODE_VISUAL)) &&
        strcmp(settings.continuation_marker, "↪ ") == 0 &&
+       settings.shiftwidth == 4U && settings.tabstop == 5U &&
+       !settings.expandtab &&
        settings.save_policy == CWIKI_SAVE_MANUAL);
    cwiki_config_apply_settings(second, &settings);
    assert(settings.conceal && settings.wrap && !settings.break_indent &&
+       settings.line_numbers && !settings.cursorline &&
        strcmp(settings.continuation_marker, "↪ ") == 0 &&
+       settings.shiftwidth == 4U && settings.tabstop == 3U &&
+       settings.expandtab &&
        settings.save_policy == CWIKI_SAVE_IDLE);
    cwiki_config_free(second);
    cwiki_config_free(first);

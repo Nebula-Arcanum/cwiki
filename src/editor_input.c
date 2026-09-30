@@ -759,10 +759,31 @@ handle_editing(struct cwiki_editor_input *input,
    if (event->key == 27U && event->modifiers == 0U) {
       return cwiki_editor_escape(editor);
    }
+   if (editor->mode == CWIKI_EDITOR_COMMAND &&
+       event->modifiers == CWIKI_INPUT_CTRL &&
+       (key == 'a' || key == 'b' || key == 'd' || key == 'e' || key == 'f' ||
+       key == 'h' || key == 'k' || key == 'w')) {
+      return cwiki_editor_command_control(editor, key & UINT32_C(0x1f));
+   }
    if (editor->mode == CWIKI_EDITOR_INSERT &&
        event->modifiers == CWIKI_INPUT_CTRL &&
        (key == 'l' || key == 'h')) {
       return handle_tab(input, key == 'h');
+   }
+   if ((editor->mode == CWIKI_EDITOR_INSERT ||
+       editor->mode == CWIKI_EDITOR_REPLACE) && event->key == 9U &&
+       event->modifiers == 0U) {
+      static const char spaces[] = "                ";
+      size_t width = input->context.tabstop == 0U ? 3U :
+          input->context.tabstop;
+
+      if (!input->context.expandtab) {
+         return snippet_insert(input, "\t", 1U, true);
+      }
+      if (width > sizeof(spaces) - 1U) {
+         return CWIKI_EDITOR_INVALID;
+      }
+      return snippet_insert(input, spaces, width, true);
    }
    if ((event->key == 13U || event->key == 10U) &&
        event->modifiers == 0U) {
@@ -818,4 +839,22 @@ cwiki_editor_input_pending(const struct cwiki_editor_input *input,
    }
    *count = input == NULL ? 0U : input->pending_count;
    return input == NULL || input->pending_count == 0U ? NULL : input->pending;
+}
+
+enum cwiki_snippet_status
+cwiki_editor_input_list_active_snippets(const struct cwiki_editor_input *input,
+    struct cwiki_zone_engine *zones, struct cwiki_snippet_info *infos,
+    size_t capacity, size_t *count)
+{
+   struct cwiki_zone zone;
+
+   if (input == NULL || zones == NULL || input->editor == NULL ||
+       input->editor->document == NULL ||
+       cwiki_zone_at(zones, &input->editor->document->buffer,
+       input->editor->motion.cursor.line, input->editor->motion.cursor.byte,
+       &zone) != 0) {
+      return CWIKI_SNIPPET_INVALID;
+   }
+   return cwiki_snippet_registry_list_active(input->snippet_registry, zone.kind,
+       infos, capacity, count);
 }

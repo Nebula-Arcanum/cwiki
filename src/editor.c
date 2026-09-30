@@ -1,6 +1,7 @@
 #include "editor.h"
 
 #include "layout.h"
+#include "line_edit.h"
 #include "snippet.h"
 #include "unicode.h"
 #include "zone.h"
@@ -332,8 +333,26 @@ cwiki_editor_free(struct cwiki_editor *editor)
    }
    cwiki_undo_free(&editor->undo);
    free(editor->yank.bytes);
-   free(editor->command);
+   cwiki_line_edit_free(editor->command_edit);
    memset(editor, 0, sizeof(*editor));
+}
+
+static void
+sync_command(struct cwiki_editor *editor)
+{
+   editor->command = (char *)cwiki_line_edit_bytes(editor->command_edit);
+   editor->command_length = cwiki_line_edit_length(editor->command_edit);
+   editor->command_cursor = cwiki_line_edit_cursor(editor->command_edit);
+}
+
+static void
+clear_command(struct cwiki_editor *editor)
+{
+   cwiki_line_edit_free(editor->command_edit);
+   editor->command_edit = NULL;
+   editor->command = NULL;
+   editor->command_length = 0U;
+   editor->command_cursor = 0U;
 }
 
 enum cwiki_editor_status
@@ -485,7 +504,7 @@ cwiki_editor_escape(struct cwiki_editor *editor)
       return CWIKI_EDITOR_INVALID;
    }
    if (editor->mode == CWIKI_EDITOR_COMMAND) {
-      editor->command_length = 0U;
+      clear_command(editor);
       editor->mode = CWIKI_EDITOR_NORMAL;
       return CWIKI_EDITOR_OK;
    }
@@ -956,7 +975,12 @@ cwiki_editor_begin_command(struct cwiki_editor *editor)
       return CWIKI_EDITOR_INVALID;
    }
    editor->pending_operator = CWIKI_EDITOR_NO_OPERATOR;
-   editor->command_length = 0U;
+   clear_command(editor);
+   if (cwiki_line_edit_init(&editor->command_edit, NULL, 0U) !=
+       CWIKI_LINE_EDIT_OK) {
+      return error_status();
+   }
+   sync_command(editor);
    editor->mode = CWIKI_EDITOR_COMMAND;
    return CWIKI_EDITOR_OK;
 }
@@ -966,30 +990,48 @@ cwiki_editor_command_insert(struct cwiki_editor *editor, const char *bytes,
     size_t length)
 {
    if (editor == NULL || editor->mode != CWIKI_EDITOR_COMMAND ||
-       (bytes == NULL && length != 0U) ||
-       (length != 0U && memchr(bytes, '\n', length) != NULL) ||
-       !cwiki_utf8_validate(bytes, length)) {
+       editor->command_edit == NULL ||
+       (length != 0U && memchr(bytes, '\n', length) != NULL)) {
       return CWIKI_EDITOR_INVALID;
    }
-   if (append_bytes(&editor->command, &editor->command_length,
-       &editor->command_capacity, bytes, length) != 0) {
-      return error_status();
+   switch (cwiki_line_edit_insert(editor->command_edit, bytes, length)) {
+   case CWIKI_LINE_EDIT_OK:
+      sync_command(editor);
+      return CWIKI_EDITOR_OK;
+   case CWIKI_LINE_EDIT_NO_MEMORY:
+      return CWIKI_EDITOR_NO_MEMORY;
+   case CWIKI_LINE_EDIT_INVALID:
+   case CWIKI_LINE_EDIT_NOT_HANDLED:
+      return CWIKI_EDITOR_INVALID;
    }
-   return CWIKI_EDITOR_OK;
+   return CWIKI_EDITOR_INVALID;
 }
 
 enum cwiki_editor_status
 cwiki_editor_command_backspace(struct cwiki_editor *editor)
 {
-   if (editor == NULL || editor->mode != CWIKI_EDITOR_COMMAND) {
+   return cwiki_editor_command_control(editor, 8U);
+}
+
+enum cwiki_editor_status
+cwiki_editor_command_control(struct cwiki_editor *editor, uint32_t key)
+{
+   enum cwiki_line_edit_status status;
+
+   if (editor == NULL || editor->mode != CWIKI_EDITOR_COMMAND ||
+       editor->command_edit == NULL) {
       return CWIKI_EDITOR_INVALID;
    }
-   if (editor->command_length == 0U) {
-      return CWIKI_EDITOR_NOTHING;
+   status = cwiki_line_edit_control(editor->command_edit, key);
+   if (status == CWIKI_LINE_EDIT_OK) {
+      sync_command(editor);
+      return CWIKI_EDITOR_OK;
    }
-   editor->command_length = cwiki_grapheme_previous(editor->command,
-       editor->command_length, editor->command_length);
-   return CWIKI_EDITOR_OK;
+   if (status == CWIKI_LINE_EDIT_NO_MEMORY) {
+      return CWIKI_EDITOR_NO_MEMORY;
+   }
+   return status == CWIKI_LINE_EDIT_NOT_HANDLED ? CWIKI_EDITOR_NOTHING :
+       CWIKI_EDITOR_INVALID;
 }
 
 static bool
@@ -1046,7 +1088,7 @@ cwiki_editor_execute_command(struct cwiki_editor *editor)
       return CWIKI_EDITOR_DIRTY;
    }
    editor->quit_requested = quit;
-   editor->command_length = 0U;
+   clear_command(editor);
    editor->mode = CWIKI_EDITOR_NORMAL;
    return CWIKI_EDITOR_OK;
 }

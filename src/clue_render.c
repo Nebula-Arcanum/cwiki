@@ -386,3 +386,126 @@ cwiki_clue_render_overlay(const struct cwiki_keymap *keymap,
    *length = out.length;
    return 0;
 }
+
+static void
+list_content_row(struct output *out, const struct cwiki_clue_item *item,
+    const struct cwiki_float_area *area, size_t row, size_t width,
+    bool bordered)
+{
+   size_t painted = 0U;
+
+   position(out, row, area->left);
+   if (bordered) {
+      text(out, "\x1b[0;90m│\x1b[0m");
+   }
+   text(out, "\x1b[0;36m");
+   painted = paint(out, item->key, item->key_length, width);
+   if (painted + 2U < width) {
+      spaces(out, 2U);
+      painted += 2U;
+      text(out, "\x1b[0;39m");
+      painted += paint(out, item->label, item->label_length, width - painted);
+   }
+   spaces(out, width - painted);
+   text(out, "\x1b[0m");
+   if (bordered) {
+      text(out, "\x1b[0;90m│\x1b[0m");
+   }
+}
+
+static void
+list_empty_row(struct output *out, const char *message,
+    const struct cwiki_float_area *area, size_t row, size_t width,
+    bool bordered)
+{
+   size_t painted;
+
+   position(out, row, area->left);
+   if (bordered) {
+      text(out, "\x1b[0;90m│\x1b[0m");
+   }
+   text(out, "\x1b[0;90m");
+   painted = paint(out, message, strlen(message), width);
+   spaces(out, width - painted);
+   text(out, "\x1b[0m");
+   if (bordered) {
+      text(out, "\x1b[0;90m│\x1b[0m");
+   }
+}
+
+static void
+list_overlay(struct output *out, const struct cwiki_clue_item *items,
+    size_t item_count, const struct cwiki_float_area *area, bool bordered,
+    const char *title, const char *empty_message)
+{
+   size_t inset = bordered ? 1U : 0U;
+   size_t width = area->columns - inset * 2U;
+   size_t rows = area->rows - inset * 2U;
+   size_t i;
+
+   text(out, CWIKI_TERMINAL_CURSOR_HIDE "\x1b[s");
+   if (bordered) {
+      border_row(out, area, area->top, true, title);
+   }
+   for (i = 0U; i < rows; i++) {
+      size_t row = area->top + inset + i;
+
+      if (item_count == 0U && i == 0U) {
+         list_empty_row(out, empty_message, area, row, width, bordered);
+      } else if (i < item_count) {
+         list_content_row(out, &items[i], area, row, width, bordered);
+      } else {
+         blank_row(out, area, row, width, bordered);
+      }
+   }
+   if (bordered) {
+      border_row(out, area, area->top + area->rows - 1U, false, NULL);
+   }
+   text(out, "\x1b[u" CWIKI_TERMINAL_CURSOR_SHOW);
+}
+
+int
+cwiki_clue_render_list_overlay(const struct cwiki_clue_item *items,
+    size_t item_count, const struct cwiki_float_area *area,
+    enum cwiki_float_border border, const char *title,
+    const char *empty_message, char *bytes, size_t capacity, size_t *length)
+{
+   struct output out = {NULL, 0U, 0};
+   bool bordered = border == CWIKI_FLOAT_BORDER_SINGLE;
+   size_t minimum_rows = bordered ? 3U : 1U;
+   size_t minimum_columns = bordered ? 5U : 3U;
+
+   if ((items == NULL && item_count != 0U) || area == NULL || title == NULL ||
+       empty_message == NULL || length == NULL ||
+       (bytes == NULL && capacity != 0U) ||
+       (border != CWIKI_FLOAT_BORDER_NONE &&
+       border != CWIKI_FLOAT_BORDER_SINGLE) || area->top == 0U ||
+       area->left == 0U || area->rows < minimum_rows ||
+       area->columns < minimum_columns || area->rows > 4096U ||
+       area->columns > 4096U || area->top > 4097U - area->rows ||
+       area->left > 4097U - area->columns) {
+      errno = EINVAL;
+      return -1;
+   }
+   for (size_t i = 0U; i < item_count; i++) {
+      if ((items[i].key == NULL && items[i].key_length != 0U) ||
+          (items[i].label == NULL && items[i].label_length != 0U)) {
+         errno = EINVAL;
+         return -1;
+      }
+   }
+   list_overlay(&out, items, item_count, area, bordered, title, empty_message);
+   if (out.error != 0 || (bytes != NULL && capacity <= out.length)) {
+      errno = out.error != 0 ? out.error : ENOSPC;
+      return -1;
+   }
+   if (bytes != NULL) {
+      out.bytes = bytes;
+      out.length = 0U;
+      list_overlay(&out, items, item_count, area, bordered, title,
+          empty_message);
+      bytes[out.length] = '\0';
+   }
+   *length = out.length;
+   return 0;
+}

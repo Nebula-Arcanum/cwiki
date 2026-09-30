@@ -39,7 +39,12 @@ struct cwiki_config_settings {
    uint32_t concealcursor_modes;
    bool wrap;
    bool break_indent;
+   bool line_numbers;
+   bool cursorline;
    const char *continuation_marker;
+   size_t shiftwidth;
+   size_t tabstop;
+   bool expandtab;
    enum cwiki_save_policy save_policy;
 };
 
@@ -62,7 +67,12 @@ enum cwiki_config_value {
    CWIKI_CONFIG_VALUE_CONCEAL_CURSOR,
    CWIKI_CONFIG_VALUE_WRAP,
    CWIKI_CONFIG_VALUE_BREAK_INDENT,
+   CWIKI_CONFIG_VALUE_LINE_NUMBERS,
+   CWIKI_CONFIG_VALUE_CURSORLINE,
    CWIKI_CONFIG_VALUE_CONTINUATION_MARKER,
+   CWIKI_CONFIG_VALUE_SHIFTWIDTH,
+   CWIKI_CONFIG_VALUE_TABSTOP,
+   CWIKI_CONFIG_VALUE_EXPANDTAB,
    CWIKI_CONFIG_VALUE_SAVE_POLICY,
    CWIKI_CONFIG_VALUE_COUNT
 };
@@ -95,7 +105,13 @@ struct cwiki_config_named_info {
  *   conceal-cursor: nc
  *   wrap: true
  *   break-indent: true
+ *   line-numbers: true
+ *   cursorline: true
  *   continuation-marker: ""
+ * indentation:
+ *   shiftwidth: 3
+ *   tabstop: 3
+ *   expandtab: true
  * save-policy: insert-leave
  * snippets:
  *   custom.derivative:

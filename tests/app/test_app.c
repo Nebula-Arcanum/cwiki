@@ -23,6 +23,7 @@
 #define ESCAPE "\x1b[27u"
 #define ENTER "\x1b[13u"
 #define CTRL_L "\x1b[108;5u"
+#define TAB "\x1b[9u"
 #define LEFT_SHIFT "\x1b[57441u"
 #define SHIFT_HASH "\x1b[51;2;35u"
 
@@ -618,6 +619,7 @@ main(int argc, char **argv)
 {
    char path[] = "/tmp/cwiki-app-test-XXXXXX";
    char output[32768];
+   char screen[32768];
    char transcript[4096];
    struct session session;
    int fd;
@@ -937,6 +939,53 @@ main(int argc, char **argv)
        "%sg" ESCAPE ":q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: live clues derive from pending keymap/action metadata passed");
+
+   write_note(path, "$\\alpha$\nsecond");
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "𝛼") != NULL);
+   {
+      struct winsize size = {10U, 80U, 0U, 0U};
+
+      assert(ioctl(session.slave, TIOCSWINSZ, &size) == 0);
+   }
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("\\"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "Toggle wrap") != NULL &&
+       strstr(output, "Toggle numbers") != NULL &&
+       strstr(output, "Toggle cursorline") != NULL &&
+       strstr(output, "Toggle conceal") != NULL &&
+       strstr(output, "Active snippets") != NULL);
+   send_bytes(session.master, wire(ESCAPE "\\c"));
+   frame(&session, output, sizeof(output));
+   (void)snapshot(output, screen, sizeof(screen));
+   assert(strstr(screen, "\\alpha") != NULL &&
+       strstr(screen, "conceal off") != NULL);
+   send_bytes(session.master, wire("\\n"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "numbers off") != NULL);
+   send_bytes(session.master, wire("\\s"));
+   frame(&session, output, sizeof(output));
+   assert(strstr(output, "─ Active snippets ") != NULL &&
+       strstr(output, "mk") != NULL && strstr(output, "manual") != NULL);
+   send_bytes(session.master, wire(":q" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript),
+       "%s\\" ESCAPE "\\c\\n\\s:q" ENTER, supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   (void)puts("app: option namespace and active-snippet overlay passed");
+
+   assert(unlink(path) == 0);
+   session = start(path, supported, false);
+   frame(&session, output, sizeof(output));
+   send_bytes(session.master, wire("i" TAB "x" ESCAPE ":wq" ENTER));
+   frame(&session, output, sizeof(output));
+   assert(snprintf(transcript, sizeof(transcript),
+       "%si" TAB "x" ESCAPE ":wq" ENTER, supported) > 0);
+   finish(&session, 0, true, transcript, NULL);
+   content(path, "   x", CWIKI_LINE_ENDING_LF);
+   (void)puts("app: default Tab input expands to three spaces passed");
 
    {
       static const char global[] =

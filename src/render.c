@@ -327,17 +327,19 @@ line_number(struct output *out, const struct cwiki_layout_row *row,
 
 static size_t
 status_row(struct output *out, const struct cwiki_editor *editor,
-    size_t width)
+    const struct cwiki_render_viewport *view)
 {
    static const char *const modes[] = { "NORMAL", "INSERT", "REPLACE" };
+   size_t width = view->columns;
    size_t column = 0U;
    size_t painted = 0U;
    size_t cursor = 0U;
 
    text(out, "\x1b[0;7m");
    if (editor->mode == CWIKI_EDITOR_COMMAND) {
-      size_t command_width = cell_width(out, editor->command,
-          editor->command_length);
+      size_t command_byte = editor->command_edit == NULL ?
+          editor->command_length : editor->command_cursor;
+      size_t command_width = cell_width(out, editor->command, command_byte);
       size_t available = width - 1U;
       size_t left = command_width >= available ?
           command_width - available + 1U : 0U;
@@ -349,7 +351,10 @@ status_row(struct output *out, const struct cwiki_editor *editor,
              left, left + available, &column, &painted, NULL, NULL, false,
              false);
       }
-      cursor = painted < width ? painted : width - 1U;
+      cursor = 1U + command_width - left;
+      if (cursor >= width) {
+         cursor = width - 1U;
+      }
    } else {
       const char *path = editor->document->path;
       const char *base = path == NULL ? "[No Name]" : strrchr(path, '/');
@@ -378,6 +383,14 @@ status_row(struct output *out, const struct cwiki_editor *editor,
       }
       paint(out, coordinates, (size_t)length, 0U, width, &column,
           &painted, NULL, NULL, false, false);
+      if (view->status_message != NULL && painted < width) {
+         paint(out, " [", 2U, 0U, width, &column, &painted,
+             NULL, NULL, false, false);
+         paint(out, view->status_message, strlen(view->status_message),
+             0U, width, &column, &painted, NULL, NULL, false, false);
+         paint(out, "]", 1U, 0U, width, &column, &painted,
+             NULL, NULL, false, false);
+      }
    }
    spaces(out, width - painted);
    text(out, "\x1b[0m");
@@ -414,7 +427,7 @@ frame(struct output *out, const struct cwiki_layout_window *layout,
           layout->content_width, active);
    }
    position(out, view->rows, 1U);
-   command_cursor = status_row(out, editor, view->columns);
+   command_cursor = status_row(out, editor, view);
    if (editor->mode == CWIKI_EDITOR_COMMAND) {
       position(out, view->rows, command_cursor + 1U);
       text(out, CWIKI_TERMINAL_CURSOR_SHOW);
@@ -455,6 +468,8 @@ cwiki_render_frame(const struct cwiki_layout_window *layout,
        editor->mode < CWIKI_EDITOR_NORMAL ||
        editor->mode > CWIKI_EDITOR_COMMAND ||
        (editor->command == NULL && editor->command_length != 0U) ||
+       (editor->command_edit != NULL &&
+       editor->command_cursor > editor->command_length) ||
        cwiki_layout_source_to_display(layout, &editor->document->buffer,
        editor->motion.cursor, &cursor_row, &cursor_column) != 0) {
       errno = EINVAL;

@@ -15,6 +15,7 @@ struct cwiki_render_viewport {
    size_t horizontal_offset; /* Applies only to unwrapped/code/raw lines. */
    bool line_numbers;
    bool cursorline;
+   const char *status_message; /* Optional transient, trusted application text. */
 };
 
 /* Leaves at least one content column; returns 0 when columns cannot fit both. */

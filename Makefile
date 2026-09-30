@@ -60,7 +60,7 @@ APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
 	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
 	src/keymap.c src/snippet.c src/snippet_catalog.c src/editor_input.c \
-	src/float.c src/clue_render.c src/config.c src/config_files.c
+	src/line_edit.c src/float.c src/clue_render.c src/config.c src/config_files.c
 SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
@@ -319,12 +319,12 @@ $(EDITOR_TEST): src/editor.c src/editor.h src/document.c src/document.h \
 		src/layout.c src/layout.h src/conceal.c src/conceal.h src/undo.c \
 		src/undo.h src/buffer.c src/buffer.h src/unicode.c src/unicode.h \
 		src/zone.c src/zone.h src/regex.c src/regex.h src/snippet.c src/snippet.h \
-		tests/editor/test_editor.c
+		src/line_edit.c src/line_edit.h tests/editor/test_editor.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
 		src/buffer.c src/unicode.c src/undo.c src/regex.c src/zone.c \
 		src/conceal.c src/layout.c src/motion.c src/snippet.c src/durable_write.c \
-		src/document.c src/editor.c tests/editor/test_editor.c $(LDFLAGS) \
+		src/document.c src/line_edit.c src/editor.c tests/editor/test_editor.c $(LDFLAGS) \
 		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(EDITOR_TEST)
 
 $(EDITOR_INPUT_TEST): src/editor_input.c src/editor_input.h src/editor.c \
@@ -334,14 +334,14 @@ $(EDITOR_INPUT_TEST): src/editor_input.c src/editor_input.h src/editor.c \
 		src/conceal.c src/conceal.h src/undo.c src/undo.h src/buffer.c \
 		src/buffer.h src/unicode.c src/unicode.h src/zone.c src/zone.h \
 		src/regex.c src/regex.h src/snippet.c src/snippet.h \
-		src/snippet_catalog.c src/snippet_catalog.h \
+		src/snippet_catalog.c src/snippet_catalog.h src/line_edit.c src/line_edit.h \
 		tests/editor/test_editor_input.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
 		src/buffer.c src/unicode.c src/undo.c src/regex.c src/zone.c \
 		src/conceal.c src/layout.c src/motion.c src/snippet.c \
 		src/snippet_catalog.c src/durable_write.c \
-		src/document.c src/editor.c src/action.c src/keymap.c \
+		src/document.c src/line_edit.c src/editor.c src/action.c src/keymap.c \
 		src/editor_input.c tests/editor/test_editor_input.c $(LDFLAGS) \
 		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(EDITOR_INPUT_TEST)
 

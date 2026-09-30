@@ -54,6 +54,8 @@ fixture_init(struct fixture *fixture, const char *text)
    check(cwiki_editor_input_init(&fixture->input, &fixture->editor) ==
        CWIKI_EDITOR_OK, "initialize editor input controller");
    fixture->context.timestamp = 100U;
+   fixture->context.tabstop = 3U;
+   fixture->context.expandtab = true;
 }
 
 static void
@@ -352,11 +354,18 @@ test_command_line_and_unknown_input(void)
        fixture.editor.mode == CWIKI_EDITOR_NORMAL,
        "an unbound Normal-mode key is a deterministic no-op");
    check(send(&fixture, key(';', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('b', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('c', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('d', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('e', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('q', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key(13U, 0U)) == CWIKI_EDITOR_OK &&
        fixture.editor.quit_requested,
-       "typed :wq executes through Command-line mode on Enter");
+       "shared line-editor controls compose a typed :wq command");
    fixture_free(&fixture);
 }
 
@@ -375,10 +384,12 @@ test_runtime_snippets_and_undo_boundaries(void)
        content_is(&fixture, "mk"),
        "explicit trigger remains literal before Ctrl-l");
    check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
-       content_is(&fixture, "mk\t"),
-       "Tab inserts literally rather than navigating snippets");
+       content_is(&fixture, "mk   "),
+       "Tab inserts the configured three-space indentation");
    check(send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
-       content_is(&fixture, "mk"), "remove literal Tab before expansion");
+       send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk"), "remove indentation before expansion");
    check(send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        fixture.editor.motion.cursor.byte == 1U &&
        content_is(&fixture, "$$"),

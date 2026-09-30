@@ -145,6 +145,13 @@ modes(void)
        "                     " "\x1b[2;1H" STATUS
        ":wq                     " RESET "\x1b[2;4H" SHOW);
    finish(&f);
+
+   init(&f, "abc", 2U, 32U);
+   f.view.status_message = "wrap off";
+   expect(&f, START "\x1b[1;1H" RESET "abc" RESET
+       "                             " "\x1b[2;1H" STATUS
+       "NORMAL n.md 1:1 [wrap off]      " RESET "\x1b[1;1H" SHOW);
+   finish(&f);
 }
 
 static void
@@ -237,6 +244,13 @@ small_and_controls(void)
    f.editor.command = "界ab";
    f.editor.command_length = strlen(f.editor.command);
    expect(&f, START "\x1b[1;1H" STATUS ":ab " RESET "\x1b[1;4H" SHOW);
+   f.editor.command = "abcdef";
+   f.editor.command_length = 6U;
+   f.editor.command_edit = (struct cwiki_line_edit *)(uintptr_t)1U;
+   f.editor.command_cursor = 2U;
+   expect(&f, START "\x1b[1;1H" STATUS ":abc" RESET
+       "\x1b[1;4H" SHOW);
+   f.editor.command_edit = NULL;
    finish(&f);
 
    init(&f, "a\x1b[31m\t\x7f\xc2\x9b" "b", 2U, 8U);

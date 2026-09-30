@@ -82,15 +82,25 @@ struct cwiki_config {
    uint32_t conceal_categories;
    uint32_t concealcursor_modes;
    enum cwiki_save_policy save_policy;
+   size_t shiftwidth;
+   size_t tabstop;
    bool conceal;
    bool wrap;
    bool break_indent;
+   bool line_numbers;
+   bool cursorline;
+   bool expandtab;
    bool has_conceal;
    bool has_conceal_categories;
    bool has_concealcursor_modes;
    bool has_wrap;
    bool has_break_indent;
+   bool has_line_numbers;
+   bool has_cursorline;
    bool has_continuation_marker;
+   bool has_shiftwidth;
+   bool has_tabstop;
+   bool has_expandtab;
    bool has_save_policy;
    struct source_mark value_marks[CWIKI_CONFIG_VALUE_COUNT];
 };
@@ -441,7 +451,8 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
     const yaml_node_t *node, struct cwiki_config_error *error)
 {
    static const char *const allowed[] = {"conceal", "conceal-categories",
-       "conceal-cursor", "wrap", "break-indent", "continuation-marker"};
+       "conceal-cursor", "wrap", "break-indent", "line-numbers",
+       "cursorline", "continuation-marker"};
    yaml_node_t *value;
    enum cwiki_config_status status;
 
@@ -493,6 +504,24 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
       config->has_break_indent = true;
       config->value_marks[CWIKI_CONFIG_VALUE_BREAK_INDENT] = mark(value);
    }
+   value = mapping_get(document, node, "line-numbers");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->line_numbers, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_line_numbers = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_LINE_NUMBERS] = mark(value);
+   }
+   value = mapping_get(document, node, "cursorline");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->cursorline, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_cursorline = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_CURSORLINE] = mark(value);
+   }
    value = mapping_get(document, node, "continuation-marker");
    if (value != NULL && (status = parse_marker(config, value, error)) !=
        CWIKI_CONFIG_OK) {
@@ -500,6 +529,87 @@ parse_display(yaml_document_t *document, struct cwiki_config *config,
    }
    if (value != NULL) {
       config->value_marks[CWIKI_CONFIG_VALUE_CONTINUATION_MARKER] = mark(value);
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_indent_width(const yaml_node_t *node, size_t *width,
+    struct cwiki_config_error *error)
+{
+   char *text;
+   char *end;
+   unsigned long value;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.style != YAML_PLAIN_SCALAR_STYLE ||
+       node->data.scalar.length == 0U || node->data.scalar.length > 2U) {
+      goto invalid;
+   }
+   text = copy_scalar(node);
+   if (text == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   errno = 0;
+   value = strtoul(text, &end, 10);
+   if (errno != 0 || *end != '\0' || value == 0UL || value > 16UL) {
+      free(text);
+      goto invalid;
+   }
+   free(text);
+   *width = (size_t)value;
+   return CWIKI_CONFIG_OK;
+invalid:
+   {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "indent width must be an integer from 1 to 16");
+   }
+   return CWIKI_CONFIG_SCHEMA_ERROR;
+}
+
+static enum cwiki_config_status
+parse_indentation(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   static const char *const allowed[] = {
+      "shiftwidth", "tabstop", "expandtab"
+   };
+   yaml_node_t *value;
+   enum cwiki_config_status status = mapping_check(document, node, allowed,
+       sizeof(allowed) / sizeof(allowed[0]), error);
+
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   value = mapping_get(document, node, "shiftwidth");
+   if (value != NULL) {
+      status = parse_indent_width(value, &config->shiftwidth, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_shiftwidth = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_SHIFTWIDTH] = mark(value);
+   }
+   value = mapping_get(document, node, "tabstop");
+   if (value != NULL) {
+      status = parse_indent_width(value, &config->tabstop, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_tabstop = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_TABSTOP] = mark(value);
+   }
+   value = mapping_get(document, node, "expandtab");
+   if (value != NULL) {
+      status = parse_boolean(value, &config->expandtab, error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      config->has_expandtab = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_EXPANDTAB] = mark(value);
    }
    return CWIKI_CONFIG_OK;
 }
@@ -1748,7 +1858,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     struct cwiki_config_error *error)
 {
    static const char *const allowed[] = {"keymaps", "clue-groups", "display",
-       "save-policy", "snippets", "zones"};
+       "indentation", "save-policy", "snippets", "zones"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -1758,6 +1868,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    yaml_node_t *keymaps;
    yaml_node_t *groups;
    yaml_node_t *display;
+   yaml_node_t *indentation;
    yaml_node_t *save_policy;
    yaml_node_t *snippets;
    yaml_node_t *zones;
@@ -1809,6 +1920,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    keymaps = mapping_get(&document, root, "keymaps");
    groups = mapping_get(&document, root, "clue-groups");
    display = mapping_get(&document, root, "display");
+   indentation = mapping_get(&document, root, "indentation");
    save_policy = mapping_get(&document, root, "save-policy");
    snippets = mapping_get(&document, root, "snippets");
    zones = mapping_get(&document, root, "zones");
@@ -1826,6 +1938,12 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    if (display != NULL) {
       status = parse_display(&document, created, display, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (indentation != NULL) {
+      status = parse_indentation(&document, created, indentation, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -2572,8 +2690,18 @@ cwiki_config_settings_defaults(struct cwiki_config_settings *settings)
       return;
    }
    *settings = (struct cwiki_config_settings){
-      true, CWIKI_CONCEAL_DEFAULT_MASK, CWIKI_CONCEALCURSOR_DEFAULT,
-      true, true, "", CWIKI_SAVE_INSERT_LEAVE
+      .conceal = true,
+      .conceal_categories = CWIKI_CONCEAL_DEFAULT_MASK,
+      .concealcursor_modes = CWIKI_CONCEALCURSOR_DEFAULT,
+      .wrap = true,
+      .break_indent = true,
+      .line_numbers = true,
+      .cursorline = true,
+      .continuation_marker = "",
+      .shiftwidth = 3U,
+      .tabstop = 3U,
+      .expandtab = true,
+      .save_policy = CWIKI_SAVE_INSERT_LEAVE
    };
 }
 
@@ -2599,8 +2727,23 @@ cwiki_config_apply_settings(const struct cwiki_config *config,
    if (config->has_break_indent) {
       settings->break_indent = config->break_indent;
    }
+   if (config->has_line_numbers) {
+      settings->line_numbers = config->line_numbers;
+   }
+   if (config->has_cursorline) {
+      settings->cursorline = config->cursorline;
+   }
    if (config->has_continuation_marker) {
       settings->continuation_marker = config->continuation_marker;
+   }
+   if (config->has_shiftwidth) {
+      settings->shiftwidth = config->shiftwidth;
+   }
+   if (config->has_tabstop) {
+      settings->tabstop = config->tabstop;
+   }
+   if (config->has_expandtab) {
+      settings->expandtab = config->expandtab;
    }
    if (config->has_save_policy) {
       settings->save_policy = config->save_policy;
@@ -2617,7 +2760,12 @@ cwiki_config_value_location(const struct cwiki_config *config,
       offsetof(struct cwiki_config, has_concealcursor_modes),
       offsetof(struct cwiki_config, has_wrap),
       offsetof(struct cwiki_config, has_break_indent),
+      offsetof(struct cwiki_config, has_line_numbers),
+      offsetof(struct cwiki_config, has_cursorline),
       offsetof(struct cwiki_config, has_continuation_marker),
+      offsetof(struct cwiki_config, has_shiftwidth),
+      offsetof(struct cwiki_config, has_tabstop),
+      offsetof(struct cwiki_config, has_expandtab),
       offsetof(struct cwiki_config, has_save_policy)
    };
    const bool *present;
@@ -2794,7 +2942,9 @@ inspect_settings(int fd, const struct cwiki_config *const *configs,
    static const char *const names[CWIKI_CONFIG_VALUE_COUNT] = {
       "display.conceal", "display.conceal-categories",
       "display.conceal-cursor", "display.wrap", "display.break-indent",
-      "display.continuation-marker", "save-policy"
+      "display.line-numbers", "display.cursorline",
+      "display.continuation-marker", "indentation.shiftwidth",
+      "indentation.tabstop", "indentation.expandtab", "save-policy"
    };
    enum cwiki_config_value value;
 
@@ -2826,9 +2976,24 @@ inspect_settings(int fd, const struct cwiki_config *const *configs,
       case CWIKI_CONFIG_VALUE_BREAK_INDENT:
          if (dprintf(fd, "%s", settings->break_indent ? "true" : "false") < 0) return -1;
          break;
+      case CWIKI_CONFIG_VALUE_LINE_NUMBERS:
+         if (dprintf(fd, "%s", settings->line_numbers ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_CURSORLINE:
+         if (dprintf(fd, "%s", settings->cursorline ? "true" : "false") < 0) return -1;
+         break;
       case CWIKI_CONFIG_VALUE_CONTINUATION_MARKER:
          if (inspect_text(fd, settings->continuation_marker,
              strlen(settings->continuation_marker)) != 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_SHIFTWIDTH:
+         if (dprintf(fd, "%zu", settings->shiftwidth) < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_TABSTOP:
+         if (dprintf(fd, "%zu", settings->tabstop) < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_EXPANDTAB:
+         if (dprintf(fd, "%s", settings->expandtab ? "true" : "false") < 0) return -1;
          break;
       case CWIKI_CONFIG_VALUE_SAVE_POLICY:
          if (dprintf(fd, "%s", settings->save_policy == CWIKI_SAVE_MANUAL ?

@@ -206,6 +206,46 @@ special_keys_empty_and_errors(void)
 }
 
 static void
+generic_list_overlay(void)
+{
+   static const struct cwiki_clue_item items[] = {
+      {"mk", 2U, "manual", 6U},
+      {"([a-z])2", 8U, "auto regex", 10U}
+   };
+   const struct cwiki_float_area area = {2U, 3U, 4U, 22U};
+   char output[2048] = "unchanged";
+   char before[2048];
+   size_t needed = 0U;
+   size_t length = 99U;
+
+   assert(cwiki_clue_render_list_overlay(items, 2U, &area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
+       NULL, 0U, &needed) == 0 && needed < sizeof(output));
+   assert(cwiki_clue_render_list_overlay(items, 2U, &area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
+       output, sizeof(output), &length) == 0 && length == needed);
+   assert(strstr(output, "┌─ Active snippets") != NULL &&
+       strstr(output, CYAN "mk  " DEFAULT "manual") != NULL &&
+       strstr(output, CYAN "([a-z])2  " DEFAULT "auto reg") != NULL);
+
+   (void)memset(output, '!', sizeof(output));
+   (void)memcpy(before, output, sizeof(output));
+   length = 99U;
+   assert(cwiki_clue_render_list_overlay(items, 2U, &area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
+       output, needed, &length) == -1 && errno == ENOSPC &&
+       length == 99U && memcmp(output, before, sizeof(output)) == 0);
+   assert(cwiki_clue_render_list_overlay(NULL, 1U, &area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
+       output, sizeof(output), &length) == -1 && errno == EINVAL);
+
+   assert(cwiki_clue_render_list_overlay(NULL, 0U, &area,
+       CWIKI_FLOAT_BORDER_SINGLE, "Active snippets", "No active snippets",
+       output, sizeof(output), &length) == 0 &&
+       strstr(output, "No active snippets") != NULL);
+}
+
+static void
 demo(void)
 {
    struct cwiki_action_registry *actions = NULL;
@@ -253,6 +293,7 @@ main(int argc, char **argv)
    }
    metadata_and_branches();
    special_keys_empty_and_errors();
+   generic_list_overlay();
    (void)puts("clue render tests: ok");
    return EXIT_SUCCESS;
 }
