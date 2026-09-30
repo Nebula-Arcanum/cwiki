@@ -24,7 +24,10 @@ enum cwiki_zone_kind {
    CWIKI_ZONE_COMMENT_PERCENT,
    CWIKI_ZONE_COMMENT_NOTE,
    CWIKI_ZONE_COMMENT_HTML,
-   CWIKI_ZONE_CUSTOM
+   CWIKI_ZONE_CUSTOM,
+   /* A raw, non-parsed region. It intentionally shares comment context so
+    * existing highlighting, conceal, and snippet consumers treat it as inert. */
+   CWIKI_ZONE_IGNORE = CWIKI_ZONE_COMMENT_PERCENT
 };
 
 struct cwiki_zone {

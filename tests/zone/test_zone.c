@@ -284,6 +284,91 @@ test_incremental_propagation(void)
 }
 
 static void
+test_synignore_escape_hatch(void)
+{
+   const char text[] =
+       "$unterminated\n"
+       " \t% VimTeX: SynIgnore on\t\n"
+       "π $not math \\ce{not chemistry} <!-- not comment\n"
+       "```broken }}} % %% \\begin{tikzpicture}\n"
+       "% VimTeX: SynIgnore off\n"
+       "after $math$ prose\n"
+       "% vimtex: SynIgnore on\n"
+       "% VimTeX: SynIgnore ON\n"
+       "% VimTeX: SynIgnore on trailing\n";
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_zone_line opening = {0};
+   struct cwiki_zone_line saved = {0};
+   struct cwiki_zone zone;
+   size_t scanned = 0U;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   check_kind(engine, &buffer, 2U, "not math", CWIKI_ZONE_IGNORE,
+       "SynIgnore suppresses nested math and chemistry parsing");
+   check_kind(engine, &buffer, 3U, "broken", CWIKI_ZONE_IGNORE,
+       "pathological delimiters remain inert in the ignored region");
+   check_kind(engine, &buffer, 5U, "after", CWIKI_ZONE_PROSE,
+       "off directive discards pre-ignore corruption and resumes in prose");
+   check_kind(engine, &buffer, 5U, "math", CWIKI_ZONE_MATH_INLINE,
+       "ordinary parsing resumes immediately after the off directive");
+   check_kind(engine, &buffer, 6U, "vimtex", CWIKI_ZONE_PROSE,
+       "directive tokens are case-sensitive");
+   check_kind(engine, &buffer, 7U, "ON", CWIKI_ZONE_PROSE,
+       "directive values are case-sensitive");
+   check_kind(engine, &buffer, 8U, "trailing", CWIKI_ZONE_PROSE,
+       "trailing non-whitespace prevents directive recognition");
+
+   check(cwiki_zone_at(engine, &buffer, 1U, 1U, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_MATH_INLINE,
+       "cursor prefix before a complete on directive keeps prior context");
+   check(cwiki_zone_at(engine, &buffer, 1U, buffer.lines[1U].length,
+       &zone) == 0 && zone.kind == CWIKI_ZONE_IGNORE,
+       "cursor at the completed on directive enters ignored context");
+   check(cwiki_zone_at(engine, &buffer, 4U, 1U, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_IGNORE,
+       "cursor prefix within the off directive remains ignored");
+   check(cwiki_zone_at(engine, &buffer, 4U, buffer.lines[4U].length,
+       &zone) == 0 && zone.kind == CWIKI_ZONE_PROSE,
+       "cursor at the completed off directive resumes prose");
+
+   check(cwiki_zone_build_line(engine, &buffer, 1U, &opening) == 0 &&
+       opening.span_count == 1U &&
+       opening.spans[0].source_end == buffer.lines[1U].length &&
+       opening.spans[0].zone.kind == CWIKI_ZONE_IGNORE &&
+       opening.spans[0].token == CWIKI_ZONE_OPEN,
+       "on directive is one whole-line ignored opener span");
+   check(cwiki_zone_build_line(engine, &buffer, 2U, &saved) == 0 &&
+       saved.span_count == 1U && saved.spans[0].zone.kind == CWIKI_ZONE_IGNORE &&
+       saved.spans[0].token == CWIKI_ZONE_CONTENT,
+       "ignored Unicode content is one trusted grapheme-safe span");
+
+   check(cwiki_buffer_delete(&buffer, 4U, 22U, 1U) == 0 &&
+       cwiki_zone_recompute(engine, &buffer, 4U, &scanned) == 0 &&
+       scanned == buffer.line_count - 4U,
+       "editing off invalid propagates ignored state through the suffix");
+   check_kind(engine, &buffer, 5U, "math", CWIKI_ZONE_IGNORE,
+       "invalidated off directive keeps later content inert");
+   check(cwiki_buffer_insert(&buffer, 4U, 22U, "f", 1U) == 0 &&
+       cwiki_zone_recompute(engine, &buffer, 4U, &scanned) == 0 &&
+       scanned >= 2U,
+       "restoring off incrementally recomputes downstream state");
+   check_kind(engine, &buffer, 5U, "after", CWIKI_ZONE_PROSE,
+       "restored off directive restores downstream prose");
+
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+   check(saved.span_count == 1U && saved.spans[0].source_end == 48U &&
+       saved.spans[0].zone.kind == CWIKI_ZONE_IGNORE,
+       "ignored-line snapshot survives edits and owner destruction");
+   cwiki_zone_line_free(&opening);
+   cwiki_zone_line_free(&saved);
+}
+
+static void
 test_depth_bound_and_malformed_input(void)
 {
    const struct cwiki_zone_region region = {
@@ -546,6 +631,7 @@ main(void)
    test_unicode_boundaries();
    test_declarative_skip_and_containment();
    test_incremental_propagation();
+   test_synignore_escape_hatch();
    test_depth_bound_and_malformed_input();
    test_regex_resource_degradation();
    test_builtin_spans();

@@ -10,6 +10,7 @@
 
 #define UNESCAPED "(?<!\\\\)(?:\\\\\\\\)*\\K"
 #define BIT(index) CWIKI_ZONE_REGION_BIT(index)
+#define SYNIGNORE_DETAIL UINT16_MAX
 
 enum builtin_region {
    REGION_CODE,
@@ -106,6 +107,7 @@ struct cwiki_zone_engine {
    char **details;
    size_t detail_count;
    size_t detail_capacity;
+   size_t synignore_region;
 };
 
 struct match {
@@ -354,6 +356,9 @@ cwiki_zone_engine_init_with_limits(struct cwiki_zone_engine **result,
    engine->regions = regions;
    engine->region_count = region_count;
    engine->top_level = top_level;
+   engine->synignore_region = regions == builtin_regions ?
+       REGION_COMMENT_PERCENT :
+       SIZE_MAX;
    for (index = 0U; index < region_count; index++) {
       const struct cwiki_zone_region *region = &regions[index];
 
@@ -482,6 +487,69 @@ emit_span(struct cwiki_zone_line *line, const char *bytes, size_t length,
        token};
 }
 
+enum synignore_directive {
+   SYNIGNORE_NONE,
+   SYNIGNORE_ON,
+   SYNIGNORE_OFF
+};
+
+/* Match VimTeX's line-oriented magic-comment form. Horizontal whitespace may
+ * surround and separate its exact, case-sensitive tokens; no trailing text is
+ * accepted. A directive takes effect only after its complete line is consumed. */
+static enum synignore_directive
+synignore_directive(const char *bytes, size_t length)
+{
+   static const char vimtex[] = "VimTeX:";
+   static const char command[] = "SynIgnore";
+   size_t offset = 0U;
+   size_t start;
+
+   while (offset < length && (bytes[offset] == ' ' || bytes[offset] == '\t')) {
+      offset++;
+   }
+   if (offset == length || bytes[offset++] != '%') {
+      return SYNIGNORE_NONE;
+   }
+   while (offset < length && (bytes[offset] == ' ' || bytes[offset] == '\t')) {
+      offset++;
+   }
+   if (sizeof(vimtex) - 1U > length - offset ||
+       memcmp(bytes + offset, vimtex, sizeof(vimtex) - 1U) != 0) {
+      return SYNIGNORE_NONE;
+   }
+   offset += sizeof(vimtex) - 1U;
+   start = offset;
+   while (offset < length && (bytes[offset] == ' ' || bytes[offset] == '\t')) {
+      offset++;
+   }
+   if (offset == start || sizeof(command) - 1U > length - offset ||
+       memcmp(bytes + offset, command, sizeof(command) - 1U) != 0) {
+      return SYNIGNORE_NONE;
+   }
+   offset += sizeof(command) - 1U;
+   start = offset;
+   while (offset < length && (bytes[offset] == ' ' || bytes[offset] == '\t')) {
+      offset++;
+   }
+   if (offset == start || length - offset < 2U) {
+      return SYNIGNORE_NONE;
+   }
+   if (length - offset >= 2U && memcmp(bytes + offset, "on", 2U) == 0) {
+      offset += 2U;
+      start = SYNIGNORE_ON;
+   } else if (length - offset >= 3U &&
+       memcmp(bytes + offset, "off", 3U) == 0) {
+      offset += 3U;
+      start = SYNIGNORE_OFF;
+   } else {
+      return SYNIGNORE_NONE;
+   }
+   while (offset < length && (bytes[offset] == ' ' || bytes[offset] == '\t')) {
+      offset++;
+   }
+   return offset == length ? (enum synignore_directive)start : SYNIGNORE_NONE;
+}
+
 static int
 scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
     size_t limit, const struct cwiki_zone_stack *start,
@@ -489,6 +557,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
     struct cwiki_zone_line *spans)
 {
    struct cwiki_zone_stack stack;
+   enum synignore_directive directive;
    size_t offset = 0U;
 
    if (engine == NULL || (bytes == NULL && length != 0U) || limit > length ||
@@ -498,6 +567,25 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
    }
    *degraded = false;
    stack = *start;
+   directive = engine->synignore_region == SIZE_MAX ? SYNIGNORE_NONE :
+       synignore_directive(bytes == NULL ? "" : bytes, length);
+   if (directive != SYNIGNORE_NONE && limit == length &&
+       (directive == SYNIGNORE_ON ||
+       (stack.depth != 0U &&
+       stack.zones[stack.depth - 1U].region == engine->synignore_region &&
+       stack.zones[stack.depth - 1U].detail == SYNIGNORE_DETAIL))) {
+      struct cwiki_zone ignored = {CWIKI_ZONE_IGNORE, SYNIGNORE_DETAIL,
+          (uint8_t)engine->synignore_region};
+
+      emit_span(spans, bytes, length, length, ignored,
+          directive == SYNIGNORE_ON ? CWIKI_ZONE_OPEN : CWIKI_ZONE_CLOSE);
+      stack.depth = 0U;
+      if (directive == SYNIGNORE_ON) {
+         stack.zones[stack.depth++] = ignored;
+      }
+      *result = stack;
+      return 0;
+   }
    while (offset < limit) {
       struct match match;
       uint64_t children;
@@ -596,7 +684,8 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
    }
    if (finish_line) {
       while (stack.depth != 0U &&
-          engine->regions[stack.zones[stack.depth - 1U].region].ends_at_line) {
+          engine->regions[stack.zones[stack.depth - 1U].region].ends_at_line &&
+          stack.zones[stack.depth - 1U].detail != SYNIGNORE_DETAIL) {
          stack.depth--;
       }
    }
