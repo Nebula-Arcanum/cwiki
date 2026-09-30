@@ -20,9 +20,11 @@ static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
 static const char supported_reply[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?62;52;c";
-static const char startup[] = CWIKI_INPUT_KEYBOARD_PUSH
-    CWIKI_TERMINAL_ALT_ENTER CWIKI_TERMINAL_CURSOR_HIDE
-    CWIKI_INPUT_PASTE_ENABLE;
+static const char screen_startup[] = CWIKI_TERMINAL_ALT_ENTER
+    CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE;
+static const char startup[] = CWIKI_TERMINAL_ALT_ENTER
+    CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE
+    CWIKI_INPUT_KEYBOARD_PUSH;
 
 static int failures;
 
@@ -335,8 +337,8 @@ static ssize_t
 startup_fault_write(int fd, const void *bytes, size_t length)
 {
    if (startup_failure_phase == 0 &&
-       length == sizeof(CWIKI_INPUT_KEYBOARD_PUSH) - 1U &&
-       memcmp(bytes, CWIKI_INPUT_KEYBOARD_PUSH, length) == 0) {
+       length == sizeof(screen_startup) - 1U &&
+       memcmp(bytes, screen_startup, length) == 0) {
       if (startup_failure == 1) {
          if (!write_exact(fd, bytes, 2U)) {
             return -1;
@@ -351,7 +353,19 @@ startup_fault_write(int fd, const void *bytes, size_t length)
       return (ssize_t)length;
    }
    if (startup_failure_phase == 1) {
+      if (startup_failure == 3) {
+         if (!write_exact(fd, bytes, 2U)) {
+            return -1;
+         }
+         startup_failure_phase = 2;
+         return 2;
+      }
       startup_failure_phase = 2;
+      errno = EIO;
+      return -1;
+   }
+   if (startup_failure_phase == 2 && startup_failure == 3) {
+      startup_failure_phase = 3;
       errno = EIO;
       return -1;
    }
@@ -397,13 +411,20 @@ run_startup_failure(int failure, const char *expected, size_t expected_len,
 static void
 test_transactional_startup_failures(void)
 {
-   static const char after_push[] = CWIKI_INPUT_KEYBOARD_PUSH
-       CWIKI_TERMINAL_RESTORE;
+   static const char partial_screen[] = "\x1b[" CWIKI_TERMINAL_SCREEN_RESTORE;
+   static const char before_push[] = CWIKI_TERMINAL_ALT_ENTER
+       CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE
+       CWIKI_TERMINAL_SCREEN_RESTORE;
+   static const char partial_push[] = CWIKI_TERMINAL_ALT_ENTER
+       CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE "\x1b["
+       CWIKI_TERMINAL_SCREEN_RESTORE;
 
-   run_startup_failure(1, CWIKI_INPUT_KEYBOARD_PUSH, 2U,
-       "partial keyboard push does not emit an unowned pop");
-   run_startup_failure(2, after_push, sizeof(after_push) - 1U,
-       "failure after keyboard push emits full restoration");
+   run_startup_failure(1, partial_screen, sizeof(partial_screen) - 1U,
+       "partial screen startup emits screen-only restoration");
+   run_startup_failure(2, before_push, sizeof(before_push) - 1U,
+       "failure before keyboard push emits no unowned keyboard pop");
+   run_startup_failure(3, partial_push, sizeof(partial_push) - 1U,
+       "partial keyboard push emits no unowned keyboard pop");
 }
 
 static void

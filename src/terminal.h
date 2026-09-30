@@ -13,12 +13,16 @@ struct cwiki_key_record;
 #define CWIKI_TERMINAL_CURSOR_HIDE "\x1b[?25l"
 #define CWIKI_TERMINAL_CURSOR_SHOW "\x1b[?25h"
 
+#define CWIKI_TERMINAL_SCREEN_RESTORE \
+   "\x1b[?2004l" CWIKI_TERMINAL_ALT_LEAVE CWIKI_TERMINAL_CURSOR_SHOW
+
 /*
- * Once startup modes are owned, the signal handler emits this in one write and
- * cannot recover a partial write. During capability probing it restores only
- * termios. cwiki_terminal_cleanup and cwiki_terminal_reset retry partial writes
- * and EINTR. Keep the ordering synchronized-update, keyboard, paste, alternate
- * screen, cursor.
+ * Once all startup modes are owned, the signal handler emits this in one write
+ * and cannot recover a partial write. Before keyboard mode is owned, cleanup
+ * uses CWIKI_TERMINAL_SCREEN_RESTORE instead. During capability probing it
+ * restores only termios. cwiki_terminal_cleanup and cwiki_terminal_reset retry
+ * partial writes and EINTR. Keep the ordering synchronized-update, keyboard,
+ * paste, alternate screen, cursor.
  */
 #define CWIKI_TERMINAL_RESTORE \
    CWIKI_TERMINAL_SYNC_END "\x1b[<u\x1b[?2004l" \
@@ -46,6 +50,7 @@ struct cwiki_terminal {
    struct termios saved_termios;
    int termios_saved;
    int active;
+   int screen_modes_owned;
    int modes_owned;
    struct cwiki_key_record *key_record;
 };

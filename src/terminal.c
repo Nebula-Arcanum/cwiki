@@ -24,6 +24,7 @@ static int signal_output_fd = -1;
 static int signal_input_fd = -1;
 static struct termios signal_termios;
 static volatile sig_atomic_t signal_session_active;
+static volatile sig_atomic_t signal_screen_modes_owned;
 static volatile sig_atomic_t signal_modes_owned;
 static struct cwiki_key_record *volatile signal_key_record;
 static struct sigaction old_actions[
@@ -69,11 +70,15 @@ static void
 terminal_signal_handler(int signo)
 {
    static const char restoration[] = CWIKI_TERMINAL_RESTORE;
+   static const char screen_restoration[] = CWIKI_TERMINAL_SCREEN_RESTORE;
 
    if (signal_session_active != 0) {
       if (signal_modes_owned != 0) {
          (void)write(signal_output_fd, restoration,
              sizeof(restoration) - 1U);
+      } else if (signal_screen_modes_owned != 0) {
+         (void)write(signal_output_fd, screen_restoration,
+             sizeof(screen_restoration) - 1U);
       }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
       cwiki_key_record_crash_flush(signal_key_record);
@@ -97,15 +102,20 @@ static void
 atexit_cleanup(void)
 {
    static const char restoration[] = CWIKI_TERMINAL_RESTORE;
+   static const char screen_restoration[] = CWIKI_TERMINAL_SCREEN_RESTORE;
 
    if (signal_session_active != 0) {
       if (signal_modes_owned != 0) {
          (void)write_all(signal_output_fd, restoration,
              sizeof(restoration) - 1U);
+      } else if (signal_screen_modes_owned != 0) {
+         (void)write_all(signal_output_fd, screen_restoration,
+             sizeof(screen_restoration) - 1U);
       }
       (void)tcsetattr(signal_input_fd, TCSANOW, &signal_termios);
       signal_key_record = NULL;
       signal_modes_owned = 0;
+      signal_screen_modes_owned = 0;
       signal_session_active = 0;
       restore_handlers();
    }
@@ -172,9 +182,11 @@ deactivate(struct cwiki_terminal *terminal)
 
    signal_key_record = NULL;
    signal_modes_owned = 0;
+   signal_screen_modes_owned = 0;
    signal_session_active = 0;
    restore_handlers();
    terminal->modes_owned = 0;
+   terminal->screen_modes_owned = 0;
    terminal->active = 0;
    terminal->key_record = NULL;
    if (mask_changed != 0) {
@@ -346,6 +358,15 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
          cwiki_terminal_cleanup(terminal);
          return result;
       }
+      terminal->screen_modes_owned = 1;
+      signal_screen_modes_owned = 1;
+      if (write_all(output_fd, startup_modes, sizeof(startup_modes) - 1U) !=
+          0) {
+         result.system_errno = errno;
+         (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+         cwiki_terminal_cleanup(terminal);
+         return result;
+      }
       if (write_all(output_fd, CWIKI_INPUT_KEYBOARD_PUSH,
           sizeof(CWIKI_INPUT_KEYBOARD_PUSH) - 1U) != 0) {
          result.system_errno = errno;
@@ -355,13 +376,6 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
       }
       terminal->modes_owned = 1;
       signal_modes_owned = 1;
-      if (write_all(output_fd, startup_modes, sizeof(startup_modes) - 1U) !=
-          0) {
-         result.system_errno = errno;
-         (void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
-         cwiki_terminal_cleanup(terminal);
-         return result;
-      }
       if (sigprocmask(SIG_SETMASK, &previous_mask, NULL) != 0) {
          result.system_errno = errno;
          cwiki_terminal_cleanup(terminal);
@@ -481,6 +495,7 @@ void
 cwiki_terminal_cleanup(struct cwiki_terminal *terminal)
 {
    static const char restoration[] = CWIKI_TERMINAL_RESTORE;
+   static const char screen_restoration[] = CWIKI_TERMINAL_SCREEN_RESTORE;
 
    if (terminal == NULL || terminal->active == 0) {
       return;
@@ -488,6 +503,9 @@ cwiki_terminal_cleanup(struct cwiki_terminal *terminal)
    if (terminal->modes_owned != 0) {
       (void)write_all(terminal->output_fd, restoration,
           sizeof(restoration) - 1U);
+   } else if (terminal->screen_modes_owned != 0) {
+      (void)write_all(terminal->output_fd, screen_restoration,
+          sizeof(screen_restoration) - 1U);
    }
    if (terminal->termios_saved != 0) {
       (void)tcsetattr(terminal->input_fd, TCSANOW, &terminal->saved_termios);
