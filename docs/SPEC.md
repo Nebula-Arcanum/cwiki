@@ -808,9 +808,12 @@ everyday case and must work.
 positions, so the position-fixup machinery of R1.1.4 keeps them correct across
 edits with no separate tracking mechanism. In Insert mode, `<C-l>` explicitly
 expands a matching manual snippet or advances to its next stop, while `<C-h>`
-moves to its previous stop. Tab inserts a literal tab and is not a snippet
-navigation alias. These keys use physical base-layout identity and were
-confirmed during user acceptance on 2026-09-30.
+moves to its previous stop. Tab is ordinary indentation input and is not a
+snippet-navigation alias; the M1 default is `shiftwidth=3`, `tabstop=3`, and
+`expandtab=true`. The snippet keys use physical base-layout identity and were
+confirmed during user acceptance on 2026-09-30. The earlier literal-Tab wording
+was removed because it was inferred during implementation rather than confirmed
+by the user and contradicted the retained three-space indentation decision.
 
 **R1.10.3** A mirror update is performed as a real buffer edit, guarded against
 re-entrancy so that updating one mirror cannot retrigger mirror updating.

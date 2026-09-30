@@ -50,7 +50,10 @@ implemented.
 
 ## Milestone 1 — daily class-note skeleton
 
-Status: **release candidate under user acceptance.** The UTF-8 line buffer and
+Status: **closure in progress; not yet ready for user acceptance.** The
+requirement-to-evidence gate is `docs/ACCEPTANCE.md`; Milestone 2 remains paused
+until every M1 row is verified or explicitly deferred and the user accepts the
+production demo. The UTF-8 line buffer and
 position fix-up, in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The terminal lifecycle now provides raw
@@ -163,7 +166,10 @@ parser/regex fuzz targets pass under sanitizers.
 
 **Demo.** Replay a short class-note recording into a fixture vault, show source
 highlighting and conceal, exercise snippet tab stops and undo, save, reopen, and
-show the authored Markdown.
+show the authored Markdown. The release gate additionally runs the production
+executable through the M1 closure scenarios in `docs/ACCEPTANCE.md` and requires
+an inspected real-kitty run plus the user's manual acceptance. A test-only demo
+entry point or synthetic raster is supporting evidence, not acceptance.
 
 **Dependencies.** Milestone 0.
 
