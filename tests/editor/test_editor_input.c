@@ -161,6 +161,87 @@ test_named_actions_physical_keys_and_literal_text(void)
 }
 
 static void
+test_functional_key_identity_is_not_text(void)
+{
+   struct fixture fixture;
+   struct cwiki_input_event event;
+   static const unsigned char hash[] = "#";
+   static const unsigned char close_parenthesis[] = ")";
+
+   fixture_init(&fixture, "");
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK,
+       "enter insert mode for shifted punctuation");
+   check(send(&fixture, key(UINT32_C(57441), 0U)) == CWIKI_EDITOR_NOTHING &&
+       content_is(&fixture, ""),
+       "Kitty left-shift identity is not inserted as private-use text");
+   event = key('3', CWIKI_INPUT_SHIFT);
+   event.text = hash;
+   event.text_len = sizeof(hash) - 1U;
+   check(send(&fixture, event) == CWIKI_EDITOR_OK,
+       "insert hash from Kitty associated text");
+   check(send(&fixture, key(UINT32_C(57441), 0U)) == CWIKI_EDITOR_NOTHING,
+       "ignore repeated functional shift identity");
+   event = key('0', CWIKI_INPUT_SHIFT);
+   event.text = close_parenthesis;
+   event.text_len = sizeof(close_parenthesis) - 1U;
+   check(send(&fixture, event) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "#)"),
+       "shifted punctuation contains no functional-key tofu bytes");
+   fixture_free(&fixture);
+}
+
+static void
+test_insert_line_commands(void)
+{
+   struct fixture fixture;
+   struct cwiki_input_event event;
+   static const unsigned char close_parenthesis[] = ")";
+
+   fixture_init(&fixture, "  alpha\nbeta");
+   fixture.editor.motion.cursor.byte = 4U;
+   check(send(&fixture, key('i', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "  xalpha\nbeta"),
+       "I inserts at the first nonblank");
+   check(send(&fixture, key('a', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('z', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "  xalphaz\nbeta"),
+       "A appends at line end");
+   check(send(&fixture, key('o', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('b', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "  xalphaz\nb\nbeta"),
+       "o opens and edits a line below");
+   check(send(&fixture, key('o', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "  xalphaz\na\nb\nbeta"),
+       "O opens and edits a line above");
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "ae\xcc\x81界z");
+   fixture.editor.motion.cursor.byte = 1U;
+   check(send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "a界z"),
+       "x deletes one complete multibyte grapheme");
+   check(send(&fixture, key('r', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(UINT32_C(57441), 0U)) == CWIKI_EDITOR_NOTHING,
+       "r ignores a standalone functional modifier event");
+   event = key('0', CWIKI_INPUT_SHIFT);
+   event.text = close_parenthesis;
+   event.text_len = sizeof(close_parenthesis) - 1U;
+   check(send(&fixture, event) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "a)z"),
+       "r replaces one Unicode grapheme with shifted associated text");
+   check(send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "a界z"), "r is one undo step");
+   fixture_free(&fixture);
+}
+
+static void
 test_operator_sequences_history_and_rebinding(void)
 {
    struct fixture fixture;
@@ -197,6 +278,71 @@ test_operator_sequences_history_and_rebinding(void)
 }
 
 static void
+test_word_text_objects(void)
+{
+   struct fixture fixture;
+
+   fixture_init(&fixture, "one two  three");
+   fixture.editor.motion.cursor.byte = 5U;
+   check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "one   three"),
+       "diw deletes only the inner word");
+   check(send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "one two  three"), "undo diw");
+   fixture.editor.motion.cursor.byte = 5U;
+   check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "one three"),
+       "daw includes trailing whitespace");
+   check(send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK,
+       "undo daw");
+   fixture.editor.motion.cursor.byte = 5U;
+   check(send(&fixture, key('c', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
+       fixture.editor.mode == CWIKI_EDITOR_INSERT &&
+       send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "one x  three"),
+       "ciw changes the inner word");
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "a-b c");
+   check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, " c"), "diW uses WORD classes");
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "one  two");
+   fixture.editor.motion.cursor.byte = 6U;
+   check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "one"),
+       "daw at line end includes preceding whitespace");
+   check(send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('x', 0U)) == CWIKI_EDITOR_INVALID &&
+       fixture.editor.pending_operator == CWIKI_EDITOR_NO_OPERATOR &&
+       content_is(&fixture, "one  two"),
+       "invalid text-object suffix cancels the pending operator");
+   fixture_free(&fixture);
+
+   fixture_init(&fixture, "");
+   check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('w', 0U)) == CWIKI_EDITOR_NOTHING &&
+       content_is(&fixture, ""),
+       "diw on an empty line is a no-op");
+   fixture_free(&fixture);
+}
+
+static void
 test_command_line_and_unknown_input(void)
 {
    struct fixture fixture;
@@ -226,10 +372,17 @@ test_runtime_snippets_and_undo_boundaries(void)
    check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('m', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('k', 0U)) == CWIKI_EDITOR_OK &&
-       content_is(&fixture, "mk"), "explicit trigger remains literal before Tab");
+       content_is(&fixture, "mk"),
+       "explicit trigger remains literal before Ctrl-l");
    check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk\t"),
+       "Tab inserts literally rather than navigating snippets");
+   check(send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "mk"), "remove literal Tab before expansion");
+   check(send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        fixture.editor.motion.cursor.byte == 1U &&
-       content_is(&fixture, "$$"), "Tab expands and selects the first stop");
+       content_is(&fixture, "$$"),
+       "Ctrl-l expands and selects the first stop");
    check(send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
        content_is(&fixture, "$x$") &&
@@ -277,6 +430,7 @@ static void
 test_runtime_snippet_mirrors_and_tabs(void)
 {
    struct fixture fixture;
+   struct cwiki_input_event event;
    struct cwiki_zone_engine *zones;
    const char *gather = "gather";
    size_t index;
@@ -287,7 +441,7 @@ test_runtime_snippet_mirrors_and_tabs(void)
        send(&fixture, key('e', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('n', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('v', 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK,
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK,
        "expand mirrored environment snippet");
    for (index = 0U; index < strlen(gather); index++) {
       check(send(&fixture, key((uint32_t)(unsigned char)gather[index], 0U)) ==
@@ -296,15 +450,18 @@ test_runtime_snippet_mirrors_and_tabs(void)
    check(content_is(&fixture,
        "\\begin{gather}\n\n\\end{gather}"),
        "typing one stop updates its mirror on every edit");
-   check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+   event = key('x', CWIKI_INPUT_CTRL);
+   event.has_base_layout_key = true;
+   event.base_layout_key = 'l';
+   check(send(&fixture, event) == CWIKI_EDITOR_OK &&
        send(&fixture, key('x', 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, CWIKI_INPUT_SHIFT)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('h', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
        content_is(&fixture,
        "\\begin{gather}\nx\n\\end{gather}"),
-       "Tab and Shift-Tab navigate numbered stops and final stop");
+       "Ctrl-l and Ctrl-h navigate numbered stops and final stop");
    check(cwiki_undo_state_count(&fixture.editor.undo) == 4U &&
        send(&fixture, key('u', 0U)) == CWIKI_EDITOR_OK &&
        content_is(&fixture, "\\begin{align}\n\n\\end{align}") &&
@@ -331,11 +488,11 @@ test_runtime_nested_snippets(void)
        send(&fixture, key('/', 0U)) == CWIKI_EDITOR_OK,
        "auto-expand a fraction inside an outer fraction stop");
    check(send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('b', 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('c', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key(27U, 0U)) == CWIKI_EDITOR_OK &&
        content_is(&fixture, "$\\frac{\\frac{a}{b}}{c} $"),
@@ -426,7 +583,10 @@ main(void)
 {
    test_reveal_through_key_dispatch();
    test_named_actions_physical_keys_and_literal_text();
+   test_functional_key_identity_is_not_text();
+   test_insert_line_commands();
    test_operator_sequences_history_and_rebinding();
+   test_word_text_objects();
    test_command_line_and_unknown_input();
    test_runtime_snippets_and_undo_boundaries();
    test_runtime_snippet_mirrors_and_tabs();

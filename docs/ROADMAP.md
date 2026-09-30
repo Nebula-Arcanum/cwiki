@@ -1,12 +1,13 @@
 # cwiki roadmap
 
-Status: **specification approved; Milestone 0 verification harness complete.**
+Status: **specification approved; Milestone 1 release candidate in user
+acceptance testing.**
 
 The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
 rows remain unassigned. Milestones are ordered first by dependency and data
-safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 1
-product-code implementation is in progress.
+safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 2 stays
+paused until Milestone 1 passes its user ship/test gate.
 
 Effort uses focused implementation tasks: **S** = under one task, **M** = 1–3,
 **L** = 4–10, and **XL** = more than 10. A milestone total is a planning range,
@@ -49,7 +50,8 @@ implemented.
 
 ## Milestone 1 — daily class-note skeleton
 
-Status: **in progress.** The UTF-8 line buffer and position fix-up, in-session
+Status: **release candidate under user acceptance.** The UTF-8 line buffer and
+position fix-up, in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The terminal lifecycle now provides raw
 mode, capability probing, synchronized updates, and signal-safe restoration.
@@ -64,7 +66,8 @@ category defaults, width-safe substitutions, source↔display mappings, and
 per-run reveal behavior. Per-window layout adds prose soft wrap, unwrapped code,
 degraded raw rows, and source↔display movement mappings. The snippet-engine
 foundation supplies layered zone-aware matching, the approved body syntax,
-mirrors, transforms, nested tab stops, and transactional undo. Strict, sanitizer,
+mirrors, transforms, nested tab stops navigated with `<C-l>`/`<C-h>`, and
+transactional undo. Strict, sanitizer,
 model, protocol, fault-injection, and parser/translator/snippet fuzz tests cover
 these slices. A bounded shared structural-search primitive and named-action
 registry establish the common paths for later motions, clues, palette, macros,
@@ -72,11 +75,13 @@ replay, and command dispatch. The keymap foundation adds mode-scoped physical
 key sequences, rebinding, prefix matching, and deterministic clue metadata. Plain
 Markdown document ownership composes buffer encoding with the durable-write
 outcomes while preserving dirty state unless durability is fully confirmed. The
-motion engine covers the approved Milestone 1 navigation set with Unicode
-word/WORD and grapheme semantics, distinct wrapped-row and source-line movement,
+motion engine covers the approved Milestone 1 navigation set and core
+word/WORD text objects with Unicode word/WORD and grapheme semantics, distinct
+wrapped-row and source-line movement,
 viewport and structural motions, conceal reveal continuity, and normalized
-operator ranges. The editor model composes those ranges with Insert/Replace and
-Command-line modes, deterministic undo boundaries, `d`/`c`/`y`, the unnamed
+operator ranges. The editor model composes those ranges with `I`/`A`/`o`/`O`,
+grapheme-safe `x`/`r`, Insert/Replace and Command-line modes, deterministic undo
+boundaries, `d`/`c`/`y`, the unnamed
 yank and `p`/`P`, dirty-state-preserving saves, and the bounded `:w`/`:q`/`:wq`
 surface. Parser events now route through the shared physical-key keymap and named
 action registry, including prefix sequences, associated text, and literal paste.
@@ -92,7 +97,7 @@ saves, and plain-file reopen through fixture-tested PTYs. Horizontal motion now
 carries per-run conceal reveal state through the editor into rendered frames.
 The builtin catalog supplies named, overridable VimTeX-compatible symbols and
 math, mhchem, and TikZ templates. Insert-mode dispatch now performs automatic
-and Tab-requested expansion, nested forward/backward tab-stop navigation,
+and `<C-l>`-requested expansion, nested `<C-l>`/`<C-h>` tab-stop navigation,
 transactional mirror updates, paste suppression, and the specified separate
 undo steps for trigger text, expansion, and subsequent stop fills. Prompt text
 input now has a reusable Unicode/grapheme-safe line editor with the
@@ -135,8 +140,9 @@ part of this milestone.
 synchronized redraw; the UTF-8 line buffer and position fix-up; basic
 Normal/Insert/Replace/Command-line operation; the first `d`/`c`/`y` operator
 slice over the approved M1 grapheme, word/WORD, display/source-line, document,
-viewport, line, paragraph, and sentence motions; one unnamed yank slot with
-`p`/`P`; in-session undo; source highlighting
+viewport, line, paragraph, and sentence motions plus core
+`iw`/`aw`/`iW`/`aW` text objects; `I`/`A`/`o`/`O` and grapheme-safe `x`/`r`;
+one unnamed yank slot with `p`/`P`; in-session undo; source highlighting
 from the incremental zone stack; conceal; prose soft-wrap; the PCRE2 policy and
 Vim-pattern translator needed by regex snippets; snippet tab stops, mirrors,
 contexts, named transforms, subject layering, and the curated math/mhchem/TikZ
@@ -163,8 +169,8 @@ show the authored Markdown.
 
 **Risks.** The zone stack, display/source mapping, operator grammar, and undo are
 the first schedule-dominating components. Keep the operator slice narrow and
-defer counts, text objects, block Visual mode, additional operators, the full
-register model, and broad Vim parity.
+defer counts, broader text objects, block Visual mode, additional operators,
+the full register model, and broad Vim parity.
 
 **Effort.** XL, 24–32 focused tasks.
 

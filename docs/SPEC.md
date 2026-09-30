@@ -537,24 +537,32 @@ broader navigation vocabulary retained in `docs/FEATURES.md`: grapheme motions
 motions `j`/`k` and `gj`/`gk`; document and viewport motions
 `gg`/`G`/`H`/`M`/`L`; line motions `0`/`^`/`$`/`-`/`+`/`_`; and paragraph and
 sentence motions `{`/`}`/`(`/`)`. The Milestone 1 `d`/`c`/`y` operator slice
-composes with this motion set as well as `dd`/`cc`/`yy`. Numeric counts, text
-objects, Visual modes, additional operators, and the complete register model
-remain deferred to Milestone 5. This broader motion scope was selected over the
-narrow `h`/`l`, `w`/`b`/`e`, row-motion-only alternative on 2026-09-29.
+composes with this motion set as well as `dd`/`cc`/`yy` and the core word text
+objects `iw`/`aw`/`iW`/`aW`. Numeric counts, broader text objects, Visual modes,
+additional operators, and the complete register model remain deferred to
+Milestone 5. This broader motion scope was selected over the narrow `h`/`l`,
+`w`/`b`/`e`, row-motion-only alternative on 2026-09-29; core word text objects
+were restored to Milestone 1 during user acceptance on 2026-09-30 because the
+operator slice was not practically usable without `diw`/`daw` and their change
+and yank equivalents.
 
-**R1.7.8 (Milestone 1 mode and edit contract)** `i` and `a` enter Insert mode,
-`R` enters Replace mode, and Escape returns to Normal mode. Associated text and
-bracketed paste insert literally; Enter splits the line; Backspace deletes one
-grapheme or joins with the preceding line at the start of a line. Replace mode
-overwrites one grapheme at a time and inserts after end of line. Motions and
-`d`/`c`/`y` use Vim-compatible word/WORD classes and range endpoints, without
-the exceptional `cw` rewrite; counts remain deferred. Milestone 1 has one
-internal unnamed yank slot: `d`, `c`, and `y` populate it, and `p`/`P` put it
-after/before the cursor with its characterwise or linewise shape. Named,
-numbered, clipboard, and special registers remain deferred. Command-line mode
-supports `:w`, `:q`, `:wq`, and Escape cancellation; history, completion,
-ranges, and other Ex commands remain deferred. This bounded contract, including
-`p`/`P`, was selected on 2026-09-29.
+**R1.7.8 (Milestone 1 mode and edit contract)** `i`/`a` enter Insert mode at the
+cursor, `I`/`A` enter it at the first nonblank or line end, and `o`/`O` open a
+line below or above. `R` enters Replace mode; Normal-mode `x` deletes one
+grapheme and `r` replaces one grapheme; Escape returns to Normal mode.
+Associated text and bracketed paste insert literally; Enter splits the line;
+Backspace deletes one grapheme or joins with the preceding line at the start of
+a line. Replace mode overwrites one grapheme at a time and inserts after end of
+line. Motions and `d`/`c`/`y` use Vim-compatible word/WORD classes and range
+endpoints, without the exceptional `cw` rewrite; counts remain deferred.
+Milestone 1 has one internal unnamed yank slot: `d`, `c`, and `y` populate it,
+and `p`/`P` put it after/before the cursor with its characterwise or linewise
+shape. Named, numbered, clipboard, and special registers remain deferred.
+Command-line mode supports `:w`, `:q`, `:wq`, and Escape cancellation; history,
+completion, ranges, and other Ex commands remain deferred. This bounded
+contract, including `p`/`P`, was selected on 2026-09-29; `I`/`A`/`o`/`O` and
+the already-required `x`/`r` surface were confirmed during user acceptance on
+2026-09-30.
 
 Rejected:
 
@@ -798,7 +806,11 @@ everyday case and must work.
 
 **R1.10.2** Tab stops, mirrors and the session's own extent are ordinary buffer
 positions, so the position-fixup machinery of R1.1.4 keeps them correct across
-edits with no separate tracking mechanism.
+edits with no separate tracking mechanism. In Insert mode, `<C-l>` explicitly
+expands a matching manual snippet or advances to its next stop, while `<C-h>`
+moves to its previous stop. Tab inserts a literal tab and is not a snippet
+navigation alias. These keys use physical base-layout identity and were
+confirmed during user acceptance on 2026-09-30.
 
 **R1.10.3** A mirror update is performed as a real buffer edit, guarded against
 re-entrancy so that updating one mirror cannot retrigger mirror updating.

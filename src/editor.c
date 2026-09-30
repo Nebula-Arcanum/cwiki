@@ -366,6 +366,104 @@ cwiki_editor_enter_insert(struct cwiki_editor *editor, bool append,
 }
 
 enum cwiki_editor_status
+cwiki_editor_open_line(struct cwiki_editor *editor, bool below,
+    uint64_t timestamp)
+{
+   struct cwiki_buffer *buffer;
+   struct cwiki_position original;
+   size_t original_line;
+   size_t split;
+
+   if (!normal_editor(editor)) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   buffer = &editor->document->buffer;
+   original = editor->motion.cursor;
+   original_line = editor->motion.cursor.line;
+   split = below ? buffer->lines[original_line].length : 0U;
+   editor->motion.cursor.byte = split;
+   if (cwiki_undo_begin(&editor->undo, timestamp) != 0) {
+      editor->motion.cursor = original;
+      return error_status();
+   }
+   if (cwiki_undo_split(&editor->undo, original_line, split) != 0) {
+      (void)cwiki_undo_cancel(&editor->undo);
+      editor->motion.cursor = original;
+      return error_status();
+   }
+   if (!below) {
+      editor->motion.cursor = (struct cwiki_position){original_line, 0U};
+   }
+   editor->reveal.active = false;
+   editor->mode = CWIKI_EDITOR_INSERT;
+   editor->pending_operator = CWIKI_EDITOR_NO_OPERATOR;
+   cwiki_document_mark_dirty(editor->document);
+   reset_goals(editor);
+   return CWIKI_EDITOR_OK;
+}
+
+enum cwiki_editor_status
+cwiki_editor_delete_grapheme(struct cwiki_editor *editor, uint64_t timestamp)
+{
+   const struct cwiki_line *line;
+   struct cwiki_motion_range range;
+
+   if (!normal_editor(editor)) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   line = &editor->document->buffer.lines[editor->motion.cursor.line];
+   if (editor->motion.cursor.byte == line->length) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   range.start = editor->motion.cursor;
+   range.end = (struct cwiki_position){editor->motion.cursor.line,
+       cwiki_grapheme_next(line->bytes, line->length,
+       editor->motion.cursor.byte)};
+   range.shape = CWIKI_MOTION_CHARACTERWISE;
+   editor->pending_operator = CWIKI_EDITOR_DELETE;
+   editor->pending_timestamp = timestamp;
+   return apply_operator_range(editor, &range, CWIKI_EDITOR_DELETE, timestamp);
+}
+
+enum cwiki_editor_status
+cwiki_editor_replace_grapheme(struct cwiki_editor *editor, const char *bytes,
+    size_t length, uint64_t timestamp)
+{
+   struct cwiki_line *line;
+   struct cwiki_position original;
+   size_t next;
+
+   if (!normal_editor(editor) || bytes == NULL || length == 0U ||
+       memchr(bytes, '\n', length) != NULL ||
+       !cwiki_utf8_validate(bytes, length) ||
+       cwiki_grapheme_next(bytes, length, 0U) != length) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   line = &editor->document->buffer.lines[editor->motion.cursor.line];
+   if (editor->motion.cursor.byte == line->length) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   original = editor->motion.cursor;
+   next = cwiki_grapheme_next(line->bytes, line->length, original.byte);
+   if (cwiki_undo_begin(&editor->undo, timestamp) != 0) {
+      return error_status();
+   }
+   if (cwiki_undo_delete(&editor->undo, original.line, original.byte,
+       next - original.byte) != 0 ||
+       cwiki_undo_insert(&editor->undo, original.line, original.byte, bytes,
+       length) != 0 || cwiki_undo_commit(&editor->undo) != 0) {
+      (void)cwiki_undo_cancel(&editor->undo);
+      editor->motion.cursor = original;
+      return error_status();
+   }
+   editor->motion.cursor = original;
+   editor->reveal.active = false;
+   cwiki_document_mark_dirty(editor->document);
+   reset_goals(editor);
+   return CWIKI_EDITOR_OK;
+}
+
+enum cwiki_editor_status
 cwiki_editor_enter_replace(struct cwiki_editor *editor, uint64_t timestamp)
 {
    if (!normal_editor(editor)) {
@@ -646,6 +744,24 @@ cwiki_editor_apply_motion(struct cwiki_editor *editor,
       editor->motion = original;
    }
    return status;
+}
+
+enum cwiki_editor_status
+cwiki_editor_apply_word_object(struct cwiki_editor *editor, bool big,
+    bool around)
+{
+   struct cwiki_motion_range range;
+
+   if (!normal_editor(editor) ||
+       editor->pending_operator == CWIKI_EDITOR_NO_OPERATOR) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (cwiki_motion_word_object(&editor->document->buffer,
+       editor->motion.cursor, big, around, &range) != 0) {
+      return error_status();
+   }
+   return apply_operator_range(editor, &range, editor->pending_operator,
+       editor->pending_timestamp);
 }
 
 static int

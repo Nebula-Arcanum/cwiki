@@ -170,6 +170,86 @@ class_at(const struct cwiki_buffer *buffer, struct cwiki_position position,
    return WORD_PUNCTUATION;
 }
 
+int
+cwiki_motion_word_object(const struct cwiki_buffer *buffer,
+    struct cwiki_position cursor, bool big, bool around,
+    struct cwiki_motion_range *range)
+{
+   const struct cwiki_line *line;
+   enum word_class wanted;
+   size_t start;
+   size_t end;
+
+   if (range == NULL || !valid_position(buffer, cursor)) {
+      errno = EINVAL;
+      return -1;
+   }
+   line = &buffer->lines[cursor.line];
+   if (line->length == 0U) {
+      range->start = cursor;
+      range->end = cursor;
+      range->shape = CWIKI_MOTION_CHARACTERWISE;
+      return 0;
+   }
+   if (cursor.byte == line->length) {
+      cursor.byte = cwiki_grapheme_previous(line->bytes, line->length,
+          cursor.byte);
+   }
+   wanted = class_at(buffer, cursor, big);
+   start = cursor.byte;
+   while (start != 0U) {
+      size_t previous = cwiki_grapheme_previous(line->bytes, line->length,
+          start);
+      struct cwiki_position position = {cursor.line, previous};
+
+      if (class_at(buffer, position, big) != wanted) {
+         break;
+      }
+      start = previous;
+   }
+   end = cwiki_grapheme_next(line->bytes, line->length, cursor.byte);
+   while (end < line->length) {
+      struct cwiki_position position = {cursor.line, end};
+      size_t next;
+
+      if (class_at(buffer, position, big) != wanted) {
+         break;
+      }
+      next = cwiki_grapheme_next(line->bytes, line->length, end);
+      end = next;
+   }
+   if (around && wanted != WORD_SPACE) {
+      size_t expanded = end;
+
+      while (expanded < line->length) {
+         struct cwiki_position position = {cursor.line, expanded};
+
+         if (class_at(buffer, position, big) != WORD_SPACE) {
+            break;
+         }
+         expanded = cwiki_grapheme_next(line->bytes, line->length, expanded);
+      }
+      if (expanded != end) {
+         end = expanded;
+      } else {
+         while (start != 0U) {
+            size_t previous = cwiki_grapheme_previous(line->bytes,
+                line->length, start);
+            struct cwiki_position position = {cursor.line, previous};
+
+            if (class_at(buffer, position, big) != WORD_SPACE) {
+               break;
+            }
+            start = previous;
+         }
+      }
+   }
+   range->start = (struct cwiki_position){cursor.line, start};
+   range->end = (struct cwiki_position){cursor.line, end};
+   range->shape = CWIKI_MOTION_CHARACTERWISE;
+   return 0;
+}
+
 static struct cwiki_position
 word_forward(const struct cwiki_buffer *buffer, struct cwiki_position cursor,
     bool big)

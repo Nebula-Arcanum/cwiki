@@ -81,6 +81,11 @@ R1.6.8.
 66. Decided in the follow-up interview: drop indentation-scope guides as code-oriented visual noise. See SPEC.md R9.3.
 67. Decided in the follow-up interview: drop threaded note annotations; use ordinary content or comment blocks. See SPEC.md R9.4.
 68. Decided in the follow-up interview: ship curated, overridable math, mhchem, and TikZ snippet sets. See SPEC.md R9.4.
+69. Corrected during Milestone 1 acceptance: the usable first editor includes
+`I`/`A`/`o`/`O`, grapheme-safe `x`/`r`, and core word/WORD text objects;
+snippet expansion and stop navigation use `<C-l>`/`<C-h>`, not Tab/Shift-Tab.
+Broader text objects, counts, and Visual mode remain Milestone 5. See SPEC.md
+R1.7.7, R1.7.8, and R1.10.2.
 
 ## Editor — modes & core editing model
 
@@ -90,6 +95,7 @@ R1.6.8.
 |k|1| L | M2 | Separate editing (source) and rendered (typeset) modes, no live preview | (brief) | Moderate — two renderers, mode-switch logic, cursor-position mapping between them | k — explicitly required by the brief |
 |k| | M | M3 | Persistent undo (undofile across sessions) | nvim (option), obsidian | Moderate — undo tree serialization, file naming/hashing like Vim's undodir | k — named directly in the brief as something to estimate |
 |k| | M | M1 | Undo/redo (in-session) | vim, zennotes | Moderate — a real undo *model* (tree or linear-with-branches) is the hard part, not the keybinding | k — required for any editor; pairs with persistent undo |
+|k|69| S | M1 | Core Normal-mode edits (`I`/`A`/`o`/`O`, grapheme-safe `x`/`r`) and word/WORD text objects (`iw`/`aw`/`iW`/`aW`) for `d`/`c`/`y` | vim, user acceptance | Easy–Moderate on the existing editor/range engine | k — the bounded operator slice is not practically usable without these core commands |
 |k| | M | M5 | Dot-repeat (`.`) | vim | Moderate — requires the editor to record "the last change" generically across all commands | k — high-value, low-cost once operators exist; flagged by brief as a vim feature to scope |
 |k| | S–M | M5 | Numeric counts on motions/operators/inserts | vim | Easy–Moderate — mostly a parsing/multiplier concern once motions exist | k — cheap multiplier on top of motions, worth it |
 |c|2| M | M5 | Registers: unnamed, named a–z, numbered 0–9, special (`%`,`.`,`:`,`/`,`+`/`*`,`_`,`-`,`=`) | vim | Moderate — clipboard integration (`+`/`*`) is the only OS-specific part | c — keep unnamed/named/numbered/black-hole; drop expression register (`"=`) and OS clipboard regs unless terminal clipboard (OSC 52) is in scope |
@@ -98,7 +104,7 @@ R1.6.8.
 |c|3| M | M5 | Jump list (`<C-o>`/`<C-i>`) and change list (`g;`/`g,`) | vim | Moderate — two more position-history stacks to maintain per buffer | c — jump list yes; change list only if cheap once jump list exists |
 |k| | M–L | M5 | Visual modes: character, line, block (+`gv` reselect, `o` swap anchor) | vim | Moderate–Hard — block-wise visual (ragged-length columns, block insert/append) is genuinely fiddly | k — character+line first (S/M), block-visual is the expensive part; call out block-visual as its own line item when scoping |
 |k| | L | M5 | Operators (d/c/y/`<`/`>`/gu/gU/g~/gq/gw/`!`) + operator-motion composition grammar | vim | Hard — the general `{op}{count}{motion-or-textobject}` grammar is Vim's core idea and the part most likely to balloon in scope | k — this is the single most load-bearing "vim" row; brief explicitly asks to flag rows that would dominate the schedule — **this one likely does** |
-|k| | M | M5 | Text objects: word/WORD, sentence, paragraph, quotes, brackets, tag block; vimtex adds LaTeX-specific objects (environment, math zone, delimiter, command, section, list item), costed individually in the vimtex section below | vim, vimtex | Moderate — quote/bracket-pair detection with escaping is the fiddly part; sentence boundaries are a minor parsing question | k — needed to make operators useful; scope sentence/tag objects down if time-boxed |
+|k|69| M | M5 | Broader text objects: sentence, paragraph, quotes, brackets, tag block; vimtex adds LaTeX-specific objects (environment, math zone, delimiter, command, section, list item), costed individually in the vimtex section below. Core word/WORD objects ship in M1. | vim, vimtex | Moderate — quote/bracket-pair detection with escaping is the fiddly part; sentence boundaries are a minor parsing question | k — needed to extend operators beyond the core M1 word objects; scope sentence/tag objects down if time-boxed |
 |c|46| M–L | M5 | Search motions (`/`,`?`,`n`,`N`,`*`,`#`), char-search (`f`/`F`/`t`/`T`/`;`/`,`), search offsets | vim | Moderate — full Vim regex flavor (magic/`\v`) is its own sub-project | c — implement search+char-search fully; use a simpler (PCRE-like or literal+basic wildcard) pattern language instead of cloning Vim's regex dialect |
 |k| | M | M5 | Substitute (`:s`) with flags (g/c/i/I/n/e), ranges, `%`, `:g`/`:v` global command, `&`/`g&` repeat | vim | Moderate — mostly composition once search+ranges exist | k — high value for note editing (renames, cleanup); keep core flags, drop obscure ones (`I` etc.) if time-boxed |
 |k| | S | M5 | Percent/matching-bracket motion (`%`); vimtex extends it to LaTeX pairs — `\begin`/`\end`, `\left(`/`\right)`, `$…$`, `\[…\]` — using a bounded search (stopline + timeout) rather than a parse | vim, vimtex | Easy given a bracket-matching text object already exists | k — cheap once bracket text objects exist |
@@ -172,7 +178,7 @@ R1.6.8.
 
 | Decision | Notes | Cost | Milestone | Feature | Sources | Feasibility in terminal | Suggestion |
 |---|---|---|---|---|---|---|---|
-|k| | M | M1 | Tab-stop placeholders with jump forward/back | latex-snippets (UltiSnips model) | Moderate — a real tab-stop engine (insert, jump, track positions as buffer edits) | k — core to the brief's "snippets for fast LaTeX writing" requirement |
+|k|69| M | M1 | Tab-stop placeholders with `<C-l>` forward/explicit expansion and `<C-h>` backward navigation | latex-snippets (UltiSnips model), user acceptance | Moderate — a real tab-stop engine (insert, jump, track positions as buffer edits) | k — core to the brief's "snippets for fast LaTeX writing" requirement; Tab remains literal input |
 |k| | M | M1 | Mirrored/linked tab stops (same field twice) | latex-snippets | Moderate — position-tracking for N linked spans instead of 1 | k — needed for e.g. `\begin{X}...\end{X}` environment snippets |
 |c|21| M | M1 | Auto-expand on trigger match (no key) vs. manual expand-on-key | latex-snippets | Moderate — needs incremental trigger matching as you type | k — brief explicitly calls out "auto-expanding" as a requirement |
 |k| | S | M1 | Word-boundary / beginning-of-line trigger flags | latex-snippets | Easy once trigger matching exists | k — cheap, avoids false triggers inside words |

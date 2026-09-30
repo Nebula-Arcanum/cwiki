@@ -22,7 +22,9 @@
 
 #define ESCAPE "\x1b[27u"
 #define ENTER "\x1b[13u"
-#define TAB "\x1b[9;1u"
+#define CTRL_L "\x1b[108;5u"
+#define LEFT_SHIFT "\x1b[57441u"
+#define SHIFT_HASH "\x1b[51;2;35u"
 
 static const char supported[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?1;2c";
@@ -30,10 +32,10 @@ static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
 static const char class_note_keys[] =
     "i# Chemistry / calculus" ENTER
-    "Energy: mk" TAB "E = mc^2" TAB ENTER
-    "Angle: mk" TAB "\\alpha + \\beta" TAB ENTER
-    "Reaction: $chem" TAB "2H2 + O2 -> 2H2O" TAB "$" ENTER
-    "Diagram: tikz" TAB "\\draw (0,0) -- (2,1);" TAB ENTER
+    "Energy: mk" CTRL_L "E = mc^2" CTRL_L ENTER
+    "Angle: mk" CTRL_L "\\alpha + \\beta" CTRL_L ENTER
+    "Reaction: $chem" CTRL_L "2H2 + O2 -> 2H2O" CTRL_L "$" ENTER
+    "Diagram: tikz" CTRL_L "\\draw (0,0) -- (2,1);" CTRL_L ENTER
     ESCAPE "a temporary" ESCAPE "u:wq" ENTER;
 
 struct session {
@@ -680,17 +682,47 @@ main(int argc, char **argv)
 
    session = start(path, supported, false);
    frame(&session, output, sizeof(output));
-   send_bytes(session.master, wire("imk" TAB "x" ESCAPE));
+   send_bytes(session.master, wire("imk" CTRL_L "x" ESCAPE));
    frame(&session, output, sizeof(output));
    assert(strstr(output, "x") != NULL && strstr(output, "mk") == NULL);
    send_bytes(session.master, wire(":q" ENTER));
    frame(&session, output, sizeof(output));
    assert(snprintf(transcript, sizeof(transcript),
-       "%simk" TAB "x" ESCAPE ":q" ENTER, supported) > 0);
+       "%simk" CTRL_L "x" ESCAPE ":q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    content(path, "$x$", CWIKI_LINE_ENDING_LF);
    (void)puts("app: explicit snippet expansion, stop fill and autosave passed");
    assert(unlink(path) == 0);
+
+   {
+      static const char heading_keys[] =
+          "i" LEFT_SHIFT SHIFT_HASH " Heading" ESCAPE;
+      static const char edit_keys[] =
+          "A" ENTER "one two  three" ESCAPE "0wdiwu0wdaw"
+          "Otop" ESCAPE "Go"
+          "mk" CTRL_L "e" CTRL_L ESCAPE
+          "oabc" ESCAPE "0xr)Il" ESCAPE "Ar" ESCAPE;
+
+      session = start(path, supported, false);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(heading_keys));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "# Heading") != NULL &&
+          strstr(output, "\xee\x81\xa1") == NULL);
+      send_bytes(session.master, wire(edit_keys));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "l)cr") != NULL &&
+          strstr(output, "\xee\x81\xa1") == NULL);
+      send_bytes(session.master, wire(":wq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript), "%s%s%s:wq%s",
+          supported, heading_keys, edit_keys, ENTER) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      content(path, "# Heading\ntop\none three\n$e$\nl)cr",
+          CWIKI_LINE_ENDING_LF);
+      (void)puts("app: acceptance keyboard and core edit regressions passed");
+      assert(unlink(path) == 0);
+   }
 
    {
       static const char custom_snippet[] =
@@ -701,13 +733,13 @@ main(int argc, char **argv)
 
       session = start_config(path, supported, false, custom_snippet);
       frame(&session, output, sizeof(output));
-      send_bytes(session.master, wire("izz" TAB ESCAPE));
+      send_bytes(session.master, wire("izz" CTRL_L ESCAPE));
       frame(&session, output, sizeof(output));
       assert(strstr(output, "HELLO") != NULL && strstr(output, "zz") == NULL);
       send_bytes(session.master, wire(":q" ENTER));
       frame(&session, output, sizeof(output));
       assert(snprintf(transcript, sizeof(transcript),
-          "%sizz" TAB ESCAPE ":q" ENTER, supported) > 0);
+          "%sizz" CTRL_L ESCAPE ":q" ENTER, supported) > 0);
       finish(&session, 0, true, transcript, NULL);
       content(path, "HELLO", CWIKI_LINE_ENDING_LF);
       assert(unlink(path) == 0);
@@ -729,13 +761,15 @@ main(int argc, char **argv)
       write_note(path, "---\nsubject: [calculus, physics]\n---\n");
       session = start_config(path, supported, false, subject_snippets);
       frame(&session, output, sizeof(output));
-      send_bytes(session.master, wire("Gicc" TAB " pp" TAB ESCAPE));
+      send_bytes(session.master,
+          wire("Gicc" CTRL_L " pp" CTRL_L ESCAPE));
       frame(&session, output, sizeof(output));
       assert(strstr(output, "CALC PHYS") != NULL);
       send_bytes(session.master, wire(":q" ENTER));
       frame(&session, output, sizeof(output));
       assert(snprintf(transcript, sizeof(transcript),
-          "%sGicc" TAB " pp" TAB ESCAPE ":q" ENTER, supported) > 0);
+          "%sGicc" CTRL_L " pp" CTRL_L ESCAPE ":q" ENTER,
+          supported) > 0);
       finish(&session, 0, true, transcript, NULL);
       assert(unlink(path) == 0);
       (void)puts("app: note frontmatter activates all subject snippets passed");

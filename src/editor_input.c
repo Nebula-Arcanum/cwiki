@@ -16,6 +16,12 @@
 enum editor_action_id {
    ACTION_INSERT_BEFORE,
    ACTION_INSERT_AFTER,
+   ACTION_INSERT_FIRST_NONBLANK,
+   ACTION_APPEND_END,
+   ACTION_OPEN_BELOW,
+   ACTION_OPEN_ABOVE,
+   ACTION_DELETE_GRAPHEME,
+   ACTION_REPLACE_GRAPHEME,
    ACTION_REPLACE,
    ACTION_COMMAND,
    ACTION_DELETE,
@@ -56,6 +62,8 @@ struct cwiki_editor_input {
    size_t pending_count;
    struct cwiki_editor_input_context context;
    bool stop_selected;
+   bool replace_pending;
+   unsigned int text_object_prefix;
 };
 
 #define MOTION_ACTION(motion, name, label) \
@@ -67,6 +75,18 @@ static const struct action_definition action_definitions[] = {
        "Enter Insert mode before the cursor"},
    {ACTION_INSERT_AFTER, "mode.insert-after", "Insert after",
        "Enter Insert mode after the cursor"},
+   {ACTION_INSERT_FIRST_NONBLANK, "mode.insert-first-nonblank",
+       "Insert at first nonblank", "Enter Insert mode at the first nonblank"},
+   {ACTION_APPEND_END, "mode.append-end", "Append at line end",
+       "Enter Insert mode at the end of the line"},
+   {ACTION_OPEN_BELOW, "mode.open-below", "Open below",
+       "Open a new line below in Insert mode"},
+   {ACTION_OPEN_ABOVE, "mode.open-above", "Open above",
+       "Open a new line above in Insert mode"},
+   {ACTION_DELETE_GRAPHEME, "edit.delete-grapheme", "Delete character",
+       "Delete one grapheme under the cursor"},
+   {ACTION_REPLACE_GRAPHEME, "edit.replace-grapheme", "Replace character",
+       "Replace one grapheme under the cursor"},
    {ACTION_REPLACE, "mode.replace", "Replace",
        "Enter Replace mode"},
    {ACTION_COMMAND, "mode.command", "Command line",
@@ -130,6 +150,12 @@ struct binding_definition {
 static const struct binding_definition default_bindings[] = {
    BIND1('i', 0U, "mode.insert-before"),
    BIND1('a', 0U, "mode.insert-after"),
+   BIND1('i', CWIKI_INPUT_SHIFT, "mode.insert-first-nonblank"),
+   BIND1('a', CWIKI_INPUT_SHIFT, "mode.append-end"),
+   BIND1('o', 0U, "mode.open-below"),
+   BIND1('o', CWIKI_INPUT_SHIFT, "mode.open-above"),
+   BIND1('x', 0U, "edit.delete-grapheme"),
+   BIND1('r', 0U, "edit.replace-grapheme"),
    BIND1('r', CWIKI_INPUT_SHIFT, "mode.replace"),
    BIND1(';', CWIKI_INPUT_SHIFT, "mode.command"),
    BIND1('d', 0U, "operator.delete"),
@@ -211,6 +237,30 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
       status = cwiki_editor_enter_insert(editor, true,
           input->context.timestamp);
       break;
+   case ACTION_INSERT_FIRST_NONBLANK:
+   case ACTION_APPEND_END:
+      status = cwiki_editor_apply_motion(editor, input->context.layout,
+          input->context.zones,
+          action->id == ACTION_INSERT_FIRST_NONBLANK ?
+          CWIKI_MOTION_FIRST_NONBLANK : CWIKI_MOTION_LINE_END,
+          input->context.viewport);
+      if (status == CWIKI_EDITOR_OK) {
+         status = cwiki_editor_enter_insert(editor,
+             action->id == ACTION_APPEND_END, input->context.timestamp);
+      }
+      break;
+   case ACTION_OPEN_BELOW:
+   case ACTION_OPEN_ABOVE:
+      status = cwiki_editor_open_line(editor,
+          action->id == ACTION_OPEN_BELOW, input->context.timestamp);
+      break;
+   case ACTION_DELETE_GRAPHEME:
+      status = cwiki_editor_delete_grapheme(editor, input->context.timestamp);
+      break;
+   case ACTION_REPLACE_GRAPHEME:
+      input->replace_pending = true;
+      status = CWIKI_EDITOR_OK;
+      break;
    case ACTION_REPLACE:
       status = cwiki_editor_enter_replace(editor, input->context.timestamp);
       break;
@@ -220,6 +270,7 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
    case ACTION_DELETE:
    case ACTION_CHANGE:
    case ACTION_YANK:
+      input->text_object_prefix = 0U;
       status = cwiki_editor_start_operator(editor,
           action->id == ACTION_DELETE ? CWIKI_EDITOR_DELETE :
           action->id == ACTION_CHANGE ? CWIKI_EDITOR_CHANGE :
@@ -439,6 +490,7 @@ handle_normal(struct cwiki_editor_input *input,
     const struct cwiki_input_event *event)
 {
    struct cwiki_keymap_match match;
+   uint32_t key;
 
    if (event->kind != CWIKI_INPUT_KEY ||
        event->action == CWIKI_INPUT_RELEASE) {
@@ -446,7 +498,53 @@ handle_normal(struct cwiki_editor_input *input,
    }
    if (event->key == 27U && event->modifiers == 0U) {
       input->pending_count = 0U;
+      input->replace_pending = false;
+      input->text_object_prefix = 0U;
       return cwiki_editor_escape(input->editor);
+   }
+   if (input->replace_pending) {
+      unsigned char encoded[4];
+      utf8proc_ssize_t length;
+
+      if (event->text_len != 0U) {
+         input->replace_pending = false;
+         return cwiki_editor_replace_grapheme(input->editor,
+             (const char *)event->text, event->text_len,
+             input->context.timestamp);
+      }
+      if (event->key >= UINT32_C(57344) &&
+          event->key <= UINT32_C(63743)) {
+         return CWIKI_EDITOR_NOTHING;
+      }
+      input->replace_pending = false;
+      if ((event->modifiers & ~(unsigned int)CWIKI_INPUT_SHIFT) != 0U ||
+          event->key < UINT32_C(0x20) || event->key > UINT32_C(0x10ffff) ||
+          (event->key >= UINT32_C(0xd800) &&
+          event->key <= UINT32_C(0xdfff))) {
+         return CWIKI_EDITOR_INVALID;
+      }
+      length = utf8proc_encode_char((utf8proc_int32_t)event->key, encoded);
+      return length <= 0 ? CWIKI_EDITOR_INVALID :
+          cwiki_editor_replace_grapheme(input->editor,
+          (const char *)encoded, (size_t)length, input->context.timestamp);
+   }
+   key = event->has_base_layout_key ? event->base_layout_key : event->key;
+   if (input->text_object_prefix != 0U) {
+      unsigned int prefix = input->text_object_prefix;
+
+      input->text_object_prefix = 0U;
+      if (key == 'w' && (event->modifiers == 0U ||
+          event->modifiers == CWIKI_INPUT_SHIFT)) {
+         return cwiki_editor_apply_word_object(input->editor,
+             event->modifiers == CWIKI_INPUT_SHIFT, prefix == 2U);
+      }
+      (void)cwiki_editor_escape(input->editor);
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (input->editor->pending_operator != CWIKI_EDITOR_NO_OPERATOR &&
+       event->modifiers == 0U && (key == 'i' || key == 'a')) {
+      input->text_object_prefix = key == 'i' ? 1U : 2U;
+      return CWIKI_EDITOR_OK;
    }
    if (input->pending_count == CWIKI_KEYMAP_MAX_SEQUENCE) {
       input->pending_count = 0U;
@@ -572,6 +670,7 @@ insert_key_text(struct cwiki_editor_input *input,
           true);
    }
    if ((event->modifiers & ~(unsigned int)CWIKI_INPUT_SHIFT) != 0U ||
+       (event->key >= UINT32_C(57344) && event->key <= UINT32_C(63743)) ||
        event->key > UINT32_C(0x10ffff) ||
        (event->key >= UINT32_C(0xd800) && event->key <= UINT32_C(0xdfff))) {
       return CWIKI_EDITOR_NOTHING;
@@ -644,6 +743,8 @@ handle_editing(struct cwiki_editor_input *input,
     const struct cwiki_input_event *event)
 {
    struct cwiki_editor *editor = input->editor;
+   uint32_t key = event->has_base_layout_key ? event->base_layout_key :
+       event->key;
 
    if (event->kind == CWIKI_INPUT_PASTE) {
       return editor->mode == CWIKI_EDITOR_COMMAND ?
@@ -658,9 +759,10 @@ handle_editing(struct cwiki_editor_input *input,
    if (event->key == 27U && event->modifiers == 0U) {
       return cwiki_editor_escape(editor);
    }
-   if (editor->mode == CWIKI_EDITOR_INSERT && event->key == 9U &&
-       (event->modifiers == 0U || event->modifiers == CWIKI_INPUT_SHIFT)) {
-      return handle_tab(input, event->modifiers == CWIKI_INPUT_SHIFT);
+   if (editor->mode == CWIKI_EDITOR_INSERT &&
+       event->modifiers == CWIKI_INPUT_CTRL &&
+       (key == 'l' || key == 'h')) {
+      return handle_tab(input, key == 'h');
    }
    if ((event->key == 13U || event->key == 10U) &&
        event->modifiers == 0U) {

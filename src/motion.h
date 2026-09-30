@@ -80,5 +80,8 @@ int cwiki_motion_apply(const struct cwiki_buffer *buffer,
     struct cwiki_motion_state *state, enum cwiki_motion motion,
     const struct cwiki_motion_viewport *viewport,
     struct cwiki_motion_result *result);
+int cwiki_motion_word_object(const struct cwiki_buffer *buffer,
+    struct cwiki_position cursor, bool big, bool around,
+    struct cwiki_motion_range *range);
 
 #endif

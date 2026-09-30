@@ -67,6 +67,13 @@ void cwiki_editor_free(struct cwiki_editor *editor);
 
 enum cwiki_editor_status cwiki_editor_enter_insert(struct cwiki_editor *editor,
     bool append, uint64_t timestamp);
+enum cwiki_editor_status cwiki_editor_open_line(struct cwiki_editor *editor,
+    bool below, uint64_t timestamp);
+enum cwiki_editor_status cwiki_editor_delete_grapheme(
+    struct cwiki_editor *editor, uint64_t timestamp);
+enum cwiki_editor_status cwiki_editor_replace_grapheme(
+    struct cwiki_editor *editor, const char *bytes, size_t length,
+    uint64_t timestamp);
 enum cwiki_editor_status cwiki_editor_enter_replace(
     struct cwiki_editor *editor, uint64_t timestamp);
 enum cwiki_editor_status cwiki_editor_escape(struct cwiki_editor *editor);
@@ -91,6 +98,8 @@ enum cwiki_editor_status cwiki_editor_apply_motion(
     struct cwiki_editor *editor, const struct cwiki_layout_window *layout,
     struct cwiki_zone_engine *zones, enum cwiki_motion motion,
     const struct cwiki_motion_viewport *viewport);
+enum cwiki_editor_status cwiki_editor_apply_word_object(
+    struct cwiki_editor *editor, bool big, bool around);
 enum cwiki_editor_status cwiki_editor_put(struct cwiki_editor *editor,
     bool before, uint64_t timestamp);
 
