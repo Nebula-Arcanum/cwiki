@@ -9,7 +9,7 @@ static int failures;
 static const unsigned char keyboard_reply[] = "\x1b[?29u";
 static const unsigned char graphics_reply[] =
    "\x1b_Gi=1129797963;EINVAL:query image rejected\x1b\\";
-static const unsigned char da1_reply[] = "\x1b[?1;2c";
+static const unsigned char da1_reply[] = "\x1b[?62;52;c";
 
 static void
 check(bool condition, const char *message)
@@ -259,7 +259,7 @@ test_da1_concludes_missing(void)
 static void
 test_da1_preserves_unconsumed_input(void)
 {
-   static const unsigned char fixture[] = "\x1b[?1;2c\x1b[97;1u";
+   static const unsigned char fixture[] = "\x1b[?62;52;c\x1b[97;1u";
    static const unsigned char pending[] = "\x1b[97;1u";
    struct cwiki_capabilities_parser parser;
    struct cwiki_capabilities_result result;

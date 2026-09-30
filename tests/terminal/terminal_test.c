@@ -19,7 +19,7 @@
 static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
 static const char supported_reply[] =
-    "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?1;2c";
+    "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?62;52;c";
 static const char startup[] = CWIKI_INPUT_KEYBOARD_PUSH
     CWIKI_TERMINAL_ALT_ENTER CWIKI_TERMINAL_CURSOR_HIDE
     CWIKI_INPUT_PASTE_ENABLE;

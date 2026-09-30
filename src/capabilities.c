@@ -48,6 +48,12 @@ valid_da1(const unsigned char *bytes, size_t length)
    if (length < 2U || bytes[0] != (unsigned char)'?') {
       return false;
    }
+   if (bytes[length - 1U] == (unsigned char)';') {
+      length--;
+   }
+   if (length < 2U) {
+      return false;
+   }
    start = 1U;
    for (i = 1U; i <= length; i++) {
       if (i == length || bytes[i] == (unsigned char)';') {
