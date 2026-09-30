@@ -75,6 +75,46 @@ static analysis of the changed application/configuration/input units, and five
 consecutive sanitizer runs of the complete PTY application suite. This closes
 the implementation-test gate, not the production or user-acceptance gates.
 
+A fresh non-sanitized production executable then passed these isolated
+fixture-vault scenarios:
+
+- Kitty 0.48.1 started through its native keyboard protocol. `<C-l>` expanded
+  `mk`, `<C-l>` advanced, and `<C-h>` returned to the prior stop; the edited
+  `$y$` survived `:wq` and a new process reopening the file.
+- The reopened frame showed source highlighting, width-safe `𝛼` concealment,
+  relative line numbers, cursorline, status, and the generated `g` clue popup.
+  The shared undo-history picker opened from its configured action. The real
+  Kitty capture was inspected at `.amp/in/artifacts/m1-production-kitty.png`;
+  no application clipping, overlap, or unreadable text was found.
+- `I`, `A`, `o`, `O`, `r`, `x`, undo, save, and a word-object deletion were
+  exercised through Kitty key events against a second disposable note.
+- A synchronized vault config with all four M1 modules disabled left `\alpha`
+  and `mk` literal and opened neither clues nor the picker.
+- The production `--inspect-config` output reported synchronized-vault settings
+  and source locations; an unknown key failed before terminal startup.
+- `--reset-terminal` emitted the fixed 34-byte restoration sequence. A real
+  pseudo-terminal that did not answer capability queries exited after the
+  bounded timeout with the documented diagnostic.
+
+### User acceptance checklist
+
+The final user pass uses a disposable fixture, never the real vault:
+
+1. Confirm `i`, `I`, `a`, `A`, `o`, `O`, `x`, `r`, Insert/Replace leave,
+   `:w`, `:q`, and `:wq` feel usable.
+2. Confirm `d`/`c`/`y` with `iw`, `aw`, `iW`, and `aW`, then `p`/`P` and undo.
+3. Enter prose, `$…$`, `\ce{…}`, TikZ, a comment, and a fenced code block;
+   verify highlighting/conceal stay in their zones after multiline edits.
+4. Expand representative automatic, explicit, postfix, mirrored, nested,
+   chemistry, and TikZ snippets. Confirm `<C-l>` moves forward and `<C-h>`
+   backward while Tab remains indentation.
+5. Exercise wrapped display-row and source-line motion, then toggle wrap,
+   numbers, cursorline, and conceal from the `\` prefix.
+6. Open the active-snippet and undo-history overlays, edit a picker query, and
+   confirm `g` shows only currently available continuations.
+7. Save, quit, reopen, and compare the plain Markdown bytes with what was
+   entered. Confirm the mode/file/dirty/position status remains readable.
+
 No row may be changed from **open** to **verified** from a worker report alone.
 The integration branch must contain the implementation, the named checks must be
 rerun there, and user-visible rows must be exercised through the production
