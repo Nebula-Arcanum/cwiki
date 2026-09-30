@@ -34,6 +34,10 @@ enum cwiki_save_policy {
 };
 
 struct cwiki_config_settings {
+   bool module_syntax;
+   bool module_snippets;
+   bool module_clues;
+   bool module_picker;
    bool conceal;
    uint32_t conceal_categories;
    uint32_t concealcursor_modes;
@@ -62,6 +66,10 @@ struct cwiki_config_subjects {
 };
 
 enum cwiki_config_value {
+   CWIKI_CONFIG_VALUE_MODULE_SYNTAX,
+   CWIKI_CONFIG_VALUE_MODULE_SNIPPETS,
+   CWIKI_CONFIG_VALUE_MODULE_CLUES,
+   CWIKI_CONFIG_VALUE_MODULE_PICKER,
    CWIKI_CONFIG_VALUE_CONCEAL,
    CWIKI_CONFIG_VALUE_CONCEAL_CATEGORIES,
    CWIKI_CONFIG_VALUE_CONCEAL_CURSOR,
@@ -95,6 +103,11 @@ struct cwiki_config_named_info {
  *   normal:
  *     - keys: [g, g]
  *       action: motion.document-first  # null unbinds
+ * modules:
+ *   syntax: true
+ *   snippets: true
+ *   clues: true
+ *   picker: true
  * clue-groups:
  *   normal:
  *     - prefix: [g]

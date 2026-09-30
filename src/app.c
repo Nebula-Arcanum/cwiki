@@ -114,7 +114,8 @@ refresh(struct app *app)
    options.wrap = app->settings.wrap;
    options.break_indent = app->settings.break_indent;
    options.continuation_marker = app->settings.continuation_marker;
-   options.conceal_categories = app->settings.conceal ?
+   options.conceal_categories = app->settings.module_syntax &&
+       app->settings.conceal ?
        app->settings.conceal_categories : 0U;
    options.concealcursor_modes = app->settings.concealcursor_modes;
    options.mode = app->editor.mode == CWIKI_EDITOR_COMMAND ?
@@ -291,10 +292,23 @@ app_action_available(void *context)
 {
    const struct app_action_context *action = context;
 
-   return action->id >= APP_ACTION_PICKER_CLOSE ?
-       action->app->picker != NULL :
-       action->app->editor.mode == CWIKI_EDITOR_NORMAL &&
-       action->app->picker == NULL;
+   if (action->id >= APP_ACTION_PICKER_CLOSE) {
+      return action->app->picker != NULL;
+   }
+   if (action->app->editor.mode != CWIKI_EDITOR_NORMAL ||
+       action->app->picker != NULL) {
+      return false;
+   }
+   if (action->id == APP_ACTION_TOGGLE_CONCEAL) {
+      return action->app->settings.module_syntax;
+   }
+   if (action->id == APP_ACTION_LIST_SNIPPETS) {
+      return action->app->settings.module_snippets;
+   }
+   if (action->id == APP_ACTION_LIST_UNDO) {
+      return action->app->settings.module_picker;
+   }
+   return true;
 }
 
 static enum cwiki_picker_status
@@ -589,7 +603,7 @@ static int
 draw(struct app *app, struct cwiki_terminal *terminal)
 {
    size_t count = app->document.buffer.line_count;
-   struct cwiki_highlight_line *highlights = calloc(count, sizeof(*highlights));
+   struct cwiki_highlight_line *highlights = NULL;
    const struct cwiki_input_event *pending;
    struct cwiki_float_area clue_area = {0};
    struct cwiki_snippet_info *snippet_infos = NULL;
@@ -604,13 +618,16 @@ draw(struct app *app, struct cwiki_terminal *terminal)
    size_t offset = 0U;
    int error_number = 0;
 
-   if (highlights == NULL) {
-      return -1;
-   }
-   for (size_t i = 0U; i < count; i++) {
-      if (cwiki_highlight_build_line(app->zones, &app->document.buffer, i,
-          &highlights[i]) != 0) {
-         goto fail;
+   if (app->settings.module_syntax) {
+      highlights = calloc(count, sizeof(*highlights));
+      if (highlights == NULL) {
+         return -1;
+      }
+      for (size_t i = 0U; i < count; i++) {
+         if (cwiki_highlight_build_line(app->zones, &app->document.buffer, i,
+             &highlights[i]) != 0) {
+            goto fail;
+         }
       }
    }
    if (app->picker != NULL && app->viewport.rows >= 5U &&
@@ -679,7 +696,8 @@ draw(struct app *app, struct cwiki_terminal *terminal)
       }
    }
    pending = cwiki_editor_input_pending(app->input, &pending_count);
-   if (app->picker == NULL && pending_count != 0U &&
+   if (app->settings.module_clues && app->picker == NULL &&
+       pending_count != 0U &&
        app->viewport.rows >= 4U &&
        app->viewport.columns >= 5U) {
       size_t continuation_count = cwiki_keymap_continuation_count(
@@ -755,8 +773,10 @@ draw(struct app *app, struct cwiki_terminal *terminal)
 fail:
    error_number = errno;
 done:
-   for (size_t i = 0U; i < count; i++) {
-      cwiki_highlight_line_free(&highlights[i]);
+   if (highlights != NULL) {
+      for (size_t i = 0U; i < count; i++) {
+         cwiki_highlight_line_free(&highlights[i]);
+      }
    }
    free(highlights);
    free(snippet_infos);
@@ -888,6 +908,8 @@ cwiki_app_run(const char *path, const struct cwiki_app_options *options)
       errno = ENOMEM;
       goto system_error;
    }
+   cwiki_editor_input_set_snippets_enabled(app.input,
+       app.settings.module_snippets);
    {
       const struct cwiki_config *ordered[CWIKI_CONFIG_SOURCE_MAX];
       const char *paths[CWIKI_CONFIG_SOURCE_MAX];

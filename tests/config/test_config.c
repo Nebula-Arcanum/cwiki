@@ -235,6 +235,11 @@ strict_schema_errors(void)
    expect_error("keymaps:\n  normal:\n    - keys: [x]\n      action: test.one\n"
        "    - keys: [x]\n      action: test.two\n",
        CWIKI_CONFIG_SCHEMA_ERROR, "duplicate key binding");
+   expect_error("modules: false\n", CWIKI_CONFIG_SCHEMA_ERROR, "mapping");
+   expect_error("modules:\n  snippets: 'false'\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "true or false");
+   expect_error("modules:\n  unknown: false\n",
+       CWIKI_CONFIG_SCHEMA_ERROR, "unknown configuration key");
    expect_error("clue-groups:\n  normal:\n    - prefix: [g]\n      label: ''\n",
        CWIKI_CONFIG_SCHEMA_ERROR, "non-empty UTF-8");
    expect_error("clue-groups:\n  normal:\n    - prefix: [g]\n      label: Go\n"
@@ -520,6 +525,11 @@ static void
 scalar_settings_and_precedence(void)
 {
    static const char global[] =
+       "modules:\n"
+       "  syntax: false\n"
+       "  snippets: false\n"
+       "  clues: false\n"
+       "  picker: false\n"
        "display:\n"
        "  conceal: false\n"
        "  conceal-categories: [greek, sections]\n"
@@ -535,6 +545,9 @@ scalar_settings_and_precedence(void)
        "  expandtab: false\n"
        "save-policy: manual\n";
    static const char local[] =
+       "modules:\n"
+       "  syntax: true\n"
+       "  picker: true\n"
        "display:\n"
        "  conceal: true\n"
        "  wrap: true\n"
@@ -550,7 +563,9 @@ scalar_settings_and_precedence(void)
    struct cwiki_config_settings settings;
 
    cwiki_config_settings_defaults(&settings);
-   assert(settings.conceal && settings.wrap && settings.break_indent &&
+   assert(settings.module_syntax && settings.module_snippets &&
+       settings.module_clues && settings.module_picker &&
+       settings.conceal && settings.wrap && settings.break_indent &&
        settings.line_numbers && settings.cursorline &&
        settings.conceal_categories == CWIKI_CONCEAL_DEFAULT_MASK &&
        settings.concealcursor_modes == CWIKI_CONCEALCURSOR_DEFAULT &&
@@ -563,7 +578,9 @@ scalar_settings_and_precedence(void)
    assert(cwiki_config_parse(&second, (const unsigned char *)local,
        sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
    cwiki_config_apply_settings(first, &settings);
-   assert(!settings.conceal && !settings.wrap && !settings.break_indent &&
+   assert(!settings.module_syntax && !settings.module_snippets &&
+       !settings.module_clues && !settings.module_picker &&
+       !settings.conceal && !settings.wrap && !settings.break_indent &&
        !settings.line_numbers && !settings.cursorline &&
        settings.conceal_categories ==
        (CWIKI_CONCEAL_CATEGORY_BIT(CWIKI_CONCEAL_GREEK) |
@@ -576,7 +593,9 @@ scalar_settings_and_precedence(void)
        !settings.expandtab &&
        settings.save_policy == CWIKI_SAVE_MANUAL);
    cwiki_config_apply_settings(second, &settings);
-   assert(settings.conceal && settings.wrap && !settings.break_indent &&
+   assert(settings.module_syntax && !settings.module_snippets &&
+       !settings.module_clues && settings.module_picker &&
+       settings.conceal && settings.wrap && !settings.break_indent &&
        settings.line_numbers && !settings.cursorline &&
        strcmp(settings.continuation_marker, "↪ ") == 0 &&
        settings.shiftwidth == 4U && settings.tabstop == 3U &&

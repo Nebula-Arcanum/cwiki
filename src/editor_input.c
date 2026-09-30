@@ -83,6 +83,7 @@ struct cwiki_editor_input {
    struct cwiki_editor_input_context context;
    bool stop_selected;
    bool replace_pending;
+   bool snippets_enabled;
 };
 
 #define MOTION_ACTION(motion, name, label) \
@@ -327,7 +328,7 @@ action_available(void *context)
       return mode == CWIKI_EDITOR_INSERT || mode == CWIKI_EDITOR_REPLACE;
    case ACTION_SNIPPET_NEXT:
    case ACTION_SNIPPET_PREVIOUS:
-      return mode == CWIKI_EDITOR_INSERT;
+      return mode == CWIKI_EDITOR_INSERT && action->input->snippets_enabled;
    case ACTION_COMMAND_EXECUTE:
    case ACTION_LINE_START:
    case ACTION_LINE_BACKWARD:
@@ -631,6 +632,7 @@ cwiki_editor_input_init(struct cwiki_editor_input **input,
       return CWIKI_EDITOR_NO_MEMORY;
    }
    created->editor = editor;
+   created->snippets_enabled = true;
    if (cwiki_action_registry_init(&created->actions) != CWIKI_ACTION_OK) {
       free(created);
       return CWIKI_EDITOR_NO_MEMORY;
@@ -713,6 +715,20 @@ cwiki_editor_input_set_snippet_subjects(struct cwiki_editor_input *input,
    return status == CWIKI_SNIPPET_OK ? CWIKI_EDITOR_OK :
        (status == CWIKI_SNIPPET_NO_MEMORY ? CWIKI_EDITOR_NO_MEMORY :
        CWIKI_EDITOR_INVALID);
+}
+
+void
+cwiki_editor_input_set_snippets_enabled(struct cwiki_editor_input *input,
+    bool enabled)
+{
+   if (input == NULL) {
+      return;
+   }
+   input->snippets_enabled = enabled;
+   if (!enabled) {
+      cwiki_snippet_clear_sessions(input->snippets);
+      input->stop_selected = false;
+   }
 }
 
 static enum cwiki_editor_status
@@ -869,6 +885,9 @@ try_expand(struct cwiki_editor_input *input,
    enum cwiki_snippet_status matched;
    enum cwiki_editor_status status;
 
+   if (!input->snippets_enabled) {
+      return CWIKI_EDITOR_NOTHING;
+   }
    if (cwiki_snippet_session_depth(input->snippets) >=
        CWIKI_SNIPPET_SESSION_MAX_DEPTH) {
       return CWIKI_EDITOR_NOTHING;
@@ -1119,7 +1138,14 @@ cwiki_editor_input_list_active_snippets(const struct cwiki_editor_input *input,
 {
    struct cwiki_zone zone;
 
-   if (input == NULL || zones == NULL || input->editor == NULL ||
+   if (input == NULL || count == NULL) {
+      return CWIKI_SNIPPET_INVALID;
+   }
+   if (!input->snippets_enabled) {
+      *count = 0U;
+      return CWIKI_SNIPPET_OK;
+   }
+   if (zones == NULL || input->editor == NULL ||
        input->editor->document == NULL ||
        cwiki_zone_at(zones, &input->editor->document->buffer,
        input->editor->motion.cursor.line, input->editor->motion.cursor.byte,

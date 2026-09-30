@@ -37,6 +37,8 @@ enum cwiki_editor_status cwiki_editor_input_replace_snippets(
 enum cwiki_editor_status cwiki_editor_input_set_snippet_subjects(
     struct cwiki_editor_input *input,
     const struct cwiki_snippet_subject *subjects, size_t subject_count);
+void cwiki_editor_input_set_snippets_enabled(
+    struct cwiki_editor_input *input, bool enabled);
 
 enum cwiki_editor_status cwiki_editor_input_handle(
     struct cwiki_editor_input *input, const struct cwiki_input_event *event,

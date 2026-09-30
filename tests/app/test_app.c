@@ -615,7 +615,9 @@ config_inspection_before_terminal(const char *path)
        "  custom.inspect:\n"
        "    kind: text\n"
        "    start: OPEN\n"
-       "    end: CLOSE\n";
+       "    end: CLOSE\n"
+       "modules:\n"
+       "  snippets: false\n";
    struct cwiki_config_source configs[] = {
       {CWIKI_CONFIG_GLOBAL, "/scope/global.yaml", global, sizeof(global) - 1U},
       {CWIKI_CONFIG_VAULT, "/scope/vault.yaml", vault, sizeof(vault) - 1U}
@@ -648,6 +650,8 @@ config_inspection_before_terminal(const char *path)
        "setting save-policy=manual source=/scope/global.yaml:1:14") != NULL);
    assert(strstr(inspection,
        "setting display.wrap=false source=/scope/vault.yaml:2:9") != NULL);
+   assert(strstr(inspection,
+       "setting modules.snippets=false source=/scope/vault.yaml:13:13") != NULL);
    assert(strstr(inspection, "subject value=calculus source=") != NULL &&
        strstr(inspection, ":2:11") != NULL);
    assert(strstr(inspection,
@@ -1026,6 +1030,45 @@ main(int argc, char **argv)
        "%s\\" ESCAPE "\\c\\n\\s:q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: option namespace and active-snippet overlay passed");
+
+   {
+      static const char disabled_modules[] =
+          "modules:\n"
+          "  syntax: false\n"
+          "  snippets: false\n"
+          "  clues: false\n"
+          "  picker: false\n";
+
+      write_note(path, "$\\alpha$");
+      session = start_config(path, supported, false, disabled_modules);
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "\\alpha") != NULL &&
+          strstr(output, "𝛼") == NULL && strstr(output, "\x1b[0;33m") == NULL);
+      send_bytes(session.master, wire("A"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("m"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("k"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(CTRL_L));
+      frame(&session, output, sizeof(output));
+      assert(strstr(output, "mk") != NULL && strstr(output, "$$") == NULL);
+      send_bytes(session.master, wire(ESCAPE "g"));
+      frame_until_text(&session, output, sizeof(output), "mk", "Older state");
+      assert(strstr(output, "Source line down") == NULL);
+      send_bytes(session.master, wire(ESCAPE "\\"));
+      frame_until_text(&session, output, sizeof(output), "mk", "Toggle wrap");
+      send_bytes(session.master, wire("u"));
+      frame_until_text(&session, output, sizeof(output), "mk", "Undo history");
+      send_bytes(session.master, wire(":wq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%sAmk" CTRL_L ESCAPE "g" ESCAPE "\\u:wq" ENTER,
+          supported) > 0);
+      finish(&session, 0, true, transcript, "unsupported command or input");
+      content(path, "$\\alpha$mk", CWIKI_LINE_ENDING_LF);
+      (void)puts("app: optional modules disable syntax, snippets, clues and picker passed");
+   }
 
    write_note(path, "");
    session = start(path, supported, false);

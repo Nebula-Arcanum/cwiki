@@ -477,6 +477,32 @@ test_runtime_snippets_and_undo_boundaries(void)
 }
 
 static void
+test_disabled_snippets_remain_literal(void)
+{
+   struct fixture fixture;
+   struct cwiki_zone_engine *zones;
+   size_t count = 99U;
+
+   fixture_init(&fixture, "$ $");
+   zones = attach_zones(&fixture);
+   cwiki_editor_input_set_snippets_enabled(fixture.input, false);
+   fixture.editor.motion.cursor.byte = 1U;
+   check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('`', 0U)) == CWIKI_EDITOR_OK &&
+       send(&fixture, key('a', 0U)) == CWIKI_EDITOR_OK &&
+       content_is(&fixture, "$`a $"),
+       "disabled snippets leave automatic triggers literal");
+   check(send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_INVALID &&
+       content_is(&fixture, "$`a $"),
+       "disabled snippets reject explicit expansion without mutation");
+   check(cwiki_editor_input_list_active_snippets(fixture.input, zones, NULL, 0U,
+       &count) == CWIKI_SNIPPET_OK && count == 0U,
+       "disabled snippets enumerate no active definitions");
+   cwiki_zone_engine_free(zones);
+   fixture_free(&fixture);
+}
+
+static void
 test_runtime_snippet_mirrors_and_tabs(void)
 {
    struct fixture fixture;
@@ -639,6 +665,7 @@ main(void)
    test_word_text_objects();
    test_command_line_and_unknown_input();
    test_runtime_snippets_and_undo_boundaries();
+   test_disabled_snippets_remain_literal();
    test_runtime_snippet_mirrors_and_tabs();
    test_runtime_nested_snippets();
    if (failures != 0) {

@@ -84,6 +84,10 @@ struct cwiki_config {
    enum cwiki_save_policy save_policy;
    size_t shiftwidth;
    size_t tabstop;
+   bool module_syntax;
+   bool module_snippets;
+   bool module_clues;
+   bool module_picker;
    bool conceal;
    bool wrap;
    bool break_indent;
@@ -102,6 +106,10 @@ struct cwiki_config {
    bool has_tabstop;
    bool has_expandtab;
    bool has_save_policy;
+   bool has_module_syntax;
+   bool has_module_snippets;
+   bool has_module_clues;
+   bool has_module_picker;
    struct source_mark value_marks[CWIKI_CONFIG_VALUE_COUNT];
 };
 
@@ -443,6 +451,43 @@ parse_marker(struct cwiki_config *config, const yaml_node_t *node,
    free(config->continuation_marker);
    config->continuation_marker = value;
    config->has_continuation_marker = true;
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_modules(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   static const char *const names[] = {
+      "syntax", "snippets", "clues", "picker"
+   };
+   bool *const values[] = {
+      &config->module_syntax, &config->module_snippets,
+      &config->module_clues, &config->module_picker
+   };
+   bool *const present[] = {
+      &config->has_module_syntax, &config->has_module_snippets,
+      &config->has_module_clues, &config->has_module_picker
+   };
+   enum cwiki_config_status status = mapping_check(document, node, names,
+       sizeof(names) / sizeof(names[0]), error);
+
+   if (status != CWIKI_CONFIG_OK) {
+      return status;
+   }
+   for (size_t i = 0U; i < sizeof(names) / sizeof(names[0]); i++) {
+      yaml_node_t *value = mapping_get(document, node, names[i]);
+
+      if (value == NULL) {
+         continue;
+      }
+      status = parse_boolean(value, values[i], error);
+      if (status != CWIKI_CONFIG_OK) {
+         return status;
+      }
+      *present[i] = true;
+      config->value_marks[CWIKI_CONFIG_VALUE_MODULE_SYNTAX + i] = mark(value);
+   }
    return CWIKI_CONFIG_OK;
 }
 
@@ -1866,8 +1911,8 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     size_t length, const struct cwiki_action_registry *actions,
     struct cwiki_config_error *error)
 {
-   static const char *const allowed[] = {"keymaps", "clue-groups", "display",
-       "indentation", "save-policy", "snippets", "zones"};
+   static const char *const allowed[] = {"keymaps", "modules", "clue-groups",
+       "display", "indentation", "save-policy", "snippets", "zones"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -1875,6 +1920,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    struct cwiki_config *created = NULL;
    yaml_node_t *root;
    yaml_node_t *keymaps;
+   yaml_node_t *modules;
    yaml_node_t *groups;
    yaml_node_t *display;
    yaml_node_t *indentation;
@@ -1927,6 +1973,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
       goto done;
    }
    keymaps = mapping_get(&document, root, "keymaps");
+   modules = mapping_get(&document, root, "modules");
    groups = mapping_get(&document, root, "clue-groups");
    display = mapping_get(&document, root, "display");
    indentation = mapping_get(&document, root, "indentation");
@@ -1935,6 +1982,12 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    zones = mapping_get(&document, root, "zones");
    if (keymaps != NULL) {
       status = parse_keymaps(&document, created, keymaps, actions, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (modules != NULL) {
+      status = parse_modules(&document, created, modules, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -2699,6 +2752,10 @@ cwiki_config_settings_defaults(struct cwiki_config_settings *settings)
       return;
    }
    *settings = (struct cwiki_config_settings){
+      .module_syntax = true,
+      .module_snippets = true,
+      .module_clues = true,
+      .module_picker = true,
       .conceal = true,
       .conceal_categories = CWIKI_CONCEAL_DEFAULT_MASK,
       .concealcursor_modes = CWIKI_CONCEALCURSOR_DEFAULT,
@@ -2720,6 +2777,18 @@ cwiki_config_apply_settings(const struct cwiki_config *config,
 {
    if (config == NULL || settings == NULL) {
       return;
+   }
+   if (config->has_module_syntax) {
+      settings->module_syntax = config->module_syntax;
+   }
+   if (config->has_module_snippets) {
+      settings->module_snippets = config->module_snippets;
+   }
+   if (config->has_module_clues) {
+      settings->module_clues = config->module_clues;
+   }
+   if (config->has_module_picker) {
+      settings->module_picker = config->module_picker;
    }
    if (config->has_conceal) {
       settings->conceal = config->conceal;
@@ -2764,6 +2833,10 @@ cwiki_config_value_location(const struct cwiki_config *config,
     enum cwiki_config_value value, struct cwiki_config_location *location)
 {
    static const size_t offsets[CWIKI_CONFIG_VALUE_COUNT] = {
+      offsetof(struct cwiki_config, has_module_syntax),
+      offsetof(struct cwiki_config, has_module_snippets),
+      offsetof(struct cwiki_config, has_module_clues),
+      offsetof(struct cwiki_config, has_module_picker),
       offsetof(struct cwiki_config, has_conceal),
       offsetof(struct cwiki_config, has_conceal_categories),
       offsetof(struct cwiki_config, has_concealcursor_modes),
@@ -2949,6 +3022,8 @@ inspect_settings(int fd, const struct cwiki_config *const *configs,
     const struct cwiki_config_settings *settings)
 {
    static const char *const names[CWIKI_CONFIG_VALUE_COUNT] = {
+      "modules.syntax", "modules.snippets", "modules.clues",
+      "modules.picker",
       "display.conceal", "display.conceal-categories",
       "display.conceal-cursor", "display.wrap", "display.break-indent",
       "display.line-numbers", "display.cursorline",
@@ -2957,7 +3032,8 @@ inspect_settings(int fd, const struct cwiki_config *const *configs,
    };
    enum cwiki_config_value value;
 
-   for (value = CWIKI_CONFIG_VALUE_CONCEAL; value < CWIKI_CONFIG_VALUE_COUNT;
+   for (value = CWIKI_CONFIG_VALUE_MODULE_SYNTAX;
+       value < CWIKI_CONFIG_VALUE_COUNT;
        value++) {
       struct cwiki_config_location location = {0};
       size_t source = SIZE_MAX;
@@ -2970,6 +3046,18 @@ inspect_settings(int fd, const struct cwiki_config *const *configs,
       }
       if (dprintf(fd, "setting %s=", names[value]) < 0) return -1;
       switch (value) {
+      case CWIKI_CONFIG_VALUE_MODULE_SYNTAX:
+         if (dprintf(fd, "%s", settings->module_syntax ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_MODULE_SNIPPETS:
+         if (dprintf(fd, "%s", settings->module_snippets ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_MODULE_CLUES:
+         if (dprintf(fd, "%s", settings->module_clues ? "true" : "false") < 0) return -1;
+         break;
+      case CWIKI_CONFIG_VALUE_MODULE_PICKER:
+         if (dprintf(fd, "%s", settings->module_picker ? "true" : "false") < 0) return -1;
+         break;
       case CWIKI_CONFIG_VALUE_CONCEAL:
          if (dprintf(fd, "%s", settings->conceal ? "true" : "false") < 0) return -1;
          break;
