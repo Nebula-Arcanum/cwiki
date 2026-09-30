@@ -1375,7 +1375,10 @@ parse_zones(yaml_document_t *document, struct cwiki_config *config,
 static bool
 parse_mode(const yaml_node_t *node, enum cwiki_keymap_mode *mode)
 {
-   static const char *const names[] = {"normal", "insert", "replace", "command"};
+   static const char *const names[] = {
+      "normal", "insert", "replace", "command", "operator",
+      "replace-one", "picker"
+   };
    size_t i;
 
    for (i = 0U; i < sizeof(names) / sizeof(names[0]); i++) {
@@ -1645,7 +1648,10 @@ parse_keymaps(yaml_document_t *document, struct cwiki_config *config,
     const yaml_node_t *node, const struct cwiki_action_registry *actions,
     struct cwiki_config_error *error)
 {
-   static const char *const modes[] = {"normal", "insert", "replace", "command"};
+   static const char *const modes[] = {
+      "normal", "insert", "replace", "command", "operator",
+      "replace-one", "picker"
+   };
    yaml_node_pair_t *pair;
    enum cwiki_config_status status = mapping_check(document, node, modes,
        sizeof(modes) / sizeof(modes[0]), error);
@@ -1767,7 +1773,10 @@ static enum cwiki_config_status
 parse_groups(yaml_document_t *document, struct cwiki_config *config,
     const yaml_node_t *node, struct cwiki_config_error *error)
 {
-   static const char *const modes[] = {"normal", "insert", "replace", "command"};
+   static const char *const modes[] = {
+      "normal", "insert", "replace", "command", "operator",
+      "replace-one", "picker"
+   };
    yaml_node_pair_t *pair;
    enum cwiki_config_status status = mapping_check(document, node, modes,
        sizeof(modes) / sizeof(modes[0]), error);

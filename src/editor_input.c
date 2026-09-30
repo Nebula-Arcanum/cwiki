@@ -33,6 +33,26 @@ enum editor_action_id {
    ACTION_REDO,
    ACTION_OLDER,
    ACTION_NEWER,
+   ACTION_ESCAPE,
+   ACTION_NEWLINE,
+   ACTION_BACKSPACE,
+   ACTION_INDENT,
+   ACTION_SNIPPET_NEXT,
+   ACTION_SNIPPET_PREVIOUS,
+   ACTION_COMMAND_EXECUTE,
+   ACTION_LINE_START,
+   ACTION_LINE_BACKWARD,
+   ACTION_LINE_DELETE,
+   ACTION_LINE_END,
+   ACTION_LINE_FORWARD,
+   ACTION_LINE_KILL_END,
+   ACTION_LINE_KILL_WORD,
+   ACTION_TEXT_INNER_WORD,
+   ACTION_TEXT_AROUND_WORD,
+   ACTION_TEXT_INNER_BIG_WORD,
+   ACTION_TEXT_AROUND_BIG_WORD,
+   ACTION_FILE_SAVE,
+   ACTION_QUIT,
    ACTION_MOTION_FIRST,
    ACTION_MOTION_LAST = ACTION_MOTION_FIRST +
        (int)CWIKI_MOTION_SENTENCE_FORWARD,
@@ -63,7 +83,6 @@ struct cwiki_editor_input {
    struct cwiki_editor_input_context context;
    bool stop_selected;
    bool replace_pending;
-   unsigned int text_object_prefix;
 };
 
 #define MOTION_ACTION(motion, name, label) \
@@ -104,6 +123,42 @@ static const struct action_definition action_definitions[] = {
        "Move to the previous chronological undo state"},
    {ACTION_NEWER, "history.newer", "Newer state",
        "Move to the next chronological undo state"},
+   {ACTION_ESCAPE, "mode.escape", "Escape", "Return to Normal mode"},
+   {ACTION_NEWLINE, "edit.newline", "New line",
+       "Insert a line break"},
+   {ACTION_BACKSPACE, "edit.backspace", "Backspace",
+       "Delete the preceding grapheme"},
+   {ACTION_INDENT, "edit.indent", "Indent", "Insert to the next tab stop"},
+   {ACTION_SNIPPET_NEXT, "snippet.next", "Next snippet stop",
+       "Expand an explicit snippet or move to its next stop"},
+   {ACTION_SNIPPET_PREVIOUS, "snippet.previous", "Previous snippet stop",
+       "Move to the previous snippet stop"},
+   {ACTION_COMMAND_EXECUTE, "command.execute", "Execute command",
+       "Dispatch the command-line action"},
+   {ACTION_LINE_START, "command-line.start", "Line start",
+       "Move to the start of the input line"},
+   {ACTION_LINE_BACKWARD, "command-line.backward", "Backward",
+       "Move one grapheme left in the input line"},
+   {ACTION_LINE_DELETE, "command-line.delete", "Delete",
+       "Delete one grapheme at the input cursor"},
+   {ACTION_LINE_END, "command-line.end", "Line end",
+       "Move to the end of the input line"},
+   {ACTION_LINE_FORWARD, "command-line.forward", "Forward",
+       "Move one grapheme right in the input line"},
+   {ACTION_LINE_KILL_END, "command-line.kill-end", "Kill to end",
+       "Delete from the input cursor to the end"},
+   {ACTION_LINE_KILL_WORD, "command-line.kill-word", "Kill previous word",
+       "Delete the previous input word"},
+   {ACTION_TEXT_INNER_WORD, "text-object.inner-word", "Inner word",
+       "Apply the pending operator to the inner word"},
+   {ACTION_TEXT_AROUND_WORD, "text-object.around-word", "Around word",
+       "Apply the pending operator around the word"},
+   {ACTION_TEXT_INNER_BIG_WORD, "text-object.inner-big-word", "Inner WORD",
+       "Apply the pending operator to the inner WORD"},
+   {ACTION_TEXT_AROUND_BIG_WORD, "text-object.around-big-word", "Around WORD",
+       "Apply the pending operator around the WORD"},
+   {ACTION_FILE_SAVE, "file.save", "Save", "Durably save the current note"},
+   {ACTION_QUIT, "app.quit", "Quit", "Quit when the note is clean"},
    MOTION_ACTION(CWIKI_MOTION_LEFT, "motion.left", "Left"),
    MOTION_ACTION(CWIKI_MOTION_RIGHT, "motion.right", "Right"),
    MOTION_ACTION(CWIKI_MOTION_WORD_FORWARD, "motion.word-forward", "Word forward"),
@@ -136,6 +191,7 @@ static const struct action_definition action_definitions[] = {
 #undef MOTION_ACTION
 
 struct binding_definition {
+   enum cwiki_keymap_mode mode;
    uint32_t first;
    unsigned int first_modifiers;
    uint32_t second;
@@ -144,67 +200,181 @@ struct binding_definition {
    const char *action;
 };
 
-#define BIND1(key, modifiers, action) {key, modifiers, 0U, 0U, 1U, action}
-#define BIND2(first, second, action) {first, 0U, second, 0U, 2U, action}
+#define BIND1(mode, key, modifiers, action) \
+   {mode, key, modifiers, 0U, 0U, 1U, action}
+#define BIND2(mode, first, second, action) \
+   {mode, first, 0U, second, 0U, 2U, action}
+#define NORMAL1(key, modifiers, action) \
+   BIND1(CWIKI_KEYMAP_NORMAL, key, modifiers, action)
+#define NORMAL2(first, second, action) \
+   BIND2(CWIKI_KEYMAP_NORMAL, first, second, action)
 
 static const struct binding_definition default_bindings[] = {
-   BIND1('i', 0U, "mode.insert-before"),
-   BIND1('a', 0U, "mode.insert-after"),
-   BIND1('i', CWIKI_INPUT_SHIFT, "mode.insert-first-nonblank"),
-   BIND1('a', CWIKI_INPUT_SHIFT, "mode.append-end"),
-   BIND1('o', 0U, "mode.open-below"),
-   BIND1('o', CWIKI_INPUT_SHIFT, "mode.open-above"),
-   BIND1('x', 0U, "edit.delete-grapheme"),
-   BIND1('r', 0U, "edit.replace-grapheme"),
-   BIND1('r', CWIKI_INPUT_SHIFT, "mode.replace"),
-   BIND1(';', CWIKI_INPUT_SHIFT, "mode.command"),
-   BIND1('d', 0U, "operator.delete"),
-   BIND1('c', 0U, "operator.change"),
-   BIND1('y', 0U, "operator.yank"),
-   BIND1('p', 0U, "edit.put-after"),
-   BIND1('p', CWIKI_INPUT_SHIFT, "edit.put-before"),
-   BIND1('u', 0U, "history.undo"),
-   BIND1('r', CWIKI_INPUT_CTRL, "history.redo"),
-   BIND2('g', '-', "history.older"),
-   {'g', 0U, '=', CWIKI_INPUT_SHIFT, 2U, "history.newer"},
-   BIND1('h', 0U, "motion.left"),
-   BIND1('l', 0U, "motion.right"),
-   BIND1('w', 0U, "motion.word-forward"),
-   BIND1('w', CWIKI_INPUT_SHIFT, "motion.big-word-forward"),
-   BIND1('b', 0U, "motion.word-backward"),
-   BIND1('b', CWIKI_INPUT_SHIFT, "motion.big-word-backward"),
-   BIND1('e', 0U, "motion.word-end"),
-   BIND1('e', CWIKI_INPUT_SHIFT, "motion.big-word-end"),
-   BIND1('j', 0U, "motion.display-down"),
-   BIND1('k', 0U, "motion.display-up"),
-   BIND2('g', 'j', "motion.source-down"),
-   BIND2('g', 'k', "motion.source-up"),
-   BIND2('g', 'g', "motion.document-first"),
-   BIND1('g', CWIKI_INPUT_SHIFT, "motion.document-last"),
-   BIND1('h', CWIKI_INPUT_SHIFT, "motion.viewport-high"),
-   BIND1('m', CWIKI_INPUT_SHIFT, "motion.viewport-middle"),
-   BIND1('l', CWIKI_INPUT_SHIFT, "motion.viewport-low"),
-   BIND1('0', 0U, "motion.line-start"),
-   BIND1('6', CWIKI_INPUT_SHIFT, "motion.first-nonblank"),
-   BIND1('4', CWIKI_INPUT_SHIFT, "motion.line-end"),
-   BIND1('-', 0U, "motion.previous-line"),
-   BIND1('=', CWIKI_INPUT_SHIFT, "motion.next-line"),
-   BIND1('-', CWIKI_INPUT_SHIFT, "motion.line-first-nonblank"),
-   BIND1('[', CWIKI_INPUT_SHIFT, "motion.paragraph-backward"),
-   BIND1(']', CWIKI_INPUT_SHIFT, "motion.paragraph-forward"),
-   BIND1('9', CWIKI_INPUT_SHIFT, "motion.sentence-backward"),
-   BIND1('0', CWIKI_INPUT_SHIFT, "motion.sentence-forward")
+   NORMAL1('i', 0U, "mode.insert-before"),
+   NORMAL1('a', 0U, "mode.insert-after"),
+   NORMAL1('i', CWIKI_INPUT_SHIFT, "mode.insert-first-nonblank"),
+   NORMAL1('a', CWIKI_INPUT_SHIFT, "mode.append-end"),
+   NORMAL1('o', 0U, "mode.open-below"),
+   NORMAL1('o', CWIKI_INPUT_SHIFT, "mode.open-above"),
+   NORMAL1('x', 0U, "edit.delete-grapheme"),
+   NORMAL1('r', 0U, "edit.replace-grapheme"),
+   NORMAL1('r', CWIKI_INPUT_SHIFT, "mode.replace"),
+   NORMAL1(';', CWIKI_INPUT_SHIFT, "mode.command"),
+   NORMAL1('d', 0U, "operator.delete"),
+   NORMAL1('c', 0U, "operator.change"),
+   NORMAL1('y', 0U, "operator.yank"),
+   NORMAL1('p', 0U, "edit.put-after"),
+   NORMAL1('p', CWIKI_INPUT_SHIFT, "edit.put-before"),
+   NORMAL1('u', 0U, "history.undo"),
+   NORMAL1('r', CWIKI_INPUT_CTRL, "history.redo"),
+   NORMAL2('g', '-', "history.older"),
+   {CWIKI_KEYMAP_NORMAL, 'g', 0U, '=', CWIKI_INPUT_SHIFT, 2U,
+       "history.newer"},
+   NORMAL1('h', 0U, "motion.left"),
+   NORMAL1('l', 0U, "motion.right"),
+   NORMAL1('w', 0U, "motion.word-forward"),
+   NORMAL1('w', CWIKI_INPUT_SHIFT, "motion.big-word-forward"),
+   NORMAL1('b', 0U, "motion.word-backward"),
+   NORMAL1('b', CWIKI_INPUT_SHIFT, "motion.big-word-backward"),
+   NORMAL1('e', 0U, "motion.word-end"),
+   NORMAL1('e', CWIKI_INPUT_SHIFT, "motion.big-word-end"),
+   NORMAL1('j', 0U, "motion.display-down"),
+   NORMAL1('k', 0U, "motion.display-up"),
+   NORMAL2('g', 'j', "motion.source-down"),
+   NORMAL2('g', 'k', "motion.source-up"),
+   NORMAL2('g', 'g', "motion.document-first"),
+   NORMAL1('g', CWIKI_INPUT_SHIFT, "motion.document-last"),
+   NORMAL1('h', CWIKI_INPUT_SHIFT, "motion.viewport-high"),
+   NORMAL1('m', CWIKI_INPUT_SHIFT, "motion.viewport-middle"),
+   NORMAL1('l', CWIKI_INPUT_SHIFT, "motion.viewport-low"),
+   NORMAL1('0', 0U, "motion.line-start"),
+   NORMAL1('6', CWIKI_INPUT_SHIFT, "motion.first-nonblank"),
+   NORMAL1('4', CWIKI_INPUT_SHIFT, "motion.line-end"),
+   NORMAL1('-', 0U, "motion.previous-line"),
+   NORMAL1('=', CWIKI_INPUT_SHIFT, "motion.next-line"),
+   NORMAL1('-', CWIKI_INPUT_SHIFT, "motion.line-first-nonblank"),
+   NORMAL1('[', CWIKI_INPUT_SHIFT, "motion.paragraph-backward"),
+   NORMAL1(']', CWIKI_INPUT_SHIFT, "motion.paragraph-forward"),
+   NORMAL1('9', CWIKI_INPUT_SHIFT, "motion.sentence-backward"),
+   NORMAL1('0', CWIKI_INPUT_SHIFT, "motion.sentence-forward"),
+   NORMAL1(27U, 0U, "mode.escape"),
+   BIND1(CWIKI_KEYMAP_OPERATOR, 27U, 0U, "mode.escape"),
+   BIND2(CWIKI_KEYMAP_OPERATOR, 'i', 'w', "text-object.inner-word"),
+   {CWIKI_KEYMAP_OPERATOR, 'i', 0U, 'w', CWIKI_INPUT_SHIFT, 2U,
+       "text-object.inner-big-word"},
+   BIND2(CWIKI_KEYMAP_OPERATOR, 'a', 'w', "text-object.around-word"),
+   {CWIKI_KEYMAP_OPERATOR, 'a', 0U, 'w', CWIKI_INPUT_SHIFT, 2U,
+       "text-object.around-big-word"},
+   BIND1(CWIKI_KEYMAP_REPLACE_ONE, 27U, 0U, "mode.escape"),
+   BIND1(CWIKI_KEYMAP_INSERT, 27U, 0U, "mode.escape"),
+   BIND1(CWIKI_KEYMAP_INSERT, 'l', CWIKI_INPUT_CTRL, "snippet.next"),
+   BIND1(CWIKI_KEYMAP_INSERT, 'h', CWIKI_INPUT_CTRL, "snippet.previous"),
+   BIND1(CWIKI_KEYMAP_INSERT, 9U, 0U, "edit.indent"),
+   BIND1(CWIKI_KEYMAP_INSERT, 13U, 0U, "edit.newline"),
+   BIND1(CWIKI_KEYMAP_INSERT, 10U, 0U, "edit.newline"),
+   BIND1(CWIKI_KEYMAP_INSERT, 127U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_INSERT, 8U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 27U, 0U, "mode.escape"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 9U, 0U, "edit.indent"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 13U, 0U, "edit.newline"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 10U, 0U, "edit.newline"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 127U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_REPLACE, 8U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 27U, 0U, "mode.escape"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 13U, 0U, "command.execute"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 10U, 0U, "command.execute"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 127U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 8U, 0U, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'a', CWIKI_INPUT_CTRL, "command-line.start"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'b', CWIKI_INPUT_CTRL, "command-line.backward"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'd', CWIKI_INPUT_CTRL, "command-line.delete"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'e', CWIKI_INPUT_CTRL, "command-line.end"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'f', CWIKI_INPUT_CTRL, "command-line.forward"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'h', CWIKI_INPUT_CTRL, "edit.backspace"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'k', CWIKI_INPUT_CTRL, "command-line.kill-end"),
+   BIND1(CWIKI_KEYMAP_COMMAND, 'w', CWIKI_INPUT_CTRL, "command-line.kill-word")
 };
 
 #undef BIND1
 #undef BIND2
+#undef NORMAL1
+#undef NORMAL2
+
+static enum cwiki_editor_status snippet_insert(
+    struct cwiki_editor_input *input, const char *bytes, size_t length,
+    bool auto_expand);
+static enum cwiki_editor_status snippet_backspace(
+    struct cwiki_editor_input *input);
+static enum cwiki_editor_status handle_tab(struct cwiki_editor_input *input,
+    bool previous);
+static enum cwiki_editor_status insert_indent(
+    struct cwiki_editor_input *input);
 
 static bool
 action_available(void *context)
 {
    const struct action_context *action = context;
+   enum cwiki_editor_mode mode = action->input->editor->mode;
 
-   return action->input->editor->mode == CWIKI_EDITOR_NORMAL;
+   switch (action->id) {
+   case ACTION_ESCAPE:
+      return true;
+   case ACTION_BACKSPACE:
+      return mode != CWIKI_EDITOR_NORMAL;
+   case ACTION_NEWLINE:
+      return mode == CWIKI_EDITOR_INSERT || mode == CWIKI_EDITOR_REPLACE;
+   case ACTION_INDENT:
+      return mode == CWIKI_EDITOR_INSERT || mode == CWIKI_EDITOR_REPLACE;
+   case ACTION_SNIPPET_NEXT:
+   case ACTION_SNIPPET_PREVIOUS:
+      return mode == CWIKI_EDITOR_INSERT;
+   case ACTION_COMMAND_EXECUTE:
+   case ACTION_LINE_START:
+   case ACTION_LINE_BACKWARD:
+   case ACTION_LINE_DELETE:
+   case ACTION_LINE_END:
+   case ACTION_LINE_FORWARD:
+   case ACTION_LINE_KILL_END:
+   case ACTION_LINE_KILL_WORD:
+      return mode == CWIKI_EDITOR_COMMAND;
+   case ACTION_TEXT_INNER_WORD:
+   case ACTION_TEXT_AROUND_WORD:
+   case ACTION_TEXT_INNER_BIG_WORD:
+   case ACTION_TEXT_AROUND_BIG_WORD:
+      return mode == CWIKI_EDITOR_NORMAL &&
+          action->input->editor->pending_operator != CWIKI_EDITOR_NO_OPERATOR;
+   case ACTION_FILE_SAVE:
+   case ACTION_QUIT:
+      return mode == CWIKI_EDITOR_NORMAL || mode == CWIKI_EDITOR_COMMAND;
+   default:
+      return mode == CWIKI_EDITOR_NORMAL;
+   }
+}
+
+static bool
+command_is(const struct cwiki_editor *editor, const char *command)
+{
+   size_t length = strlen(command);
+
+   return editor->command_length == length &&
+       memcmp(editor->command, command, length) == 0;
+}
+
+static enum cwiki_editor_status
+dispatch_named(struct cwiki_editor_input *input, const char *name)
+{
+   int result = (int)CWIKI_EDITOR_INVALID;
+   enum cwiki_action_status status = cwiki_action_dispatch(input->actions,
+       name, NULL, &result);
+
+   if (status == CWIKI_ACTION_NO_MEMORY) {
+      return CWIKI_EDITOR_NO_MEMORY;
+   }
+   if (status != CWIKI_ACTION_OK || result < (int)CWIKI_EDITOR_OK ||
+       result > (int)CWIKI_EDITOR_SAVE_FAILED) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   return (enum cwiki_editor_status)result;
 }
 
 static int
@@ -270,7 +440,6 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
    case ACTION_DELETE:
    case ACTION_CHANGE:
    case ACTION_YANK:
-      input->text_object_prefix = 0U;
       status = cwiki_editor_start_operator(editor,
           action->id == ACTION_DELETE ? CWIKI_EDITOR_DELETE :
           action->id == ACTION_CHANGE ? CWIKI_EDITOR_CHANGE :
@@ -292,6 +461,86 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
       break;
    case ACTION_NEWER:
       status = cwiki_editor_newer(editor);
+      break;
+   case ACTION_ESCAPE:
+      input->pending_count = 0U;
+      input->replace_pending = false;
+      status = cwiki_editor_escape(editor);
+      break;
+   case ACTION_NEWLINE:
+      status = editor->mode == CWIKI_EDITOR_INSERT ?
+          snippet_insert(input, "\n", 1U, true) : cwiki_editor_enter(editor);
+      break;
+   case ACTION_BACKSPACE:
+      status = editor->mode == CWIKI_EDITOR_COMMAND ?
+          cwiki_editor_command_backspace(editor) : snippet_backspace(input);
+      break;
+   case ACTION_INDENT:
+      status = insert_indent(input);
+      break;
+   case ACTION_SNIPPET_NEXT:
+   case ACTION_SNIPPET_PREVIOUS:
+      status = handle_tab(input, action->id == ACTION_SNIPPET_PREVIOUS);
+      break;
+   case ACTION_COMMAND_EXECUTE:
+      if (!command_is(editor, "w") && !command_is(editor, "q") &&
+          !command_is(editor, "wq")) {
+         status = CWIKI_EDITOR_INVALID;
+         break;
+      }
+      status = CWIKI_EDITOR_OK;
+      if (command_is(editor, "w") || command_is(editor, "wq")) {
+         status = dispatch_named(input, "file.save");
+      }
+      if (status == CWIKI_EDITOR_OK &&
+          (command_is(editor, "q") || command_is(editor, "wq"))) {
+         status = dispatch_named(input, "app.quit");
+      }
+      if (status == CWIKI_EDITOR_OK) {
+         status = cwiki_editor_escape(editor);
+      }
+      break;
+   case ACTION_LINE_START:
+      status = cwiki_editor_command_control(editor, 1U);
+      break;
+   case ACTION_LINE_BACKWARD:
+      status = cwiki_editor_command_control(editor, 2U);
+      break;
+   case ACTION_LINE_DELETE:
+      status = cwiki_editor_command_control(editor, 4U);
+      break;
+   case ACTION_LINE_END:
+      status = cwiki_editor_command_control(editor, 5U);
+      break;
+   case ACTION_LINE_FORWARD:
+      status = cwiki_editor_command_control(editor, 6U);
+      break;
+   case ACTION_LINE_KILL_END:
+      status = cwiki_editor_command_control(editor, 11U);
+      break;
+   case ACTION_LINE_KILL_WORD:
+      status = cwiki_editor_command_control(editor, 23U);
+      break;
+   case ACTION_TEXT_INNER_WORD:
+   case ACTION_TEXT_AROUND_WORD:
+   case ACTION_TEXT_INNER_BIG_WORD:
+   case ACTION_TEXT_AROUND_BIG_WORD:
+      status = cwiki_editor_apply_word_object(editor,
+          action->id == ACTION_TEXT_INNER_BIG_WORD ||
+          action->id == ACTION_TEXT_AROUND_BIG_WORD,
+          action->id == ACTION_TEXT_AROUND_WORD ||
+          action->id == ACTION_TEXT_AROUND_BIG_WORD);
+      break;
+   case ACTION_FILE_SAVE:
+      status = cwiki_editor_save(editor);
+      break;
+   case ACTION_QUIT:
+      if (editor->document->dirty) {
+         status = CWIKI_EDITOR_DIRTY;
+      } else {
+         editor->quit_requested = true;
+         status = CWIKI_EDITOR_OK;
+      }
       break;
    default:
       status = CWIKI_EDITOR_INVALID;
@@ -358,7 +607,7 @@ bind_defaults(struct cwiki_editor_input *input)
          sequence.keys[1].modifiers = binding->second_modifiers;
       }
       sequence.length = binding->length;
-      if (cwiki_keymap_bind(input->keymap, CWIKI_KEYMAP_NORMAL, &sequence,
+      if (cwiki_keymap_bind(input->keymap, binding->mode, &sequence,
           binding->action) != CWIKI_KEYMAP_OK) {
          return CWIKI_EDITOR_NO_MEMORY;
       }
@@ -470,103 +719,127 @@ static enum cwiki_editor_status
 dispatch_match(struct cwiki_editor_input *input,
     const struct cwiki_keymap_match *match)
 {
-   int result = (int)CWIKI_EDITOR_INVALID;
-   enum cwiki_action_status status;
+   return dispatch_named(input, match->action.name);
+}
 
-   status = cwiki_action_dispatch(input->actions, match->action.name, NULL,
-       &result);
-   if (status == CWIKI_ACTION_NO_MEMORY) {
-      return CWIKI_EDITOR_NO_MEMORY;
+static enum cwiki_editor_status
+handle_keymap(struct cwiki_editor_input *input, enum cwiki_keymap_mode mode,
+    bool normal_fallback, const struct cwiki_input_event *event, bool *handled)
+{
+   struct cwiki_keymap_match match;
+   bool had_prefix;
+
+   *handled = false;
+   if (event->kind != CWIKI_INPUT_KEY ||
+       event->action == CWIKI_INPUT_RELEASE) {
+      return CWIKI_EDITOR_NOTHING;
    }
-   if (status != CWIKI_ACTION_OK || result < (int)CWIKI_EDITOR_OK ||
-       result > (int)CWIKI_EDITOR_SAVE_FAILED) {
+   if (input->pending_count == CWIKI_KEYMAP_MAX_SEQUENCE) {
+      input->pending_count = 0U;
+      *handled = true;
       return CWIKI_EDITOR_INVALID;
    }
-   return (enum cwiki_editor_status)result;
+   had_prefix = input->pending_count != 0U;
+   input->pending[input->pending_count] = *event;
+   input->pending[input->pending_count].text = NULL;
+   input->pending[input->pending_count].text_len = 0U;
+   input->pending_count++;
+   if (cwiki_keymap_match(input->keymap, mode, input->pending,
+       input->pending_count, &match) != CWIKI_KEYMAP_OK) {
+      input->pending_count = 0U;
+      *handled = true;
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (match.kind == CWIKI_KEYMAP_NO_MATCH && normal_fallback &&
+       cwiki_keymap_match(input->keymap, CWIKI_KEYMAP_NORMAL, input->pending,
+       input->pending_count, &match) != CWIKI_KEYMAP_OK) {
+      input->pending_count = 0U;
+      *handled = true;
+      return CWIKI_EDITOR_INVALID;
+   }
+   if (match.kind == CWIKI_KEYMAP_PREFIX) {
+      *handled = true;
+      return CWIKI_EDITOR_OK;
+   }
+   if (match.kind == CWIKI_KEYMAP_NO_MATCH) {
+      if (had_prefix) {
+         input->pending[0] = *event;
+         input->pending[0].text = NULL;
+         input->pending[0].text_len = 0U;
+         input->pending_count = 1U;
+         if (cwiki_keymap_match(input->keymap, mode, input->pending, 1U,
+             &match) != CWIKI_KEYMAP_OK) {
+            input->pending_count = 0U;
+            *handled = true;
+            return CWIKI_EDITOR_INVALID;
+         }
+         if (match.kind == CWIKI_KEYMAP_PREFIX) {
+            *handled = true;
+            return CWIKI_EDITOR_OK;
+         }
+         if (match.kind == CWIKI_KEYMAP_COMPLETE) {
+            input->pending_count = 0U;
+            *handled = true;
+            return dispatch_match(input, &match);
+         }
+      }
+      input->pending_count = 0U;
+      *handled = had_prefix;
+      return had_prefix ? CWIKI_EDITOR_INVALID : CWIKI_EDITOR_NOTHING;
+   }
+   input->pending_count = 0U;
+   *handled = true;
+   return dispatch_match(input, &match);
+}
+
+static enum cwiki_editor_status
+replace_one(struct cwiki_editor_input *input,
+    const struct cwiki_input_event *event)
+{
+   unsigned char encoded[4];
+   utf8proc_ssize_t length;
+
+   if (event->text_len != 0U) {
+      input->replace_pending = false;
+      return cwiki_editor_replace_grapheme(input->editor,
+          (const char *)event->text, event->text_len, input->context.timestamp);
+   }
+   if (event->key >= UINT32_C(57344) && event->key <= UINT32_C(63743)) {
+      return CWIKI_EDITOR_NOTHING;
+   }
+   input->replace_pending = false;
+   if ((event->modifiers & ~(unsigned int)CWIKI_INPUT_SHIFT) != 0U ||
+       event->key < UINT32_C(0x20) || event->key > UINT32_C(0x10ffff) ||
+       (event->key >= UINT32_C(0xd800) && event->key <= UINT32_C(0xdfff))) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   length = utf8proc_encode_char((utf8proc_int32_t)event->key, encoded);
+   return length <= 0 ? CWIKI_EDITOR_INVALID :
+       cwiki_editor_replace_grapheme(input->editor, (const char *)encoded,
+       (size_t)length, input->context.timestamp);
 }
 
 static enum cwiki_editor_status
 handle_normal(struct cwiki_editor_input *input,
     const struct cwiki_input_event *event)
 {
-   struct cwiki_keymap_match match;
-   uint32_t key;
+   enum cwiki_editor_status status;
+   enum cwiki_keymap_mode mode;
+   bool handled;
 
-   if (event->kind != CWIKI_INPUT_KEY ||
-       event->action == CWIKI_INPUT_RELEASE) {
-      return CWIKI_EDITOR_NOTHING;
-   }
-   if (event->key == 27U && event->modifiers == 0U) {
-      input->pending_count = 0U;
-      input->replace_pending = false;
-      input->text_object_prefix = 0U;
-      return cwiki_editor_escape(input->editor);
-   }
-   if (input->replace_pending) {
-      unsigned char encoded[4];
-      utf8proc_ssize_t length;
-
-      if (event->text_len != 0U) {
-         input->replace_pending = false;
-         return cwiki_editor_replace_grapheme(input->editor,
-             (const char *)event->text, event->text_len,
-             input->context.timestamp);
+   mode = input->replace_pending ? CWIKI_KEYMAP_REPLACE_ONE :
+       (input->editor->pending_operator == CWIKI_EDITOR_NO_OPERATOR ?
+       CWIKI_KEYMAP_NORMAL : CWIKI_KEYMAP_OPERATOR);
+   status = handle_keymap(input, mode, mode == CWIKI_KEYMAP_OPERATOR, event,
+       &handled);
+   if (handled) {
+      if (status == CWIKI_EDITOR_INVALID && mode == CWIKI_KEYMAP_OPERATOR) {
+         (void)cwiki_editor_escape(input->editor);
       }
-      if (event->key >= UINT32_C(57344) &&
-          event->key <= UINT32_C(63743)) {
-         return CWIKI_EDITOR_NOTHING;
-      }
-      input->replace_pending = false;
-      if ((event->modifiers & ~(unsigned int)CWIKI_INPUT_SHIFT) != 0U ||
-          event->key < UINT32_C(0x20) || event->key > UINT32_C(0x10ffff) ||
-          (event->key >= UINT32_C(0xd800) &&
-          event->key <= UINT32_C(0xdfff))) {
-         return CWIKI_EDITOR_INVALID;
-      }
-      length = utf8proc_encode_char((utf8proc_int32_t)event->key, encoded);
-      return length <= 0 ? CWIKI_EDITOR_INVALID :
-          cwiki_editor_replace_grapheme(input->editor,
-          (const char *)encoded, (size_t)length, input->context.timestamp);
+      return status;
    }
-   key = event->has_base_layout_key ? event->base_layout_key : event->key;
-   if (input->text_object_prefix != 0U) {
-      unsigned int prefix = input->text_object_prefix;
-
-      input->text_object_prefix = 0U;
-      if (key == 'w' && (event->modifiers == 0U ||
-          event->modifiers == CWIKI_INPUT_SHIFT)) {
-         return cwiki_editor_apply_word_object(input->editor,
-             event->modifiers == CWIKI_INPUT_SHIFT, prefix == 2U);
-      }
-      (void)cwiki_editor_escape(input->editor);
-      return CWIKI_EDITOR_INVALID;
-   }
-   if (input->editor->pending_operator != CWIKI_EDITOR_NO_OPERATOR &&
-       event->modifiers == 0U && (key == 'i' || key == 'a')) {
-      input->text_object_prefix = key == 'i' ? 1U : 2U;
-      return CWIKI_EDITOR_OK;
-   }
-   if (input->pending_count == CWIKI_KEYMAP_MAX_SEQUENCE) {
-      input->pending_count = 0U;
-      return CWIKI_EDITOR_INVALID;
-   }
-   input->pending[input->pending_count] = *event;
-   input->pending[input->pending_count].text = NULL;
-   input->pending[input->pending_count].text_len = 0U;
-   input->pending_count++;
-   if (cwiki_keymap_match(input->keymap, CWIKI_KEYMAP_NORMAL, input->pending,
-       input->pending_count, &match) != CWIKI_KEYMAP_OK) {
-      input->pending_count = 0U;
-      return CWIKI_EDITOR_INVALID;
-   }
-   if (match.kind == CWIKI_KEYMAP_PREFIX) {
-      return CWIKI_EDITOR_OK;
-   }
-   input->pending_count = 0U;
-   if (match.kind == CWIKI_KEYMAP_NO_MATCH) {
-      return CWIKI_EDITOR_NOTHING;
-   }
-   return dispatch_match(input, &match);
+   return input->replace_pending ? replace_one(input, event) :
+       CWIKI_EDITOR_NOTHING;
 }
 
 static enum cwiki_editor_status
@@ -739,12 +1012,50 @@ handle_tab(struct cwiki_editor_input *input, bool previous)
 }
 
 static enum cwiki_editor_status
+insert_indent(struct cwiki_editor_input *input)
+{
+   static const char spaces[] = "                ";
+   const struct cwiki_line *line =
+       &input->editor->document->buffer.lines[input->editor->motion.cursor.line];
+   size_t width = input->context.tabstop == 0U ? 3U : input->context.tabstop;
+   size_t byte = 0U;
+   size_t column = 0U;
+   size_t count;
+
+   if (!input->context.expandtab) {
+      return snippet_insert(input, "\t", 1U, true);
+   }
+   if (width > sizeof(spaces) - 1U) {
+      return CWIKI_EDITOR_INVALID;
+   }
+   while (byte < input->editor->motion.cursor.byte) {
+      size_t next = cwiki_grapheme_next(line->bytes, line->length, byte);
+
+      if (next == byte + 1U && line->bytes[byte] == '\t') {
+         column += width - column % width;
+      } else {
+         int cells = cwiki_grapheme_width(line->bytes + byte, next - byte);
+
+         if (cells > 0) {
+            column += (size_t)cells;
+         }
+      }
+      byte = next;
+   }
+   count = width - column % width;
+   return snippet_insert(input, spaces, count, true);
+}
+
+static enum cwiki_editor_status
 handle_editing(struct cwiki_editor_input *input,
     const struct cwiki_input_event *event)
 {
    struct cwiki_editor *editor = input->editor;
-   uint32_t key = event->has_base_layout_key ? event->base_layout_key :
-       event->key;
+   enum cwiki_keymap_mode mode = editor->mode == CWIKI_EDITOR_INSERT ?
+       CWIKI_KEYMAP_INSERT : (editor->mode == CWIKI_EDITOR_REPLACE ?
+       CWIKI_KEYMAP_REPLACE : CWIKI_KEYMAP_COMMAND);
+   enum cwiki_editor_status status;
+   bool handled;
 
    if (event->kind == CWIKI_INPUT_PASTE) {
       return editor->mode == CWIKI_EDITOR_COMMAND ?
@@ -756,48 +1067,9 @@ handle_editing(struct cwiki_editor_input *input,
    if (event->action == CWIKI_INPUT_RELEASE) {
       return CWIKI_EDITOR_NOTHING;
    }
-   if (event->key == 27U && event->modifiers == 0U) {
-      return cwiki_editor_escape(editor);
-   }
-   if (editor->mode == CWIKI_EDITOR_COMMAND &&
-       event->modifiers == CWIKI_INPUT_CTRL &&
-       (key == 'a' || key == 'b' || key == 'd' || key == 'e' || key == 'f' ||
-       key == 'h' || key == 'k' || key == 'w')) {
-      return cwiki_editor_command_control(editor, key & UINT32_C(0x1f));
-   }
-   if (editor->mode == CWIKI_EDITOR_INSERT &&
-       event->modifiers == CWIKI_INPUT_CTRL &&
-       (key == 'l' || key == 'h')) {
-      return handle_tab(input, key == 'h');
-   }
-   if ((editor->mode == CWIKI_EDITOR_INSERT ||
-       editor->mode == CWIKI_EDITOR_REPLACE) && event->key == 9U &&
-       event->modifiers == 0U) {
-      static const char spaces[] = "                ";
-      size_t width = input->context.tabstop == 0U ? 3U :
-          input->context.tabstop;
-
-      if (!input->context.expandtab) {
-         return snippet_insert(input, "\t", 1U, true);
-      }
-      if (width > sizeof(spaces) - 1U) {
-         return CWIKI_EDITOR_INVALID;
-      }
-      return snippet_insert(input, spaces, width, true);
-   }
-   if ((event->key == 13U || event->key == 10U) &&
-       event->modifiers == 0U) {
-      return editor->mode == CWIKI_EDITOR_COMMAND ?
-          cwiki_editor_execute_command(editor) :
-          (editor->mode == CWIKI_EDITOR_INSERT ?
-          snippet_insert(input, "\n", 1U, true) :
-          cwiki_editor_enter(editor));
-   }
-   if ((event->key == 127U || event->key == 8U) &&
-       event->modifiers == 0U) {
-      return editor->mode == CWIKI_EDITOR_COMMAND ?
-          cwiki_editor_command_backspace(editor) :
-          snippet_backspace(input);
+   status = handle_keymap(input, mode, false, event, &handled);
+   if (handled) {
+      return status;
    }
    return insert_key_text(input, event);
 }
@@ -814,7 +1086,6 @@ cwiki_editor_input_handle(struct cwiki_editor_input *input,
    if (input->editor->mode == CWIKI_EDITOR_NORMAL) {
       return handle_normal(input, event);
    }
-   input->pending_count = 0U;
    return handle_editing(input, event);
 }
 

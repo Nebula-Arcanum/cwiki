@@ -105,6 +105,12 @@ valid_transaction(void)
        "  insert:\n"
        "    - keys: [U+03B1]\n"
        "      action: test.one\n"
+       "  operator:\n"
+       "    - keys: [i, w]\n"
+       "      action: test.two\n"
+       "  picker:\n"
+       "    - keys: [C-n]\n"
+       "      action: test.one\n"
        "clue-groups:\n"
        "  normal:\n"
        "    - prefix: [g]\n"
@@ -119,6 +125,8 @@ valid_transaction(void)
    struct cwiki_input_event gg[] = {event('g', 0U), event('g', 0U)};
    struct cwiki_input_event ctrl_r = event('r', CWIKI_INPUT_CTRL);
    struct cwiki_input_event alpha = event(0x03b1U, 0U);
+   struct cwiki_input_event inner_word[] = {event('i', 0U), event('w', 0U)};
+   struct cwiki_input_event ctrl_n = event('n', CWIKI_INPUT_CTRL);
    struct cwiki_input_event physical_g = event('x', 0U);
    struct cwiki_keymap_match match;
 
@@ -139,6 +147,9 @@ valid_transaction(void)
    assert(matches(candidate, CWIKI_KEYMAP_NORMAL, gg, 2U, "test.one"));
    assert(matches(candidate, CWIKI_KEYMAP_NORMAL, &ctrl_r, 1U, "test.two"));
    assert(matches(candidate, CWIKI_KEYMAP_INSERT, &alpha, 1U, "test.one"));
+   assert(matches(candidate, CWIKI_KEYMAP_OPERATOR, inner_word, 2U,
+       "test.two"));
+   assert(matches(candidate, CWIKI_KEYMAP_PICKER, &ctrl_n, 1U, "test.one"));
    assert(matches(base, CWIKI_KEYMAP_NORMAL, &x, 1U, "test.one"));
    assert(matches(base, CWIKI_KEYMAP_NORMAL, &y, 1U, "test.two"));
    physical_g.has_base_layout_key = true;

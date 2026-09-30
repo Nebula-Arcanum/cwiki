@@ -133,6 +133,13 @@ test_named_actions_physical_keys_and_literal_text(void)
        "operator.delete", &info) == CWIKI_ACTION_OK &&
        strcmp(info.label, "Delete") == 0,
        "controller exposes builtin operations through the named registry");
+   check(cwiki_action_lookup(cwiki_editor_input_actions(fixture.input),
+       "mode.escape", &info) == CWIKI_ACTION_OK &&
+       cwiki_action_lookup(cwiki_editor_input_actions(fixture.input),
+       "snippet.next", &info) == CWIKI_ACTION_OK &&
+       cwiki_action_lookup(cwiki_editor_input_actions(fixture.input),
+       "command-line.kill-word", &info) == CWIKI_ACTION_OK,
+       "editing, snippet and command-line controls are named actions");
 
    event = key('x', 0U);
    event.has_base_layout_key = true;
@@ -159,6 +166,22 @@ test_named_actions_physical_keys_and_literal_text(void)
        fixture.editor.mode == CWIKI_EDITOR_NORMAL &&
        content_is(&fixture, "界\nPab"),
        "Escape commits the parser-driven insert session");
+   {
+      struct cwiki_key_sequence control_l = {{{'l', CWIKI_INPUT_CTRL}}, 1U};
+
+      check(send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+          cwiki_keymap_unbind(cwiki_editor_input_keymap(fixture.input),
+          CWIKI_KEYMAP_INSERT, &control_l) == CWIKI_KEYMAP_OK &&
+          send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_NOTHING &&
+          fixture.editor.mode == CWIKI_EDITOR_INSERT,
+          "an Insert-mode command can be removed through the keymap");
+      check(cwiki_keymap_bind(cwiki_editor_input_keymap(fixture.input),
+          CWIKI_KEYMAP_INSERT, &control_l, "mode.escape") ==
+          CWIKI_KEYMAP_OK &&
+          send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
+          fixture.editor.mode == CWIKI_EDITOR_NORMAL,
+          "an Insert-mode command can be rebound to another named action");
+   }
    fixture_free(&fixture);
 }
 
@@ -312,6 +335,24 @@ test_word_text_objects(void)
        "ciw changes the inner word");
    fixture_free(&fixture);
 
+   fixture_init(&fixture, "one two  three");
+   fixture.editor.motion.cursor.byte = 5U;
+   {
+      struct cwiki_key_sequence inner_word = {
+         {{'i', 0U}, {'w', 0U}}, 2U
+      };
+
+      check(cwiki_keymap_rebind(cwiki_editor_input_keymap(fixture.input),
+          CWIKI_KEYMAP_OPERATOR, &inner_word, "text-object.around-word") ==
+          CWIKI_KEYMAP_OK &&
+          send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
+          send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
+          send(&fixture, key('w', 0U)) == CWIKI_EDITOR_OK &&
+          content_is(&fixture, "one three"),
+          "operator text objects dispatch through a rebindable named action");
+   }
+   fixture_free(&fixture);
+
    fixture_init(&fixture, "a-b c");
    check(send(&fixture, key('d', 0U)) == CWIKI_EDITOR_OK &&
        send(&fixture, key('i', 0U)) == CWIKI_EDITOR_OK &&
@@ -384,11 +425,9 @@ test_runtime_snippets_and_undo_boundaries(void)
        content_is(&fixture, "mk"),
        "explicit trigger remains literal before Ctrl-l");
    check(send(&fixture, key(9U, 0U)) == CWIKI_EDITOR_OK &&
-       content_is(&fixture, "mk   "),
-       "Tab inserts the configured three-space indentation");
+       content_is(&fixture, "mk "),
+       "Tab advances from column two to the configured three-cell stop");
    check(send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
-       send(&fixture, key(127U, 0U)) == CWIKI_EDITOR_OK &&
        content_is(&fixture, "mk"), "remove indentation before expansion");
    check(send(&fixture, key('l', CWIKI_INPUT_CTRL)) == CWIKI_EDITOR_OK &&
        fixture.editor.motion.cursor.byte == 1U &&

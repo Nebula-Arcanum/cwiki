@@ -33,6 +33,17 @@ enum app_action_id {
    APP_ACTION_TOGGLE_CONCEAL,
    APP_ACTION_LIST_SNIPPETS,
    APP_ACTION_LIST_UNDO,
+   APP_ACTION_PICKER_CLOSE,
+   APP_ACTION_PICKER_NEXT,
+   APP_ACTION_PICKER_PREVIOUS,
+   APP_ACTION_PICKER_LINE_START,
+   APP_ACTION_PICKER_LINE_BACKWARD,
+   APP_ACTION_PICKER_LINE_DELETE,
+   APP_ACTION_PICKER_LINE_END,
+   APP_ACTION_PICKER_LINE_FORWARD,
+   APP_ACTION_PICKER_BACKSPACE,
+   APP_ACTION_PICKER_KILL_END,
+   APP_ACTION_PICKER_KILL_WORD,
    APP_ACTION_COUNT
 };
 
@@ -57,6 +68,8 @@ struct app {
    enum cwiki_config_status config_status;
    const char *config_path;
    struct cwiki_picker *picker;
+   struct cwiki_input_event picker_pending[CWIKI_KEYMAP_MAX_SEQUENCE];
+   size_t picker_pending_count;
    uint64_t last_input_ns;
    struct app_action_context action_contexts[APP_ACTION_COUNT];
    const char *status_message;
@@ -142,6 +155,23 @@ refresh(struct app *app)
    return 0;
 }
 
+static enum cwiki_picker_status
+dispatch_picker_match(struct app *app, const struct cwiki_keymap_match *match)
+{
+   int action_result = (int)CWIKI_EDITOR_INVALID;
+   enum cwiki_action_status action_status = cwiki_action_dispatch(
+       cwiki_editor_input_actions(app->input), match->action.name, NULL,
+       &action_result);
+
+   if (action_status == CWIKI_ACTION_NO_MEMORY ||
+       action_result == (int)CWIKI_EDITOR_NO_MEMORY) {
+      return CWIKI_PICKER_NO_MEMORY;
+   }
+   return action_status == CWIKI_ACTION_OK &&
+       action_result == (int)CWIKI_EDITOR_OK ?
+       CWIKI_PICKER_OK : CWIKI_PICKER_INVALID;
+}
+
 static void
 event(const struct cwiki_input_event *event_value, void *context)
 {
@@ -160,31 +190,65 @@ event(const struct cwiki_input_event *event_value, void *context)
    }
    if (app->picker != NULL) {
       enum cwiki_picker_status picker_status = CWIKI_PICKER_NOT_HANDLED;
-      uint32_t key = event_value->has_base_layout_key ?
-          event_value->base_layout_key : event_value->key;
 
       if (event_value->kind == CWIKI_INPUT_PASTE) {
          picker_status = cwiki_picker_insert(app->picker,
              (const char *)event_value->text, event_value->text_len);
-      } else if (event_value->action != CWIKI_INPUT_RELEASE) {
-         if (event_value->key == 27U || event_value->key == 13U ||
-             event_value->key == 10U) {
-            cwiki_picker_free(app->picker);
-            app->picker = NULL;
-            picker_status = CWIKI_PICKER_OK;
-         } else if (event_value->modifiers == CWIKI_INPUT_CTRL && key == 'n') {
-            picker_status = cwiki_picker_select_next(app->picker);
-         } else if (event_value->modifiers == CWIKI_INPUT_CTRL && key == 'p') {
-            picker_status = cwiki_picker_select_previous(app->picker);
-         } else if (event_value->modifiers == CWIKI_INPUT_CTRL) {
-            picker_status = cwiki_picker_control(app->picker,
-                key & UINT32_C(0x1f));
-         } else if ((event_value->key == 127U || event_value->key == 8U) &&
-             event_value->modifiers == 0U) {
-            picker_status = cwiki_picker_control(app->picker, 8U);
-         } else if (event_value->text_len != 0U) {
-            picker_status = cwiki_picker_insert(app->picker,
-                (const char *)event_value->text, event_value->text_len);
+      } else if (event_value->kind == CWIKI_INPUT_KEY &&
+          event_value->action != CWIKI_INPUT_RELEASE) {
+         struct cwiki_keymap_match match;
+
+         if (app->picker_pending_count == CWIKI_KEYMAP_MAX_SEQUENCE) {
+            picker_status = CWIKI_PICKER_INVALID;
+            app->picker_pending_count = 0U;
+         } else {
+            app->picker_pending[app->picker_pending_count] = *event_value;
+            app->picker_pending[app->picker_pending_count].text = NULL;
+            app->picker_pending[app->picker_pending_count].text_len = 0U;
+            app->picker_pending_count++;
+            if (cwiki_keymap_match(cwiki_editor_input_keymap(app->input),
+                CWIKI_KEYMAP_PICKER, app->picker_pending,
+                app->picker_pending_count, &match) != CWIKI_KEYMAP_OK) {
+               picker_status = CWIKI_PICKER_INVALID;
+               app->picker_pending_count = 0U;
+            } else if (match.kind == CWIKI_KEYMAP_PREFIX) {
+               picker_status = CWIKI_PICKER_OK;
+            } else if (match.kind == CWIKI_KEYMAP_COMPLETE) {
+               app->picker_pending_count = 0U;
+               picker_status = dispatch_picker_match(app, &match);
+            } else {
+               bool had_prefix = app->picker_pending_count > 1U;
+
+               app->picker_pending_count = 0U;
+               if (had_prefix) {
+                  app->picker_pending[0] = *event_value;
+                  app->picker_pending[0].text = NULL;
+                  app->picker_pending[0].text_len = 0U;
+                  app->picker_pending_count = 1U;
+                  if (cwiki_keymap_match(
+                      cwiki_editor_input_keymap(app->input),
+                      CWIKI_KEYMAP_PICKER, app->picker_pending, 1U,
+                      &match) != CWIKI_KEYMAP_OK) {
+                     picker_status = CWIKI_PICKER_INVALID;
+                     app->picker_pending_count = 0U;
+                  } else if (match.kind == CWIKI_KEYMAP_PREFIX) {
+                     picker_status = CWIKI_PICKER_OK;
+                  } else if (match.kind == CWIKI_KEYMAP_COMPLETE) {
+                     app->picker_pending_count = 0U;
+                     picker_status = dispatch_picker_match(app, &match);
+                  } else {
+                     app->picker_pending_count = 0U;
+                     if (event_value->text_len != 0U) {
+                        picker_status = cwiki_picker_insert(app->picker,
+                            (const char *)event_value->text,
+                            event_value->text_len);
+                     }
+                  }
+               } else if (event_value->text_len != 0U) {
+                  picker_status = cwiki_picker_insert(app->picker,
+                      (const char *)event_value->text, event_value->text_len);
+               }
+            }
          }
       }
       app->last_input_ns = (uint64_t)now.tv_sec * UINT64_C(1000000000) +
@@ -227,7 +291,10 @@ app_action_available(void *context)
 {
    const struct app_action_context *action = context;
 
-   return action->app->editor.mode == CWIKI_EDITOR_NORMAL;
+   return action->id >= APP_ACTION_PICKER_CLOSE ?
+       action->app->picker != NULL :
+       action->app->editor.mode == CWIKI_EDITOR_NORMAL &&
+       action->app->picker == NULL;
 }
 
 static enum cwiki_picker_status
@@ -274,6 +341,7 @@ open_undo_picker(struct app *app)
    cwiki_picker_free(app->picker);
    app->picker = NULL;
    status = cwiki_picker_init(&app->picker, specs, count);
+   app->picker_pending_count = 0U;
 done:
    free(text);
    free(specs);
@@ -322,6 +390,34 @@ handle_app_action(void *context, const struct cwiki_action_argument *argument)
          return (int)CWIKI_EDITOR_INVALID;
       }
       break;
+   case APP_ACTION_PICKER_CLOSE:
+      cwiki_picker_free(app->picker);
+      app->picker = NULL;
+      app->picker_pending_count = 0U;
+      break;
+   case APP_ACTION_PICKER_NEXT:
+      return (int)(cwiki_picker_select_next(app->picker) ==
+          CWIKI_PICKER_INVALID ? CWIKI_EDITOR_INVALID : CWIKI_EDITOR_OK);
+   case APP_ACTION_PICKER_PREVIOUS:
+      return (int)(cwiki_picker_select_previous(app->picker) ==
+          CWIKI_PICKER_INVALID ? CWIKI_EDITOR_INVALID : CWIKI_EDITOR_OK);
+   case APP_ACTION_PICKER_LINE_START:
+   case APP_ACTION_PICKER_LINE_BACKWARD:
+   case APP_ACTION_PICKER_LINE_DELETE:
+   case APP_ACTION_PICKER_LINE_END:
+   case APP_ACTION_PICKER_LINE_FORWARD:
+   case APP_ACTION_PICKER_BACKSPACE:
+   case APP_ACTION_PICKER_KILL_END:
+   case APP_ACTION_PICKER_KILL_WORD: {
+      static const uint32_t controls[] = {1U, 2U, 4U, 5U, 6U, 8U, 11U, 23U};
+      size_t index = (size_t)(action->id - APP_ACTION_PICKER_LINE_START);
+      enum cwiki_picker_status status = cwiki_picker_control(app->picker,
+          controls[index]);
+
+      return (int)(status == CWIKI_PICKER_OK ? CWIKI_EDITOR_OK :
+          (status == CWIKI_PICKER_NO_MEMORY ? CWIKI_EDITOR_NO_MEMORY :
+          CWIKI_EDITOR_INVALID));
+   }
    case APP_ACTION_COUNT:
       return (int)CWIKI_EDITOR_INVALID;
    }
@@ -335,20 +431,61 @@ register_app_actions(struct app *app)
       const char *name;
       const char *label;
       const char *description;
-      char key;
    } definitions[] = {
-      {"option.toggle-wrap", "Toggle wrap", "Toggle soft wrap", 'w'},
+      {"option.toggle-wrap", "Toggle wrap", "Toggle soft wrap"},
       {"option.toggle-line-numbers", "Toggle numbers",
-          "Toggle relative line numbers", 'n'},
+          "Toggle relative line numbers"},
       {"option.toggle-cursorline", "Toggle cursorline",
-          "Toggle the smart cursorline", 'l'},
+          "Toggle the smart cursorline"},
       {"option.toggle-conceal", "Toggle conceal",
-          "Toggle source conceal substitutions", 'c'},
+          "Toggle source conceal substitutions"},
       {"snippet.list-active", "Active snippets",
-          "List snippets active at the cursor", 's'},
+          "List snippets active at the cursor"},
       {"history.list-branches", "Undo history",
-          "List retained undo states and branch timestamps", 'u'}
+          "List retained undo states and branch timestamps"},
+      {"picker.close", "Close picker", "Close the active picker"},
+      {"picker.next", "Next picker item", "Select the next picker item"},
+      {"picker.previous", "Previous picker item",
+          "Select the previous picker item"},
+      {"picker.line-start", "Picker line start",
+          "Move to the start of the picker query"},
+      {"picker.line-backward", "Picker backward",
+          "Move left in the picker query"},
+      {"picker.line-delete", "Picker delete",
+          "Delete at the picker query cursor"},
+      {"picker.line-end", "Picker line end",
+          "Move to the end of the picker query"},
+      {"picker.line-forward", "Picker forward",
+          "Move right in the picker query"},
+      {"picker.backspace", "Picker backspace",
+          "Delete before the picker query cursor"},
+      {"picker.kill-end", "Picker kill to end",
+          "Delete the picker query through its end"},
+      {"picker.kill-word", "Picker kill previous word",
+          "Delete the previous picker query word"}
    };
+   static const struct {
+      uint32_t key;
+      unsigned int modifiers;
+      const char *action;
+   } picker_bindings[] = {
+      {27U, 0U, "picker.close"},
+      {13U, 0U, "picker.close"},
+      {10U, 0U, "picker.close"},
+      {'n', CWIKI_INPUT_CTRL, "picker.next"},
+      {'p', CWIKI_INPUT_CTRL, "picker.previous"},
+      {'a', CWIKI_INPUT_CTRL, "picker.line-start"},
+      {'b', CWIKI_INPUT_CTRL, "picker.line-backward"},
+      {'d', CWIKI_INPUT_CTRL, "picker.line-delete"},
+      {'e', CWIKI_INPUT_CTRL, "picker.line-end"},
+      {'f', CWIKI_INPUT_CTRL, "picker.line-forward"},
+      {'h', CWIKI_INPUT_CTRL, "picker.backspace"},
+      {127U, 0U, "picker.backspace"},
+      {8U, 0U, "picker.backspace"},
+      {'k', CWIKI_INPUT_CTRL, "picker.kill-end"},
+      {'w', CWIKI_INPUT_CTRL, "picker.kill-word"}
+   };
+   static const char leader_keys[] = {'w', 'n', 'l', 'c', 's', 'u'};
    struct cwiki_action_registry *actions =
        cwiki_editor_input_actions(app->input);
    struct cwiki_keymap *keymap = cwiki_editor_input_keymap(app->input);
@@ -359,15 +496,31 @@ register_app_actions(struct app *app)
          CWIKI_ACTION_PARAMETER_NONE, NULL, handle_app_action,
          app_action_available, &app->action_contexts[i]
       };
-      struct cwiki_key_sequence sequence = {
-         {{'\\', 0U}, {(uint32_t)definitions[i].key, 0U}}, 2U
-      };
 
       app->action_contexts[i].app = app;
       app->action_contexts[i].id = (enum app_action_id)i;
-      if (cwiki_action_register(actions, &spec) != CWIKI_ACTION_OK ||
-          cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &sequence,
+      if (cwiki_action_register(actions, &spec) != CWIKI_ACTION_OK) {
+         return -1;
+      }
+   }
+   for (size_t i = 0U; i < sizeof(leader_keys); i++) {
+      struct cwiki_key_sequence sequence = {
+         {{'\\', 0U}, {(uint32_t)leader_keys[i], 0U}}, 2U
+      };
+
+      if (cwiki_keymap_bind(keymap, CWIKI_KEYMAP_NORMAL, &sequence,
           definitions[i].name) != CWIKI_KEYMAP_OK) {
+         return -1;
+      }
+   }
+   for (size_t i = 0U; i < sizeof(picker_bindings) /
+       sizeof(picker_bindings[0]); i++) {
+      struct cwiki_key_sequence sequence = {
+         {{picker_bindings[i].key, picker_bindings[i].modifiers}}, 1U
+      };
+
+      if (cwiki_keymap_bind(keymap, CWIKI_KEYMAP_PICKER, &sequence,
+          picker_bindings[i].action) != CWIKI_KEYMAP_OK) {
          return -1;
       }
    }

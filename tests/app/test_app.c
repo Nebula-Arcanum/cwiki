@@ -266,6 +266,25 @@ frame(struct session *session, char *bytes, size_t capacity)
 }
 
 static void
+frame_until_text(struct session *session, char *bytes, size_t capacity,
+    const char *included, const char *excluded)
+{
+   size_t attempt;
+
+   for (attempt = 0U; attempt < 16U; attempt++) {
+      struct pollfd pending = {session->master, POLLIN, 0};
+
+      frame(session, bytes, capacity);
+      if ((included == NULL || strstr(bytes, included) != NULL) &&
+          (excluded == NULL || strstr(bytes, excluded) == NULL)) {
+         return;
+      }
+      assert(poll(&pending, 1U, 1000) == 1);
+   }
+   assert(false);
+}
+
+static void
 quiet(struct session *session)
 {
    struct pollfd pending = {session->master, POLLIN, 0};
@@ -716,7 +735,7 @@ main(int argc, char **argv)
    session = start(path, supported, false);
    frame(&session, output, sizeof(output));
    send_bytes(session.master, wire("imk" CTRL_L "x" ESCAPE));
-   frame(&session, output, sizeof(output));
+   frame_until_text(&session, output, sizeof(output), "x", "mk");
    assert(strstr(output, "x") != NULL && strstr(output, "mk") == NULL);
    send_bytes(session.master, wire(":q" ENTER));
    frame(&session, output, sizeof(output));
@@ -1034,6 +1053,44 @@ main(int argc, char **argv)
        CTRL_A CTRL_K CTRL_N ESCAPE ":q" ENTER, supported) > 0);
    finish(&session, 0, true, transcript, NULL);
    (void)puts("app: searchable undo branch timestamps use shared picker passed");
+
+   {
+      static const char picker_prefix[] =
+          "keymaps:\n"
+          "  picker:\n"
+          "    - keys: [g, x]\n"
+          "      action: picker.close\n";
+
+      session = start_config(path, supported, false, picker_prefix);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("\\ug" ESCAPE ":q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%s\\ug" ESCAPE ":q" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      (void)puts("app: picker prefix cancellation retries Escape action passed");
+   }
+
+   {
+      static const char picker_rebind[] =
+          "keymaps:\n"
+          "  picker:\n"
+          "    - keys: [Esc]\n"
+          "      action: null\n"
+          "    - keys: [x]\n"
+          "      action: picker.close\n";
+
+      session = start_config(path, supported, false, picker_rebind);
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("\\u" ESCAPE));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("x:q" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%s\\u" ESCAPE "x:q" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript, NULL);
+      (void)puts("app: picker controls are removable and rebindable passed");
+   }
 
    assert(unlink(path) == 0);
    session = start(path, supported, false);
