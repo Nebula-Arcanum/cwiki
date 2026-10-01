@@ -36,36 +36,36 @@ combined product against this table rather than trusting worker summaries.
 
 ## Milestone 1 closure
 
-Status: **open**. Milestone 2 is paused until this table closes and the user
-accepts the Milestone 1 demo.
+Status: **verified and accepted on 2026-10-01**. Milestone 2 is eligible to
+proceed but awaits the user's explicit start command.
 
-| Requirement slice | Sources | Current evidence | Closure needed |
+| Requirement slice | Sources | Current evidence | Disposition |
 |---|---|---|---|
-| Kitty capability gate, raw mode, keyboard protocol, synchronized updates, ordered crash restoration | R1.5; M1 terminal rows | PTY protocol/fault/signal tests; production CLI PTY lifecycle and exact reset test; real-kitty startup and Unicode-width conformance exercised | User acceptance of the production terminal lifecycle |
-| Raw key recording and replay-safe crash flush | R1.5.9 | Unit/fault tests, terminal crash integration, rejected-input PTY coverage, and decoded sidecar | Preserve a replay artifact in production acceptance evidence |
-| UTF-8 buffer, grapheme edits, positions, in-session undo | R1.1–R1.3; M1 scope | Model, sanitizer, editor, and PTY tests; searchable in-session undo picker | Production scenarios include combining and four-byte graphemes plus undo; persistent undo remains M3 |
-| Plain Markdown load/save and durable failure semantics | R1.12; M1 acceptance | Production CLI save/reopen; round-trip and injected app-level pre-rename/post-rename tests with distinct visible diagnostics | User acceptance of ordinary save/reopen; injected failures remain automated because they require a test seam |
-| Normal/Insert/Replace/Command-line and bounded M1 edits | R1.3; M1 scope | Editor/input/PTy tests include `I A o O x r`, `d c y`, put, text objects; every production command dispatches through named actions | Production acceptance replay beyond the original happy path |
-| Approved M1 motions and display/source-row behavior | R1.3, R1.7; M1 scope | Motion/layout/editor tests | Production acceptance covers wrapped movement and operator ranges |
-| Zone stack, parser spans, source highlighting, degraded fallback | R1.4, R1.9 | Parser/highlight tests and fuzzing; `% VimTeX: SynIgnore on/off` integrated | Production acceptance covers normal, ignored, and degraded source |
-| Conceal categories, mappings, reveal lifecycle | R1.6 | Conceal/layout/editor/PTy tests; runtime toggle and syntax-module disable path | Production and real-kitty acceptance |
-| Soft wrap, code no-wrap, continuation rows | R1.7 | Layout/render tests; per-window `\w` action and visible state | Production and real-kitty acceptance |
-| Relative numbers and smart cursorline | M1 display rows | Renderer/app tests; configurable and runtime-toggleable | Production and real-kitty acceptance |
-| Three-space indentation defaults | M1 indentation row | `shiftwidth`, `tabstop`, and `expandtab` config tests; production Tab defaults to three displayed cells | Production and real-kitty acceptance |
-| Snippet engine, contexts, mirrors, transforms, nesting, subject layers | R1.10 | Engine/catalog/config tests and app PTY coverage | Broaden production acceptance across prose/math/chemistry/TikZ/comment/code, auto/regex/postfix, mirrors, nesting, undo |
-| `<C-l>` expansion/forward and `<C-h>` backward snippet navigation | R1.10.2; user acceptance | Editor-input and PTY regression tests | Include both directions in production acceptance replay |
-| List snippets active at cursor | R1.10.10c | Named action and context-filtered overlay integrated and PTY-tested | Production and real-kitty acceptance |
-| Named actions, physical-key maps, rebinding, removal, clue popup | R1.14.1 | Registry/keymap/config/clue/app tests; all production controls audited through actions | Production acceptance covers default, removed, and configured prefixes |
-| Runtime option toggles | R1.7.2; M1 toggle row | Named actions for wrap, numbers, cursorline, conceal, snippets, and undo picker with visible state | Production and real-kitty acceptance |
-| Per-subsystem disable switches | R1.14.3 | Strict layered `modules` config for syntax, snippets, clues, and picker; app PTY test disables all four; conceal also has its own display switch | Production inspection scenario; later subsystem switches ship with their owner |
-| Declarative configuration and provenance inspection | R7.2 | Strict schema/layering tests; `--inspect-config` | Acceptance scenario for global/vault/local precedence and rejected config |
-| Reusable line editor and M1 prompt surface | M1 input-prompt rows | Shared line editor integrated into command and picker queries with control-key tests | Production and real-kitty acceptance |
-| Reusable picker/float model | M1 scope; R9.1 | Model/renderer tests and searchable undo-history provider | Production and real-kitty acceptance; Notes provider remains M4 and other providers M5 |
-| Vault recognition | R2.1.2, R9.1.2; M1 fixture scope | `.cwiki` ancestor discovery for layered config and explicit CLI note path | Production fixture acceptance; Notes picker remains M4 |
-| Persistent lightweight status | M1 scope | Mode, filename, dirty state, source position rendered | Accept core fields; render status arrives M2 and Git/sync status M3 |
-| Structural search and Vim-pattern translation | R1.9.4, R1.11 | Strict tests, deterministic fuzzing, analyzer | Automated foundation closure; consumers follow owning commands |
+| Kitty capability gate, raw mode, keyboard protocol, synchronized updates, ordered crash restoration | R1.5; M1 terminal rows | PTY protocol/fault/signal tests; production CLI PTY lifecycle and exact reset test; real-kitty startup and Unicode-width conformance exercised | **Verified** |
+| Raw key recording and replay-safe crash flush | R1.5.9 | Unit/fault tests, terminal crash integration, rejected-input PTY coverage, and decoded sidecar | **Verified** |
+| UTF-8 buffer, grapheme edits, positions, in-session undo | R1.1–R1.3; M1 scope | Model, sanitizer, editor, and PTY tests; searchable in-session undo picker | **Verified**; persistent undo remains M3 |
+| Plain Markdown load/save and durable failure semantics | R1.12; M1 acceptance | Production CLI save/reopen; round-trip and injected app-level pre-rename/post-rename tests with distinct visible diagnostics | **Verified** |
+| Normal/Insert/Replace/Command-line and bounded M1 edits | R1.3; M1 scope | Editor/input/PTy tests include `I A o O x r`, `d c y`, put, text objects; every production command dispatches through named actions | **Verified** |
+| Approved M1 motions and display/source-row behavior | R1.3, R1.7; M1 scope | Motion/layout/editor tests | **Verified** |
+| Zone stack, parser spans, source highlighting, degraded fallback | R1.4, R1.9 | Parser/highlight tests and fuzzing; `% VimTeX: SynIgnore on/off` integrated | **Verified** |
+| Conceal categories, mappings, reveal lifecycle | R1.6 | Conceal/layout/editor/PTy tests; runtime toggle and syntax-module disable path | **Verified** |
+| Soft wrap, code no-wrap, continuation rows | R1.7 | Layout/render tests; per-window `\w` action and visible state | **Verified** |
+| Relative numbers and smart cursorline | M1 display rows | Renderer/app tests; configurable and runtime-toggleable | **Verified** |
+| Three-space indentation defaults | M1 indentation row | `shiftwidth`, `tabstop`, and `expandtab` config tests; production Tab defaults to three displayed cells | **Verified** |
+| Snippet engine, contexts, mirrors, transforms, nesting, subject layers | R1.10 | Engine/catalog/config tests and app PTY coverage | **Verified** |
+| `<C-l>` expansion/forward and `<C-h>` backward snippet navigation | R1.10.2; user acceptance | Editor-input and PTY regression tests | **Verified** |
+| List snippets active at cursor | R1.10.10c | Named action and context-filtered overlay integrated and PTY-tested | **Verified** |
+| Named actions, physical-key maps, rebinding, removal, clue popup | R1.14.1 | Registry/keymap/config/clue/app tests; all production controls audited through actions | **Verified** |
+| Runtime option toggles | R1.7.2; M1 toggle row | Named actions for wrap, numbers, cursorline, conceal, snippets, and undo picker with visible state | **Verified** |
+| Per-subsystem disable switches | R1.14.3 | Strict layered `modules` config for syntax, snippets, clues, and picker; app PTY test disables all four; conceal also has its own display switch | **Verified**; later subsystem switches ship with their owner |
+| Declarative configuration and provenance inspection | R7.2 | Strict schema/layering tests; `--inspect-config` | **Verified** |
+| Reusable line editor and M1 prompt surface | M1 input-prompt rows | Shared line editor integrated into command and picker queries with control-key tests | **Verified** |
+| Reusable picker/float model | M1 scope; R9.1 | Model/renderer tests and searchable undo-history provider | **Verified**; Notes provider remains M4 and other providers M5 |
+| Vault recognition | R2.1.2, R9.1.2; M1 fixture scope | `.cwiki` ancestor discovery for layered config and explicit CLI note path | **Verified**; Notes picker remains M4 |
+| Persistent lightweight status | M1 scope | Mode, filename, dirty state, source position rendered | **Verified**; render status arrives M2 and Git/sync status M3 |
+| Structural search and Vim-pattern translation | R1.9.4, R1.11 | Strict tests, deterministic fuzzing, analyzer | **Verified**; consumers follow owning commands |
 | OSC 52 clipboard | R1.16 register scope; clipboard feature row | No M1 clipboard action exists | Deferred to M5 system-clipboard actions; terminal transport ships with that user path |
-| Production acceptance and demo | M1 outcome/acceptance/demo | Requirement-traceable production CLI test, real-kitty inspection, real-kitty width probe, and test-only fixture replay | Complete the user checklist and record acceptance |
+| Production acceptance and demo | M1 outcome/acceptance/demo | Requirement-traceable production CLI test, real-kitty inspection, real-kitty width probe, test-only fixture replay, and user acceptance | **Verified** |
 
 ### Current integration evidence
 
@@ -120,8 +120,8 @@ evidence gaps and one save-error presentation defect. The release candidate now:
   `make analyze` wrapper could not run locally because `clang-tidy` is not
   installed; hosted Linux CI owns that tool-backed check.
 
-These checks close the automated evidence gaps. They do not replace the manual
-checklist below or constitute user acceptance.
+These checks closed the automated evidence gaps. The user acceptance recorded
+below closes the remaining manual gate.
 
 ### User acceptance checklist
 
@@ -146,3 +146,8 @@ No row may be changed from **open** to **verified** from a worker report alone.
 The integration branch must contain the implementation, the named checks must be
 rerun there, and user-visible rows must be exercised through the production
 binary.
+
+**Acceptance result:** The user accepted Milestone 1 on 2026-10-01 after the
+production demo, feedback fixes, clean-room 52-row audit, and final release-gate
+verification. This closes Milestone 1; Milestone 2 remains unstarted until the
+user explicitly directs it to begin.

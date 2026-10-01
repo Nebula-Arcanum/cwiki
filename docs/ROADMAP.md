@@ -1,13 +1,14 @@
 # cwiki roadmap
 
-Status: **specification approved; Milestone 1 release candidate in user
-acceptance testing.**
+Status: **specification approved; Milestone 1 complete and accepted; Milestone
+2 ready but awaiting the user's start command.**
 
 The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
 rows remain unassigned. Milestones are ordered first by dependency and data
-safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 2 stays
-paused until Milestone 1 passes its user ship/test gate.
+safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 1 passed
+its user ship/test gate on 2026-10-01. Milestone 2 is eligible to proceed but
+remains unstarted until the user explicitly directs it to begin.
 
 Effort uses focused implementation tasks: **S** = under one task, **M** = 1–3,
 **L** = 4–10, and **XL** = more than 10. A milestone total is a planning range,
@@ -50,16 +51,14 @@ implemented.
 
 ## Milestone 1 — daily class-note skeleton
 
-Status: **release validation in progress; manual acceptance pending.** The
-requirement-to-evidence gate is `docs/ACCEPTANCE.md`; Milestone 2 remains paused
-until every M1 row is verified or explicitly deferred and the user accepts the
-production demo. Full strict and sanitizer integration checks and the recorded
-production/real-Kitty scenarios pass; the remaining gate is the user's manual
-checklist and acceptance. A clean-room reconciliation against all 52 M1 feature
-rows found no additional missing feature; production-CLI lifecycle coverage,
-real-Kitty Unicode-width conformance, and visible pre-/post-rename save-failure
-coverage now guard the release gate. The UTF-8 line buffer and position fix-up,
-in-session
+Status: **complete and accepted on 2026-10-01.** The requirement-to-evidence
+gate in `docs/ACCEPTANCE.md` is closed. Full strict and sanitizer integration
+checks, recorded production/real-Kitty scenarios, a clean-room reconciliation
+against all 52 M1 feature rows, and the user's manual acceptance pass completed
+the gate. Milestone 2 is unblocked but awaits the user's start command.
+Production-CLI lifecycle coverage, real-Kitty Unicode-width conformance, and
+visible pre-/post-rename save-failure coverage guard the closed release gate.
+The UTF-8 line buffer and position fix-up, in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The terminal lifecycle now provides raw
 mode, capability probing, synchronized updates, and signal-safe restoration.
