@@ -7,6 +7,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef CWIKI_DOCUMENT_TESTING
+static const struct cwiki_durable_write_test_fault *test_save_fault;
+#endif
+
 static int
 copy_path(char **copy, const char *path)
 {
@@ -205,7 +209,14 @@ save_document(struct cwiki_document *document,
 struct cwiki_durable_write_result
 cwiki_document_save(struct cwiki_document *document)
 {
+#ifdef CWIKI_DOCUMENT_TESTING
+   const struct cwiki_durable_write_test_fault *fault = test_save_fault;
+
+   test_save_fault = NULL;
+   return save_document(document, fault);
+#else
    return save_document(document, NULL);
+#endif
 }
 
 #ifdef CWIKI_DOCUMENT_TESTING
@@ -214,5 +225,12 @@ cwiki_document_save_test(struct cwiki_document *document,
     const struct cwiki_durable_write_test_fault *fault)
 {
    return save_document(document, fault);
+}
+
+void
+cwiki_document_test_set_save_fault(
+    const struct cwiki_durable_write_test_fault *fault)
+{
+   test_save_fault = fault;
 }
 #endif

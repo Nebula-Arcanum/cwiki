@@ -372,7 +372,7 @@ dispatch_named(struct cwiki_editor_input *input, const char *name)
       return CWIKI_EDITOR_NO_MEMORY;
    }
    if (status != CWIKI_ACTION_OK || result < (int)CWIKI_EDITOR_OK ||
-       result > (int)CWIKI_EDITOR_SAVE_FAILED) {
+       result > (int)CWIKI_EDITOR_DURABILITY_UNCERTAIN) {
       return CWIKI_EDITOR_INVALID;
    }
    return (enum cwiki_editor_status)result;
@@ -492,6 +492,10 @@ handle_action(void *context, const struct cwiki_action_argument *argument)
       status = CWIKI_EDITOR_OK;
       if (command_is(editor, "w") || command_is(editor, "wq")) {
          status = dispatch_named(input, "file.save");
+      }
+      if (status != CWIKI_EDITOR_OK) {
+         (void)cwiki_editor_escape(editor);
+         break;
       }
       if (status == CWIKI_EDITOR_OK &&
           (command_is(editor, "q") || command_is(editor, "wq"))) {

@@ -55,8 +55,11 @@ requirement-to-evidence gate is `docs/ACCEPTANCE.md`; Milestone 2 remains paused
 until every M1 row is verified or explicitly deferred and the user accepts the
 production demo. Full strict and sanitizer integration checks and the recorded
 production/real-Kitty scenarios pass; the remaining gate is the user's manual
-checklist and acceptance. The UTF-8 line buffer and
-position fix-up, in-session
+checklist and acceptance. A clean-room reconciliation against all 52 M1 feature
+rows found no additional missing feature; production-CLI lifecycle coverage,
+real-Kitty Unicode-width conformance, and visible pre-/post-rename save-failure
+coverage now guard the release gate. The UTF-8 line buffer and position fix-up,
+in-session
 undo tree, kitty key/bracketed-paste and startup-capability parsers, and
 durable-write primitive are integrated. The terminal lifecycle now provides raw
 mode, capability probing, synchronized updates, and signal-safe restoration.

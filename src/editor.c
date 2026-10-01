@@ -1046,13 +1046,17 @@ command_is(const struct cwiki_editor *editor, const char *command)
 enum cwiki_editor_status
 cwiki_editor_save(struct cwiki_editor *editor)
 {
+   struct cwiki_durable_write_result result;
    uint64_t sequence;
 
    if (editor == NULL) {
       return CWIKI_EDITOR_INVALID;
    }
-   if (cwiki_document_save(editor->document).status !=
-       CWIKI_DURABLE_WRITE_SUCCESS) {
+   result = cwiki_document_save(editor->document);
+   if (result.status == CWIKI_DURABLE_WRITE_DURABILITY_UNCERTAIN) {
+      return CWIKI_EDITOR_DURABILITY_UNCERTAIN;
+   }
+   if (result.status != CWIKI_DURABLE_WRITE_SUCCESS) {
       return CWIKI_EDITOR_SAVE_FAILED;
    }
    if (!current_sequence(&editor->undo, &sequence)) {
@@ -1081,6 +1085,8 @@ cwiki_editor_execute_command(struct cwiki_editor *editor)
       enum cwiki_editor_status status = cwiki_editor_save(editor);
 
       if (status != CWIKI_EDITOR_OK) {
+         clear_command(editor);
+         editor->mode = CWIKI_EDITOR_NORMAL;
          return status;
       }
    }

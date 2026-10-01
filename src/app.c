@@ -282,8 +282,15 @@ event(const struct cwiki_input_event *event_value, void *context)
    app->statuses |= 1U << (unsigned int)status;
    if (status == CWIKI_EDITOR_NO_MEMORY) {
       app->error = ENOMEM;
-   } else if (refresh(app) != 0) {
-      app->error = errno;
+   } else {
+      if (status == CWIKI_EDITOR_SAVE_FAILED) {
+         app->status_message = "save failed; buffer remains dirty";
+      } else if (status == CWIKI_EDITOR_DURABILITY_UNCERTAIN) {
+         app->status_message = "durability uncertain; buffer remains dirty";
+      }
+      if (refresh(app) != 0) {
+         app->error = errno;
+      }
    }
 }
 
@@ -574,6 +581,10 @@ save_if_idle(struct app *app)
    app->statuses |= 1U << (unsigned int)status;
    if (status == CWIKI_EDITOR_NO_MEMORY) {
       app->error = ENOMEM;
+   } else if (status == CWIKI_EDITOR_SAVE_FAILED) {
+      app->status_message = "save failed; buffer remains dirty";
+   } else if (status == CWIKI_EDITOR_DURABILITY_UNCERTAIN) {
+      app->status_message = "durability uncertain; buffer remains dirty";
    }
 }
 
@@ -1060,7 +1071,11 @@ done:
    }
    if ((app.statuses & (1U << CWIKI_EDITOR_SAVE_FAILED)) != 0U) {
       (void)dprintf(options->error_fd,
-          "cwiki: save failed or durability uncertain; buffer remains dirty\n");
+          "cwiki: save failed; buffer remains dirty\n");
+   }
+   if ((app.statuses & (1U << CWIKI_EDITOR_DURABILITY_UNCERTAIN)) != 0U) {
+      (void)dprintf(options->error_fd,
+          "cwiki: durability uncertain; buffer remains dirty\n");
    }
    if ((app.statuses & (1U << CWIKI_EDITOR_INVALID)) != 0U) {
       (void)dprintf(options->error_fd, "cwiki: unsupported command or input\n");

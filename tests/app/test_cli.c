@@ -344,11 +344,25 @@ test_interactive(const char *executable, const char *home, const char *xdg,
       (void)close(slave);
       assert(setenv("HOME", home, 1) == 0);
       assert(setenv("XDG_CONFIG_HOME", xdg, 1) == 0);
+#ifdef __APPLE__
+      assert(setenv("MallocNanoZone", "0", 1) == 0);
+#endif
       execl(executable, executable, note, (char *)NULL);
       _exit(127);
    }
    receive_until(master, CWIKI_CAPABILITIES_DA1_QUERY, output,
        sizeof(output), &output_length);
+   if (output_length != sizeof(capability_queries) - 1U ||
+       memcmp(output, capability_queries, sizeof(capability_queries) - 1U) !=
+       0) {
+      size_t i;
+
+      (void)fprintf(stderr, "unexpected startup bytes (%zu):", output_length);
+      for (i = 0U; i < output_length; i++) {
+         (void)fprintf(stderr, " %02x", (unsigned char)output[i]);
+      }
+      (void)fputc('\n', stderr);
+   }
    assert(output_length == sizeof(capability_queries) - 1U);
    assert(memcmp(output, capability_queries, output_length) == 0);
    during_count = list_crash_files(during, 128U);

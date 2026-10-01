@@ -52,6 +52,8 @@ CLUE_RENDER_TEST = $(BUILD_DIR)/test-clue-render
 CONFIG_TEST = $(BUILD_DIR)/test-config
 CONFIG_FILES_TEST = $(BUILD_DIR)/test-config-files
 APP_TEST = $(BUILD_DIR)/test-app
+CLI_TEST = $(BUILD_DIR)/test-cli
+KITTY_WIDTH_TEST = $(BUILD_DIR)/test-kitty-width
 M1_KEYS = tests/fixtures/keys/m1-class-note.keys.raw
 M1_SCREEN = tests/snapshots/m1-class-note.screen
 M1_MARKDOWN = tests/snapshots/m1-class-note.md
@@ -71,7 +73,8 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
 	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(PICKER_RENDER_TEST) \
-	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST)
+	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST) \
+	$(CLI_TEST) $(KITTY_WIDTH_TEST)
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -98,10 +101,10 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/ui/test_picker_render.c src/clue_render.c \
 	tests/ui/test_clue_render.c src/config.c tests/config/test_config.c \
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
-	tests/app/test_app.c
+	tests/app/test_app.c tests/app/test_cli.c tests/terminal/kitty_width_test.c
 
 .PHONY: all smoke replay-test support-test product-test m1-demo-test test check \
-	sanitize analyze verify demo clean
+	kitty-width-test sanitize analyze verify demo clean
 
 all: $(CWIKI)
 
@@ -421,9 +424,21 @@ $(APP_TEST): $(APP_SOURCES) src/app.h tests/app/test_app.c \
 		tests/support/fixture_vault.c tests/support/fixture_vault.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) \
-		-DCWIKI_APP_TESTING -Isrc -Itests/support $(APP_SOURCES) \
+		-DCWIKI_APP_TESTING -DCWIKI_DOCUMENT_TESTING \
+		-DCWIKI_DURABLE_WRITE_TESTING -Isrc -Itests/support $(APP_SOURCES) \
 		tests/support/fixture_vault.c tests/app/test_app.c \
 		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) -o $(APP_TEST)
+
+$(CLI_TEST): tests/app/test_cli.c src/capabilities.h src/terminal.h $(CWIKI)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc tests/app/test_cli.c $(LDFLAGS) \
+		-o $(CLI_TEST)
+
+$(KITTY_WIDTH_TEST): tests/terminal/kitty_width_test.c src/unicode.c src/unicode.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) -Isrc src/unicode.c \
+		tests/terminal/kitty_width_test.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		-o $(KITTY_WIDTH_TEST)
 
 product-test: $(PRODUCT_TESTS)
 	$(DURABLE_WRITE_TEST)
@@ -459,6 +474,10 @@ product-test: $(PRODUCT_TESTS)
 	$(CONFIG_TEST)
 	$(CONFIG_FILES_TEST)
 	$(APP_TEST)
+	$(CLI_TEST) $(CWIKI)
+
+kitty-width-test: $(KITTY_WIDTH_TEST)
+	scripts/run-kitty-width-test.sh $(KITTY_WIDTH_TEST)
 
 m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)

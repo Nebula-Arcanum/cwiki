@@ -41,6 +41,8 @@ static const char class_note_keys[] =
     "Reaction: $chem" CTRL_L "2H2 + O2 -> 2H2O" CTRL_L "$" ENTER
     "Diagram: tikz" CTRL_L "\\draw (0,0) -- (2,1);" CTRL_L ENTER
     ESCAPE "a temporary" ESCAPE "u:wq" ENTER;
+static const struct cwiki_durable_write_test_fault *save_fault;
+static unsigned short session_columns = 40U;
 
 struct session {
    int master;
@@ -185,7 +187,7 @@ start_configs(const char *path, const char *reply, bool fault,
     const char *const *configs, size_t config_count)
 {
    struct session session;
-   struct winsize size = {5U, 40U, 0U, 0U};
+   struct winsize size = {5U, session_columns, 0U, 0U};
    char output[1024];
    char *name;
 
@@ -227,6 +229,7 @@ start_configs(const char *path, const char *reply, bool fault,
          sources[i].bytes = (unsigned char *)configs[i];
          sources[i].length = strlen(configs[i]);
       }
+      cwiki_document_test_set_save_fault(save_fault);
       assert(cwiki_key_record_init(&record, NULL, 0U) == 0);
       if (fault) {
          cwiki_app_test_set_write(fail_frame);
@@ -912,6 +915,79 @@ main(int argc, char **argv)
           "%siI" ESCAPE ":q" ENTER, supported) > 0);
       finish(&session, 0, true, transcript, NULL);
       (void)puts("app: idle save policy waits then writes in insert mode passed");
+   }
+
+   {
+      static const char manual[] = "save-policy: manual\n";
+      static const struct cwiki_durable_write_test_fault pre_rename = {
+         CWIKI_DURABLE_WRITE_RENAME, 1U, EIO, 0U
+      };
+
+      write_note(path, "old");
+      save_fault = &pre_rename;
+      session_columns = 100U;
+      session = start_config(path, supported, false, manual);
+      session_columns = 40U;
+      save_fault = NULL;
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("i"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("N"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(ESCAPE));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(":"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("w"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(ENTER));
+      frame_until_text(&session, output, sizeof(output),
+          "save failed; buffer remains dirty", NULL);
+      content(path, "old", CWIKI_LINE_ENDING_LF);
+      send_bytes(session.master, wire(":wq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%siN" ESCAPE ":w" ENTER ":wq" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript,
+          "save failed; buffer remains dirty");
+      content(path, "Nold", CWIKI_LINE_ENDING_LF);
+   }
+
+   {
+      static const char manual[] = "save-policy: manual\n";
+      static const struct cwiki_durable_write_test_fault post_rename = {
+         CWIKI_DURABLE_WRITE_DIRECTORY_SYNC, 1U, EIO, 0U
+      };
+
+      write_note(path, "old");
+      save_fault = &post_rename;
+      session_columns = 100U;
+      session = start_config(path, supported, false, manual);
+      session_columns = 40U;
+      save_fault = NULL;
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("i"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("N"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(ESCAPE));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(":"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire("w"));
+      frame(&session, output, sizeof(output));
+      send_bytes(session.master, wire(ENTER));
+      frame_until_text(&session, output, sizeof(output),
+          "durability uncertain; buffer remains dirty", NULL);
+      content(path, "Nold", CWIKI_LINE_ENDING_LF);
+      send_bytes(session.master, wire(":wq" ENTER));
+      frame(&session, output, sizeof(output));
+      assert(snprintf(transcript, sizeof(transcript),
+          "%siN" ESCAPE ":w" ENTER ":wq" ENTER, supported) > 0);
+      finish(&session, 0, true, transcript,
+          "durability uncertain; buffer remains dirty");
+      content(path, "Nold", CWIKI_LINE_ENDING_LF);
+      (void)puts("app: save failures remain dirty and report exact durability passed");
    }
 
    {

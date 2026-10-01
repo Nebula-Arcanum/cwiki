@@ -25,6 +25,8 @@ struct cwiki_durable_write_result cwiki_document_save(
 struct cwiki_durable_write_result cwiki_document_save_test(
     struct cwiki_document *document,
     const struct cwiki_durable_write_test_fault *fault);
+void cwiki_document_test_set_save_fault(
+    const struct cwiki_durable_write_test_fault *fault);
 #endif
 
 #endif

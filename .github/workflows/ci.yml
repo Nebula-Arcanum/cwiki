@@ -34,12 +34,17 @@ jobs:
           restore-keys: arch-pacman-
 
       - name: Install dependencies and analysis tools
-        run: pacman -Syu --needed --noconfirm clang libutf8proc libyaml pcre2 pkgconf
+        run: pacman -Syu --needed --noconfirm clang kitty libutf8proc libyaml pcre2 pkgconf xorg-server-xvfb
 
       - name: Review changes
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: scripts/review-changes.sh
+
+      - name: Check Unicode widths against Kitty
+        run: |
+          make clean
+          xvfb-run -a make kitty-width-test
 
   macos:
     name: macOS / Homebrew

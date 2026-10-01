@@ -41,10 +41,10 @@ accepts the Milestone 1 demo.
 
 | Requirement slice | Sources | Current evidence | Closure needed |
 |---|---|---|---|
-| Kitty capability gate, raw mode, keyboard protocol, synchronized updates, ordered crash restoration | R1.5; M1 terminal rows | PTY protocol/fault/signal tests; real-kitty startup exercised | Production acceptance scenario for unsupported capability and reset path |
+| Kitty capability gate, raw mode, keyboard protocol, synchronized updates, ordered crash restoration | R1.5; M1 terminal rows | PTY protocol/fault/signal tests; production CLI PTY lifecycle and exact reset test; real-kitty startup and Unicode-width conformance exercised | User acceptance of the production terminal lifecycle |
 | Raw key recording and replay-safe crash flush | R1.5.9 | Unit/fault tests, terminal crash integration, rejected-input PTY coverage, and decoded sidecar | Preserve a replay artifact in production acceptance evidence |
 | UTF-8 buffer, grapheme edits, positions, in-session undo | R1.1–R1.3; M1 scope | Model, sanitizer, editor, and PTY tests; searchable in-session undo picker | Production scenarios include combining and four-byte graphemes plus undo; persistent undo remains M3 |
-| Plain Markdown load/save and durable failure semantics | R1.12; M1 acceptance | Round-trip and injected durable-write tests | Production save/reopen plus fault scenario in release gate |
+| Plain Markdown load/save and durable failure semantics | R1.12; M1 acceptance | Production CLI save/reopen; round-trip and injected app-level pre-rename/post-rename tests with distinct visible diagnostics | User acceptance of ordinary save/reopen; injected failures remain automated because they require a test seam |
 | Normal/Insert/Replace/Command-line and bounded M1 edits | R1.3; M1 scope | Editor/input/PTy tests include `I A o O x r`, `d c y`, put, text objects; every production command dispatches through named actions | Production acceptance replay beyond the original happy path |
 | Approved M1 motions and display/source-row behavior | R1.3, R1.7; M1 scope | Motion/layout/editor tests | Production acceptance covers wrapped movement and operator ranges |
 | Zone stack, parser spans, source highlighting, degraded fallback | R1.4, R1.9 | Parser/highlight tests and fuzzing; `% VimTeX: SynIgnore on/off` integrated | Production acceptance covers normal, ignored, and degraded source |
@@ -65,7 +65,7 @@ accepts the Milestone 1 demo.
 | Persistent lightweight status | M1 scope | Mode, filename, dirty state, source position rendered | Accept core fields; render status arrives M2 and Git/sync status M3 |
 | Structural search and Vim-pattern translation | R1.9.4, R1.11 | Strict tests, deterministic fuzzing, analyzer | Automated foundation closure; consumers follow owning commands |
 | OSC 52 clipboard | R1.16 register scope; clipboard feature row | No M1 clipboard action exists | Deferred to M5 system-clipboard actions; terminal transport ships with that user path |
-| Production acceptance and demo | M1 outcome/acceptance/demo | Original test-only replay covers one happy path | Replace with requirement-traceable production scenarios, real-kitty inspection, and user checklist |
+| Production acceptance and demo | M1 outcome/acceptance/demo | Requirement-traceable production CLI test, real-kitty inspection, real-kitty width probe, and test-only fixture replay | Complete the user checklist and record acceptance |
 
 ### Current integration evidence
 
@@ -92,9 +92,34 @@ fixture-vault scenarios:
   and `mk` literal and opened neither clues nor the picker.
 - The production `--inspect-config` output reported synchronized-vault settings
   and source locations; an unknown key failed before terminal startup.
-- `--reset-terminal` emitted the fixed 34-byte restoration sequence. A real
+- `--reset-terminal` emitted the exact fixed restoration sequence, including
+  the cursor-color stack pop added for theme-safe cursor contrast. A real
   pseudo-terminal that did not answer capability queries exited after the
   bounded timeout with the documented diagnostic.
+
+On 2026-10-01, a clean-room audit reconciled the implementation with all 52
+Milestone 1 rows in `docs/FEATURES.md` and the approved requirements in
+`docs/SPEC.md`. It found no further missing M1 feature, but found three release
+evidence gaps and one save-error presentation defect. The release candidate now:
+
+- runs the real `build/cwiki` from `make check`, covering reset, layered config
+  discovery and provenance, pre-terminal config rejection, capability startup,
+  edit/save/quit, terminal restoration, exact Markdown, and temporary recorder
+  cleanup;
+- compares cwiki's grapheme-width predictions with cursor-position reports from
+  a real Kitty for combining, wide, emoji/VS16/ZWJ/flag, and default-ignorable
+  sequences; the probe passes in Kitty 0.48.1 and is a required Linux CI step;
+- distinguishes a pre-rename save failure from post-rename durability
+  uncertainty, exits Command-line mode so the diagnostic is visible, and keeps
+  the buffer dirty in both cases; app-level PTY fault tests verify old bytes for
+  the former and complete replacement bytes for the latter; and
+- passes full strict `make check`, full ASan+UBSan `make sanitize`, and direct
+  Clang static analysis of every changed translation unit. The configured
+  `make analyze` wrapper could not run locally because `clang-tidy` is not
+  installed; hosted Linux CI owns that tool-backed check.
+
+These checks close the automated evidence gaps. They do not replace the manual
+checklist below or constitute user acceptance.
 
 ### User acceptance checklist
 
