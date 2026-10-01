@@ -20,9 +20,11 @@ static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
     CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
 static const char supported_reply[] =
     "\x1b[?29u\x1b_Gi=1129797963;OK\x1b\\\x1b[?62;52;c";
-static const char screen_startup[] = CWIKI_TERMINAL_ALT_ENTER
+static const char screen_startup[] = CWIKI_TERMINAL_COLOR_PUSH
+    CWIKI_TERMINAL_CURSOR_DYNAMIC CWIKI_TERMINAL_ALT_ENTER
     CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE;
-static const char startup[] = CWIKI_TERMINAL_ALT_ENTER
+static const char startup[] = CWIKI_TERMINAL_COLOR_PUSH
+    CWIKI_TERMINAL_CURSOR_DYNAMIC CWIKI_TERMINAL_ALT_ENTER
     CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE
     CWIKI_INPUT_KEYBOARD_PUSH;
 
@@ -411,11 +413,13 @@ run_startup_failure(int failure, const char *expected, size_t expected_len,
 static void
 test_transactional_startup_failures(void)
 {
-   static const char partial_screen[] = "\x1b[" CWIKI_TERMINAL_SCREEN_RESTORE;
-   static const char before_push[] = CWIKI_TERMINAL_ALT_ENTER
+   static const char partial_screen[] = "\x1b]" CWIKI_TERMINAL_SCREEN_RESTORE;
+   static const char before_push[] = CWIKI_TERMINAL_COLOR_PUSH
+       CWIKI_TERMINAL_CURSOR_DYNAMIC CWIKI_TERMINAL_ALT_ENTER
        CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE
        CWIKI_TERMINAL_SCREEN_RESTORE;
-   static const char partial_push[] = CWIKI_TERMINAL_ALT_ENTER
+   static const char partial_push[] = CWIKI_TERMINAL_COLOR_PUSH
+       CWIKI_TERMINAL_CURSOR_DYNAMIC CWIKI_TERMINAL_ALT_ENTER
        CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE "\x1b["
        CWIKI_TERMINAL_SCREEN_RESTORE;
 

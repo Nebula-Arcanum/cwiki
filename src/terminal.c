@@ -233,7 +233,8 @@ start_with_timeout(struct cwiki_terminal *terminal, int input_fd, int output_fd,
 {
    static const char queries[] = CWIKI_CAPABILITIES_KEYBOARD_QUERY
        CWIKI_CAPABILITIES_GRAPHICS_QUERY CWIKI_CAPABILITIES_DA1_QUERY;
-   static const char startup_modes[] = CWIKI_TERMINAL_ALT_ENTER
+   static const char startup_modes[] = CWIKI_TERMINAL_COLOR_PUSH
+       CWIKI_TERMINAL_CURSOR_DYNAMIC CWIKI_TERMINAL_ALT_ENTER
        CWIKI_TERMINAL_CURSOR_HIDE CWIKI_INPUT_PASTE_ENABLE;
    struct cwiki_capabilities_parser parser;
    struct cwiki_capabilities_result capabilities;

@@ -12,9 +12,13 @@ struct cwiki_key_record;
 #define CWIKI_TERMINAL_ALT_LEAVE "\x1b[?1049l"
 #define CWIKI_TERMINAL_CURSOR_HIDE "\x1b[?25l"
 #define CWIKI_TERMINAL_CURSOR_SHOW "\x1b[?25h"
+#define CWIKI_TERMINAL_COLOR_PUSH "\x1b]30001\x1b\\"
+#define CWIKI_TERMINAL_COLOR_POP "\x1b]30101\x1b\\"
+#define CWIKI_TERMINAL_CURSOR_DYNAMIC "\x1b]21;cursor=\x1b\\"
 
 #define CWIKI_TERMINAL_SCREEN_RESTORE \
-   "\x1b[?2004l" CWIKI_TERMINAL_ALT_LEAVE CWIKI_TERMINAL_CURSOR_SHOW
+   "\x1b[?2004l" CWIKI_TERMINAL_ALT_LEAVE CWIKI_TERMINAL_COLOR_POP \
+   CWIKI_TERMINAL_CURSOR_SHOW
 
 /*
  * Once all startup modes are owned, the signal handler emits this in one write
@@ -22,11 +26,12 @@ struct cwiki_key_record;
  * uses CWIKI_TERMINAL_SCREEN_RESTORE instead. During capability probing it
  * restores only termios. cwiki_terminal_cleanup and cwiki_terminal_reset retry
  * partial writes and EINTR. Keep the ordering synchronized-update, keyboard,
- * paste, alternate screen, cursor.
+ * paste, alternate screen, colors, cursor.
  */
 #define CWIKI_TERMINAL_RESTORE \
    CWIKI_TERMINAL_SYNC_END "\x1b[<u\x1b[?2004l" \
-   CWIKI_TERMINAL_ALT_LEAVE CWIKI_TERMINAL_CURSOR_SHOW
+   CWIKI_TERMINAL_ALT_LEAVE CWIKI_TERMINAL_COLOR_POP \
+   CWIKI_TERMINAL_CURSOR_SHOW
 
 enum cwiki_terminal_status {
    CWIKI_TERMINAL_SUCCESS,
