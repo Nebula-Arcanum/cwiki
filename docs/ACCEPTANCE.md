@@ -112,7 +112,9 @@ evidence gaps and one save-error presentation defect. The release candidate now:
 - distinguishes a pre-rename save failure from post-rename durability
   uncertainty, exits Command-line mode so the diagnostic is visible, and keeps
   the buffer dirty in both cases; app-level PTY fault tests verify old bytes for
-  the former and complete replacement bytes for the latter; and
+  the former and complete replacement bytes for the latter; a real-Kitty
+  pre-rename failure capture at `.amp/in/artifacts/m1-save-error.png` was
+  inspected for mode, dirty marker, diagnostic visibility, and contrast; and
 - passes full strict `make check`, full ASan+UBSan `make sanitize`, and direct
   Clang static analysis of every changed translation unit. The configured
   `make analyze` wrapper could not run locally because `clang-tidy` is not
