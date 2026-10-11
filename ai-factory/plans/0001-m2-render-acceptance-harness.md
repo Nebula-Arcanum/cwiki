@@ -48,7 +48,7 @@ documentation.
 
 ## Steps
 
-- [ ] Step 1 — Fixture-vault copy-in. AC8. Add `int fixture_vault_copy_in(const struct
+- [x] Step 1 — Fixture-vault copy-in. AC8. Add `int fixture_vault_copy_in(const struct
   fixture_vault *vault, const char *source_dir)` that recursively copies regular files and
   directories (including dot-directories) into the root, opening the source read-only; any symlink
   or other file type fails with `EINVAL` and nothing outside the root is written. Tests in

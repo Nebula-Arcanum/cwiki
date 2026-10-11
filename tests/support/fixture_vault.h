@@ -11,5 +11,9 @@ const char *fixture_vault_root(const struct fixture_vault *vault);
 /* Resolves an existing path. The caller owns *resolved_path on success. */
 int fixture_vault_resolve(const struct fixture_vault *vault,
     const char *relative_path, char **resolved_path);
+/* Copies regular files and directories (dot-directories included) from
+ * source_dir into the root. Symlinks and other types fail with EINVAL. */
+int fixture_vault_copy_in(const struct fixture_vault *vault,
+    const char *source_dir);
 
 #endif

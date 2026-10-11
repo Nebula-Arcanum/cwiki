@@ -2,6 +2,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,113 @@
 #include <unistd.h>
 
 static int remove_tree(const char *path);
+
+static char *
+join_path(const char *dir, const char *name)
+{
+   size_t dir_length = strlen(dir);
+   size_t name_length = strlen(name);
+   char *path;
+
+   if (dir_length > SIZE_MAX - name_length - 2U) {
+      errno = ENAMETOOLONG;
+      return NULL;
+   }
+   path = malloc(dir_length + name_length + 2U);
+   if (path != NULL) {
+      (void)snprintf(path, dir_length + name_length + 2U, "%s/%s", dir, name);
+   }
+   return path;
+}
+
+static int
+copy_file(const char *from, const char *to, mode_t mode)
+{
+   char buffer[8192];
+   int in = open(from, O_RDONLY);
+   int out;
+   ssize_t n;
+   int result = 0;
+
+   if (in == -1) {
+      return -1;
+   }
+   out = open(to, O_WRONLY | O_CREAT | O_TRUNC, mode & 0700);
+   if (out == -1) {
+      (void)close(in);
+      return -1;
+   }
+   while ((n = read(in, buffer, sizeof(buffer))) > 0) {
+      if (write(out, buffer, (size_t)n) != n) {
+         result = -1;
+         break;
+      }
+   }
+   if (n < 0) {
+      result = -1;
+   }
+   (void)close(in);
+   if (close(out) != 0) {
+      result = -1;
+   }
+   return result;
+}
+
+static int
+copy_tree(const char *from, const char *to)
+{
+   DIR *directory = opendir(from);
+   struct dirent *entry;
+   int result = 0;
+
+   if (directory == NULL) {
+      return -1;
+   }
+   while (result == 0 && (entry = readdir(directory)) != NULL) {
+      char *src;
+      char *dst;
+      struct stat status;
+
+      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+         continue;
+      }
+      src = join_path(from, entry->d_name);
+      dst = join_path(to, entry->d_name);
+      if (src == NULL || dst == NULL) {
+         result = -1;
+      } else if (lstat(src, &status) != 0) {
+         result = -1;
+      } else if (S_ISDIR(status.st_mode)) {
+         result = (mkdir(dst, 0700) == 0 || errno == EEXIST) ?
+             copy_tree(src, dst) : -1;
+      } else if (S_ISREG(status.st_mode)) {
+         result = copy_file(src, dst, status.st_mode);
+      } else {
+         errno = EINVAL;
+         result = -1;
+      }
+      free(src);
+      free(dst);
+   }
+   if (result != 0) {
+      int saved_errno = errno;
+
+      (void)closedir(directory);
+      errno = saved_errno;
+      return -1;
+   }
+   return closedir(directory);
+}
+
+int
+fixture_vault_copy_in(const struct fixture_vault *vault, const char *source_dir)
+{
+   if (vault == NULL || vault->root == NULL || source_dir == NULL) {
+      errno = EINVAL;
+      return -1;
+   }
+   return copy_tree(source_dir, vault->root);
+}
 
 static int
 has_parent_component(const char *path)
