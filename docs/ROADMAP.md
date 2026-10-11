@@ -207,15 +207,17 @@ vault, note, and block preambles; one changed-block TeX run per note; Poppler
 rasterization; kitty shared-memory images, placeholders, z-index, and OSC 66
 headings; color/cell-aware render keys; precompiled preambles and cache warming;
 atomic artifact swaps; partial failure; structured TeX diagnostics and raw logs;
-render/search/link navigation; and line-granular source↔render synchronization.
+render/search/link navigation; and line-granular source↔render synchronization,
+including SyncTeX sidecars for multi-line blocks (R1.8.11a).
 
 **Acceptance criteria.** Switching an uncached note to rendered mode returns
 without waiting; successful formula, chemistry, and TikZ blocks replace their
 placeholders; one failing block shows its mapped diagnostic while successful
 blocks remain visible; changing source, preamble, colors, cell metrics, or engine
 invalidates only incompatible artifacts; no partial artifact is displayed; source
-and inverse jumps land on the specified line/fallback; render and SyncTeX fuzz
-targets pass where applicable.
+and inverse jumps land on the specified line/fallback, at line granularity
+inside multi-line blocks; a missing or unparseable sidecar degrades to scrolling
+and says so; render and SyncTeX fuzz targets pass.
 
 **Demo.** Open one fixture note in source and rendered windows, save an edit,
 observe non-blocking stale/placeholder behavior and the eventual image, trigger a
@@ -227,11 +229,14 @@ TeX error, inspect its raw log, and jump in both directions.
 placeholder/image layout, cross-platform TeX package subsets, and SyncTeX
 precision. CI installs only packages exercised by fixtures and caches them.
 
-**Effort.** XL, 18–25 focused tasks.
+**Effort.** XL, 20–28 focused tasks, including the SyncTeX sidecar reader, its
+parse cache and fuzz target.
 
-**Decisions due before coding.** Decide whether SyncTeX sidecars ship in this
-milestone or Milestone 5, and whether to include the off-by-default per-row stale
-render markers from R1.12.9. Record both outcomes in `docs/SPEC.md`.
+**Decision resolved.** SyncTeX sidecars ship in this milestone (R1.8.11a,
+accepted 2026-10-11).
+
+**Decisions due before coding.** Decide whether to include the off-by-default
+per-row stale render markers from R1.12.9. Record the outcome in `docs/SPEC.md`.
 
 ## Milestone 3 — data-safe vault and Git sync
 

@@ -633,6 +633,13 @@ cwiki needs no zlib. The sidecar is stored in the render cache beside the image.
 Single-line blocks and prose get no sidecar: the tables in R1.8.10 already
 answer exactly.
 
+**R1.8.11a (schedule)** SyncTeX sidecars, their reader (R1.8.12), parse cache
+(R1.8.13) and fuzz target ship in Milestone 2 with the rest of the render
+pipeline. Accepted on 2026-10-11; see `ai-factory/adr/0001-synctex-sidecars-in-m2.md`.
+Deferring them to Milestone 5 was rejected: the sync marker would name a line up
+to a block's length away inside long derivations, and the render-cache entry
+format would change after caches already exist.
+
 **R1.8.12** cwiki parses the sidecar itself with a minimal reader — parse one
 page's record tree, find the innermost box containing a point, return its file
 tag and line — rather than vendoring the canonical `synctex_parser.c`, which is
@@ -2464,7 +2471,6 @@ deferred to the milestone that first needs them.
 
 | Question | Milestone |
 |---|---|
-| Whether SyncTeX sidecars ship with the first render milestone or the second (R1.8.11 makes this scheduling, not architecture) | rendering |
 | Per-row stale-render marking in the sync sidebar (R1.12.9, off by default) | rendering |
 | Named sessions beyond the implicit one (R1.12.11) | after the editor core is stable |
 | Change list `g;`/`g,` alongside the jump list — kept only if cheap once the jump list exists | editor core |

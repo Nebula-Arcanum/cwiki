@@ -5,3 +5,8 @@ ts,session_id,source,user,branch,task,tool,agent,model,turns,input_tokens,output
 2026-10-11T21:44:10.729Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,2,4,1442,370308,210,1.00,0.1335,
 2026-10-11T21:53:08.832Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,5,10,1258,930730,1670,1.00,0.3044,
 2026-10-11T21:55:18.028Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,12,24,5224,2264781,12674,0.99,0.8054,
+2026-10-11T21:57:30.331Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,4,8,2761,781801,31979,0.96,0.3959,
+2026-10-11T22:00:20.768Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,4,8,4452,962026,146192,0.87,0.9036,
+2026-10-11T22:19:34.196Z,e06386d2-9fd7-42bb-872b-8b32193d1f8f,session,leon,master,adr,claude,,claude-opus-5-5,4,8,472,472394,123656,0.79,0.6125,
+2026-10-11T22:20:15.697Z,e06386d2-9fd7-42bb-872b-8b32193d1f8f,agent,leon,master,fleet,claude,t4-route-adr-4a7c968f54,claude-opus-5-5,8,16,1742,567564,354912,0.62,1.5274,
+2026-10-11T22:20:27.822Z,e06386d2-9fd7-42bb-872b-8b32193d1f8f,session,leon,master,fleet,claude,,claude-opus-5-5,3,6,2246,451268,2677,0.99,0.1791,
