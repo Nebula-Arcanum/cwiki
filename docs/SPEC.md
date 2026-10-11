@@ -1653,8 +1653,15 @@ preamble invalidates only that note's blocks and never the vault.
 **R2.8.3** Per-block additions are carried in the block itself (R2.9.2), not in
 frontmatter.
 
+**R2.8.4** The vault-wide preamble is the plain LaTeX file
+`<vault>/.cwiki/preamble.tex`, synchronized through Git with the rest of the
+vault. Its path is fixed and not configurable. Decided on 2026-10-11.
+
 Rejected:
 
+- **A configurable vault-preamble path.** Adds a setting and a lookup step for
+  no workflow need, and lets machines disagree about which file is the shared
+  preamble.
 - **`preamble:` alone.** One mechanism and nothing to translate, but every note
   would spell out `\usepackage` lines and cwiki could not tell which packages a note
   uses without parsing raw LaTeX.
