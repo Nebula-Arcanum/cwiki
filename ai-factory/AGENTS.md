@@ -7,11 +7,22 @@ Git-synchronized plain-file vault. Kitty is the only terminal target; macOS, Lin
 supported. Stack: C11, POSIX make (no GNU extensions), utf8proc, PCRE2, libyaml; SQLite, Poppler
 and TeX Live arrive with later milestones. Scaffolded with ai-sdlc 2.8.0.
 
-Root `AGENTS.md` and `docs/` hold the product rules and stay authoritative: `docs/PRODUCT.md`
-(goals), `docs/SPEC.md` (approved requirements and rejected alternatives), `docs/FEATURES.md`
-(feature decisions), `docs/ROADMAP.md` (milestones and status), `docs/ACCEPTANCE.md` (release
-evidence). Where this file and root `AGENTS.md` differ, root `AGENTS.md` wins; report the
-contradiction instead of choosing silently.
+The user makes product decisions and reviews behavior through demos and test output rather than
+source code. The agent writes the implementation.
+
+## Sources of truth
+Read `docs/PRODUCT.md` before product work and `docs/SPEC.md` before architecture or
+implementation. Use `docs/FEATURES.md` and `docs/ROADMAP.md` when scoping or sequencing work.
+
+- `docs/PRODUCT.md` records durable goals, priorities, and constraints.
+- `docs/SPEC.md` records interviewed requirements, rejected alternatives, and open questions.
+- `docs/FEATURES.md` preserves the user's feature decisions and their sources.
+- `docs/ROADMAP.md` records milestone assignments and delivery status.
+- `docs/ACCEPTANCE.md` records release evidence; it creates no requirements.
+- `research/` contains supporting inventories, not requirements.
+- `ai-factory/specs/` and `ai-factory/plans/` slice approved requirements into deliveries. They
+  cite `R<section>.<n>` ids and never add, change or weaken a requirement.
+- Report contradictions between these sources. Do not silently choose one.
 
 ## Commands
 Run from the repository root. Details: `docs/DEVELOPING.md`.
@@ -24,24 +35,44 @@ Run from the repository root. Details: `docs/DEVELOPING.md`.
 - `make kitty-width-test` — Unicode width conformance against a real kitty; needs kitty and a display.
 - `scripts/review-changes.sh` — change-review gate: whitespace, tracked artifacts, then check, sanitize, analyze.
 A new source or test file is added to `APP_SOURCES`, `PRODUCT_TESTS` and `ANALYZE_SOURCES` in the root `Makefile`.
+
 Slash commands: /t4:start /t4:continue /t4:fleet /t4:design /t4:adr /t4:analyse /t4:explore /t4:spec /t4:plan /t4:test /t4:run /t4:fix /t4:chore /t4:quick /t4:check /t4:report
 Headless (CI only): make -f ai-factory/make/ai.mk ai TASK=<name> INPUT="…"
 
 ## Non-negotiable rules
 - Never edit paths listed in ai-factory/docs/dont-touch.md
-- Never read from or write to the user's real vault; use fixture vaults (`tests/support/fixture_vault.c`)
-- Requirements come from `docs/SPEC.md`. Do not weaken a requirement or a test to get a passing result
-- Stage explicit paths only; never `git add -A`, `git add .` or `git commit -a`. Never bypass a failing hook
-- Do not push, merge, tag, deploy or publish without explicit approval
+- Never read from or write to the user's real vault. Use fixture vaults
+  (`tests/support/fixture_vault.c`) until the data-safety milestone has passed its user demo
+- Requirements come from `docs/SPEC.md`. Never weaken a requirement or a test to get a passing result
 - Every behaviour change ships with a test
 - No new dependency without an ADR in ai-factory/adr/
+- Stage explicit paths only; never `git add -A`, `git add .` or `git commit -a`. Never bypass a failing hook
+- Do not push, merge, tag, deploy or publish without explicit approval
 - Keep project work in ai-factory/; follow docs/workspace-boundary.md. Preserve existing external entry files; create no new ones without an explicit request.
 
+## Interview gate
+Reuse the completed interview in `docs/SPEC.md`. Ask only targeted questions needed to close a
+recorded gap, contradiction, or implementation-blocking ambiguity; do not restart broad discovery.
+
+Do not implement product features unless all relevant architecture questions are settled and
+the user has answered **yes** to this exact question:
+
+> Do you approve `docs/SPEC.md` for implementation?
+
+Record accepted answers and rejected alternatives in `docs/SPEC.md`. Keep its status accurate.
+Planning and interviews do not change product source code. `/t4:explore`, `/t4:analyse` and
+`/t4:spec` work inside this gate: a decision they surface goes to the user and into
+`docs/SPEC.md`, not only into an `ai-factory/` artifact.
+
+## Research
+Prefer targeted repository, documentation, and web research. Put authored summaries in
+`research/`. Clone an external source into ignored `research/sources/` only when repeated deep
+inspection justifies keeping a local copy.
 
 ## Read before working
 Read the applicable protection rules and coding standards, then only the context this task needs.
-Read architecture when placement is uncertain; fleet for cross-service work; the named spec/plan
-when the selected workflow requires them. Reuse unchanged context already in this session.
+Read architecture when placement is uncertain; the named spec/plan when the selected workflow
+requires them. Reuse unchanged context already in this session.
 
 ## Workflow
 Use /t4:start <request> to choose one existing workflow interactively; direct commands remain available.
@@ -52,10 +83,34 @@ to at most one plan, test, run, check or report task in this session. Paths, qui
 contracts-disabled repos are unsupported. Headless TASK=start and TASK=continue are unsupported;
 CI must name a destination task.
 Small, understood local change: /t4:quick. Bug: /t4:fix. Maintenance: /t4:chore.
-Uncertain requirements, authorization, public contracts, migrations, dependencies or service
-boundaries: /t4:explore → /t4:spec → /t4:plan → /t4:test red → /t4:run → /t4:test gaps → /t4:check (→ /t4:report with contracts).
+Milestone slices and anything touching vault formats, dependencies or shared interfaces:
+/t4:explore → /t4:spec → /t4:plan → /t4:test red → /t4:run → /t4:test gaps → /t4:check (→ /t4:report with contracts).
 Preserve existing changes. Never reset a working tree to start or finish a step. File count is
 not a risk classifier. Match verification to the phase and run required final checks at completion.
+
+Implement milestones in the order of `docs/ROADMAP.md`. Before a milestone, turn its acceptance
+criteria into executable checks and a user-runnable fixture-vault demo.
+
+## Orchestration
+The top-level session owns planning, shared interfaces, integration, and final verification.
+t4 step agents (planner, tester, implementer, reviewer) run one at a time in the main checkout,
+each within its own task boundary; `/t4:run` implements exactly one plan step.
+
+Work is parallelized only for bounded, independent tasks, and then every parallel worker edits
+a separate Git worktree and branch; workers never share a checkout, commit locally and never
+push. Give each the exact requirements, files, ownership boundary, and checks it needs. Keep
+overlapping or tightly coupled work in the top-level session, and stabilize shared interfaces
+before parallelizing dependent areas.
+
+## Checkpoints, verification and review
+- Make a local checkpoint commit after each coherent planning or interview topic and after each
+  verified plan step, using the repository's conventional prefixes (`feat(scope):`, `fix:`,
+  `test:`, `docs(spec):`, `build:`, `ci:`).
+- Each implementation milestone needs testable acceptance criteria, a user-runnable demo, and
+  actual check output.
+- Inspect an agent's changes and run the combined checks; an agent's summary is not verification.
+  `/t4:check` reviews the diff, and the top-level session still runs `make verify`.
+- Milestone completion is gated by `docs/ACCEPTANCE.md`, not by ticked plan steps.
 
 ## Setup (once per developer)
 Works with whatever provider your tool is already configured with — nothing here assumes one.
