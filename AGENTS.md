@@ -1,7 +1,10 @@
 # cwiki repository guidance
 
-All instructions live in one file: @ai-factory/AGENTS.md. Read it first; this file only points
-there so tools that load the root `AGENTS.md` find it.
+All instructions live in `ai-factory/AGENTS.md`. This file only imports it, and the product
+context it relies on, so tools that load the root `AGENTS.md` find them.
 
-Product context it relies on: @docs/PRODUCT.md, @docs/SPEC.md, @docs/FEATURES.md and
-@docs/ROADMAP.md.
+@ai-factory/AGENTS.md
+@docs/PRODUCT.md
+@docs/SPEC.md
+@docs/FEATURES.md
+@docs/ROADMAP.md
