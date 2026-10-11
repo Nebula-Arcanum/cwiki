@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contract/evidence/v1",
+  "title": "Verification evidence",
+  "description": "ai-factory/evidence/<delivery_id>/{S<N>-red,S<N>-step,final,quick,review}.json. Written only by `contracts.js record` (make verify) and `make review`; never by hand.",
+  "type": "object",
+  "required": ["schema", "version", "delivery_id", "scope", "phase", "expected", "inputs", "code", "commands", "status", "started_at", "finished_at"],
+  "properties": {
+    "schema": { "const": "t4-contract/evidence" },
+    "version": { "const": 1 },
+    "delivery_id": { "type": "string", "pattern": "^d-[0-9]{8}-[0-9a-f]{6}$" },
+    "scope": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["step", "final", "quick", "review"] },
+        "step": { "type": "string", "pattern": "^S[0-9]+$" }
+      }
+    },
+    "phase": { "enum": ["red", "step", "final"] },
+    "expected": { "enum": ["pass", "fail"], "description": "red runs expect failure and never count as final verification." },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "spec_sha256": { "type": "string" },
+        "plan_sha256": { "type": "string" },
+        "quick_sha256": { "type": "string" }
+      }
+    },
+    "code": {
+      "type": "object",
+      "required": ["snapshot_sha256"],
+      "properties": {
+        "snapshot_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "head": { "type": ["string", "null"] },
+        "files": { "type": "integer" },
+        "changed_during_run": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["argv", "exit_code", "signal", "status"],
+        "properties": {
+          "argv": { "type": "array", "items": { "type": "string" } },
+          "exit_code": { "type": ["integer", "null"] },
+          "signal": { "type": ["string", "null"] },
+          "status": { "enum": ["passed", "failed", "unavailable"] },
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "status": { "enum": ["passed", "failed", "not_run", "unavailable"] },
+    "reason": { "type": "string" },
+    "review": {
+      "type": "object",
+      "properties": {
+        "independence": { "enum": ["independent", "self", "unspecified"], "description": "Optional provenance: who reviewed. make review records independent; absent in evidence recorded before provenance existed." },
+        "boundary": { "type": "string", "description": "Optional: where the review ran, for example make review." }
+      }
+    },
+    "output_ref": { "type": "string", "pattern": "^ai-factory/runs/evidence/[^/]+/[^/]+$", "description": "A reference only; validation never reads it." },
+    "output_sha256": { "type": "string" },
+    "started_at": { "type": "string" },
+    "finished_at": { "type": "string" }
+  }
+}

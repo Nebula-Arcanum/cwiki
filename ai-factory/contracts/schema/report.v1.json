@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-delivery-report/v1",
+  "title": "Delivery completion report",
+  "description": "ai-factory/reports/<delivery_id>/completion.json, written by make delivery-report (make/delivery-report.js). completion.md is rendered from the same document. Only generated_at differs between two runs over identical evidence.",
+  "type": "object",
+  "required": ["schema", "version", "generated_at", "note", "delivery", "snapshot", "status", "reasons", "counts", "policy", "criteria", "steps", "contract_status", "changes", "verification", "review", "attestations", "limitations", "telemetry", "mr_draft"],
+  "properties": {
+    "schema": { "const": "t4-delivery-report" },
+    "version": { "const": 1 },
+    "generated_at": { "type": "string" },
+    "note": { "type": "string" },
+    "delivery": {
+      "type": "object",
+      "required": ["id", "kind", "tracker_key", "title", "sources"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^d-[0-9]{8}-[0-9a-f]{6}$" },
+        "kind": { "enum": ["planned", "quick"] },
+        "tracker_key": { "type": ["string", "null"] },
+        "title": { "type": "string" },
+        "sources": { "type": "array", "items": { "type": "object", "required": ["kind", "markdown", "sidecar", "sha256", "state"] } }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["code_sha256", "head", "fingerprint"],
+      "description": "The code snapshot and a digest of every evidence byte the report was built from."
+    },
+    "status": { "$ref": "#/$defs/state" },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["state", "code", "message", "evidence_ref"],
+        "properties": {
+          "state": { "$ref": "#/$defs/state", "description": "The state this reason contributes; ready-level reasons are notes." },
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "evidence_ref": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": ["criteria", "passed", "attested", "pending", "failed", "uncovered", "unverified"]
+    },
+    "policy": {
+      "type": "object",
+      "required": ["require_review", "require_review_quick", "blocking_severities", "allow_attestation"]
+    },
+    "criteria": {
+      "type": "array",
+      "description": "Exactly one row per declared AC or QC; coverage comes only from the plan sidecar.",
+      "items": {
+        "type": "object",
+        "required": ["id", "steps", "tests", "evidence", "attestation", "result", "basis"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(AC|QC)[0-9]+$" },
+          "result": { "enum": ["passed", "attested", "pending", "failed", "uncovered", "unverified"] },
+          "basis": { "enum": ["automated", "attested", "none"] }
+        }
+      }
+    },
+    "steps": { "type": "array" },
+    "contract_status": { "enum": ["valid", "invalid", "stale", "legacy_unverified"] },
+    "changes": { "type": "object", "required": ["base", "counts", "total", "paths", "truncated"], "description": "Paths and status letters only, never file contents." },
+    "verification": { "type": "array", "description": "Commands, exit codes, signals and output references; logs are never inlined." },
+    "review": {
+      "type": "object",
+      "required": ["required", "evidence", "state", "status", "verdict", "findings"],
+      "properties": {
+        "independence": { "enum": ["independent", "self", "unspecified", null], "description": "Optional. Recorded review provenance; null when no review, or review evidence predates provenance. Only make review records independent." }
+      }
+    },
+    "assurance": {
+      "type": "object",
+      "description": "Optional; present only when an assurance preset is selected (ai-factory/assurance.json). The resolved policy the report applied, as make/assurance.js show --json prints it. Readers must accept reports without it.",
+      "required": ["schema", "version", "mode", "preset", "status", "settings", "conflicts", "unmet"],
+      "properties": {
+        "schema": { "const": "t4-assurance-policy" },
+        "version": { "const": 1 },
+        "mode": { "const": "preset" },
+        "preset": { "enum": ["light", "standard", "strict"] },
+        "status": { "enum": ["active", "incomplete", "conflict"] },
+        "settings": { "type": "object", "additionalProperties": { "type": "object", "required": ["value", "source", "retained"] } },
+        "conflicts": { "type": "array", "items": { "type": "object", "required": ["code", "message", "hint"] } },
+        "unmet": { "type": "array", "items": { "type": "object", "required": ["code", "message", "hint"] } }
+      }
+    },
+    "attestations": { "type": "array" },
+    "limitations": { "type": "object", "required": ["open_questions", "risks", "follow_up"] },
+    "telemetry": {
+      "type": "object",
+      "required": ["status", "reason", "source", "coverage", "metrics", "pricing"],
+      "properties": {
+        "status": { "enum": ["available", "partial", "unavailable", "incompatible"] },
+        "metrics": { "type": ["object", "null"], "additionalProperties": { "type": ["number", "null"] }, "description": "null means unknown, never zero." }
+      }
+    },
+    "mr_draft": {
+      "type": "object",
+      "required": ["draft", "title", "body"],
+      "properties": { "draft": { "const": true } }
+    }
+  },
+  "$defs": { "state": { "enum": ["ready", "incomplete", "unverified", "blocked"] } }
+}

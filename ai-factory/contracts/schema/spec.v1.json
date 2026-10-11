@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contract/spec/v1",
+  "title": "Spec sidecar",
+  "description": "ai-factory/specs/<name>.contract.json beside <name>.md. Written by `contracts.js init spec`; the Markdown stays authoritative for prose.",
+  "type": "object",
+  "required": ["schema", "version", "delivery_id", "sha256", "criteria"],
+  "properties": {
+    "schema": { "const": "t4-contract/spec" },
+    "version": { "const": 1 },
+    "delivery_id": { "type": "string", "pattern": "^d-[0-9]{8}-[0-9a-f]{6}$" },
+    "tracker_key": { "type": "string" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the spec Markdown bytes." },
+    "criteria": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^AC[0-9]+$" } },
+    "migrated": { "type": "boolean" },
+    "review_required": { "type": "boolean", "description": "Set by migration; the artifact stays legacy_unverified until init rewrites it." }
+  }
+}

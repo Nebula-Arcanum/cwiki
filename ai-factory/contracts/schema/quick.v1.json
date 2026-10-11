@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contract/quick/v1",
+  "title": "Quick checklist sidecar",
+  "description": "ai-factory/quick/<name>.contract.json beside <name>.md. Written by `contracts.js init quick`; no spec or plan is involved.",
+  "type": "object",
+  "required": ["schema", "version", "delivery_id", "sha256", "checks", "verify"],
+  "properties": {
+    "schema": { "const": "t4-contract/quick" },
+    "version": { "const": 1 },
+    "delivery_id": { "type": "string", "pattern": "^d-[0-9]{8}-[0-9a-f]{6}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^QC[0-9]+$" } },
+    "verify": { "type": "array", "minItems": 1, "items": { "$ref": "plan.v1.json#/$defs/verify" } }
+  }
+}

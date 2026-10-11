@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contract/attestation/v1",
+  "title": "Human attestation for one criterion",
+  "description": "ai-factory/evidence/<delivery_id>/<AC|QC><n>-attest.json. Written only by `contracts.js attest`. It counts toward a completion report only when completion.allow_attestation is true and no automated check for the criterion failed.",
+  "type": "object",
+  "required": ["schema", "version", "delivery_id", "criterion", "actor", "attested_at", "rationale", "source", "inputs"],
+  "properties": {
+    "schema": { "const": "t4-contract/attestation" },
+    "version": { "const": 1 },
+    "delivery_id": { "type": "string", "pattern": "^d-[0-9]{8}-[0-9a-f]{6}$" },
+    "criterion": { "type": "string", "pattern": "^(AC|QC)[0-9]+$" },
+    "actor": { "type": "string", "minLength": 1 },
+    "attested_at": { "type": "string" },
+    "rationale": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1, "description": "Where the human evidence lives, e.g. a ticket comment or a document." },
+    "inputs": {
+      "type": "object",
+      "description": "The content the attestation was made against; a later edit makes it stale.",
+      "properties": { "spec_sha256": { "type": "string" }, "quick_sha256": { "type": "string" } }
+    }
+  }
+}

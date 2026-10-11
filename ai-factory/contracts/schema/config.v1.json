@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contracts-config/v1",
+  "title": "Artifact contracts adoption marker and code scope",
+  "description": "ai-factory/contracts/config.json. Its presence opts the project into contracts; its code_scope selects the files whose content binds verification evidence.",
+  "type": "object",
+  "required": [
+    "schema",
+    "version",
+    "code_scope"
+  ],
+  "properties": {
+    "schema": {
+      "const": "t4-contracts-config"
+    },
+    "version": {
+      "const": 1
+    },
+    "code_scope": {
+      "type": "object",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Relative glob (*, **, ?). Defaults to [\"**\"]."
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Relative glob; generated output that tests write belongs here."
+          }
+        }
+      }
+    },
+    "completion": {
+      "type": "object",
+      "description": "Completion-report policy (make/delivery-report.js).",
+      "properties": {
+        "require_review": {
+          "type": "boolean"
+        },
+        "require_review_quick": {
+          "type": "boolean"
+        },
+        "blocking_severities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "blocker",
+              "major",
+              "minor"
+            ]
+          }
+        },
+        "allow_attestation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Lifecycle telemetry opt-in (make/lifecycle.js). Absent or enabled:false records nothing.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default 90; events of deliveries with a saved completion report are kept."
+        }
+      }
+    }
+  }
+}

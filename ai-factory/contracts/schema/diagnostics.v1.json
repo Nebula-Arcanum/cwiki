@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "t4-contract-diagnostics/v1",
+  "title": "Validator output (contracts.js validate --json, or JSON=1 make contracts)",
+  "type": "object",
+  "required": ["schema", "version", "status", "delivery_id", "adopted", "note", "artifacts"],
+  "properties": {
+    "schema": { "const": "t4-contract-diagnostics" },
+    "version": { "const": 1 },
+    "status": { "$ref": "#/$defs/state" },
+    "delivery_id": { "type": ["string", "null"] },
+    "adopted": { "type": "boolean" },
+    "note": { "type": "string", "description": "States that validation is structural only." },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "state", "diagnostics"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "enum": ["spec", "plan", "quick", "evidence", "delivery", "unknown"] },
+          "state": { "$ref": "#/$defs/state" },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "path", "message"],
+              "properties": {
+                "code": { "type": "string", "pattern": "^[ESLI]_[A-Z_]+$", "description": "E_ invalid, S_ stale, L_ legacy_unverified, I_ informational." },
+                "path": { "type": "string" },
+                "message": { "type": "string" },
+                "hint": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": { "state": { "enum": ["valid", "invalid", "stale", "legacy_unverified"] } }
+}
