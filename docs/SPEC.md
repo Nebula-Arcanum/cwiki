@@ -602,6 +602,11 @@ rather than recentring on every motion.
 `<C-o>` and `<C-i>` retrace them. Whether sync jumps are recorded is itself
 togglable.
 
+**R1.8.7a (schedule)** Sync ships in Milestone 2 without jump-list recording;
+R1.8.7 and its toggle ship with the Milestone 5 jump list. Decided on
+2026-10-11. Building a sync-only jump list in Milestone 2 was rejected because
+Milestone 5 would immediately generalise it to every jump motion.
+
 **R1.8.8** Each sync direction is independently configurable as **continuous**
 or **explicit**:
 
@@ -2063,6 +2068,13 @@ remain normal-sized source text.
 search over rendered text with `n`/`N`, Tab and Shift-Tab link focus, Enter to
 follow, and a back stack. It remains a viewer without an insertion cursor;
 source navigation uses the inverse-sync action in §1.8.
+
+**R6.3.3a (schedule)** Milestone 2 ships rendered scrolling and `/` search with
+`n`/`N`. Link focus, Enter to follow and the back stack ship in Milestone 4 with
+the index that resolves links under R2.5.2. Decided on 2026-10-11. Shipping
+link focus in Milestone 2 with a placeholder follow action, or resolving links
+through an interim in-memory vault scan replaced in Milestone 4, were rejected
+as throwaway work.
 
 Rejected:
 

@@ -1,7 +1,7 @@
 # cwiki roadmap
 
 Status: **specification approved; Milestone 1 complete and accepted; Milestone
-2 ready but awaiting the user's start command.**
+2 in progress (started 2026-10-11).**
 
 The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
@@ -207,7 +207,7 @@ vault, note, and block preambles; one changed-block TeX run per note; Poppler
 rasterization; kitty shared-memory images, placeholders, z-index, and OSC 66
 headings; color/cell-aware render keys; precompiled preambles and cache warming;
 atomic artifact swaps; partial failure; structured TeX diagnostics and raw logs;
-render/search/link navigation; and line-granular source↔render synchronization,
+rendered scrolling and search (link focus/follow ships in M4, R6.3.3a); and line-granular source↔render synchronization,
 including SyncTeX sidecars for multi-line blocks (R1.8.11a).
 
 **Acceptance criteria.** Switching an uncached note to rendered mode returns
@@ -235,8 +235,32 @@ parse cache and fuzz target.
 **Decisions resolved.** SyncTeX sidecars ship in this milestone (R1.8.11a,
 accepted 2026-10-11). Per-row stale render markers are not part of this
 milestone; they ship in Milestone 5, optional and off by default (R1.12.9a,
-decided 2026-10-11). The status-line stale indicator remains in scope. No
-Milestone 2 decision remains open.
+decided 2026-10-11). The status-line stale indicator remains in scope. Sync
+jump-list recording moves to Milestone 5 (R1.8.7a) and rendered link navigation
+to Milestone 4 (R6.3.3a), both decided 2026-10-11. No Milestone 2 decision
+remains open.
+
+### Slices
+
+Ordered vertical slices. Each is independently testable; every M2 scope item
+and acceptance criterion lands in exactly one. Pull-triggered cache warming and
+external-write refresh (R1.12.7) depend on M3 change detection; M2 warms on
+open and after cwiki's own writes. The trusted-vault shell-escape override
+(R6.4.1) ships with M3's machine-local trust policy; M2 always passes
+`-no-shell-escape`.
+
+| # | Slice | Covers | Depends on | Delivery | Status |
+|---|---|---|---|---|---|
+| S1 | Acceptance harness: M2 closure table, render fixture vault (math, mhchem, TikZ, failing block, multi-line derivation), demo skeleton, TeX Live/Poppler dependency ADR with package revalidation, CI TeX package subset | M2 acceptance criteria and demo; R6.1.1–R6.1.3 dependency gate | — | — | pending |
+| S2 | Block extraction and TeX source generation: renderable blocks from zone data, environment availability tables and preamble scan, frontmatter `packages:`/`preamble:`/engine, vault preamble, `% cwiki:` directives, `latex` fences as code, standalone template with temp-line→note-line table | R2.3, R2.8, R2.9, R6.1.1, R1.8.14 | S1 | — | pending |
+| S3 | Render pipeline: asynchronous one-run-per-note TeX job for changed blocks, `-no-shell-escape`, Poppler rasterization, cache keys and OS cache location, atomic artifact swap, SyncTeX `-synctex=-1` sidecars for multi-line blocks, precompiled preamble and warm-on-open, cancellation, background-rendering switch | R6.1.2–R6.1.4, R1.8.11, R1.8.19, R1.12.8, R6.4.2, R1.14.3 | S2 | — | pending |
+| S4 | TeX diagnostics: stateful log parser with file stack, context and continuation lines, regex filters and error/warning policy, mapping to note lines, raw log, package detection from `.fls`, log-parser fuzz target | R6.5, FEATURES TeX-diagnostic rows | S3 | — | pending |
+| S5 | Terminal graphics and metrics: cell pixel size, foreground/background colour queries with focus-return refresh and light/dark theme variants, kitty shared-memory transfer, Unicode placeholders, z-index | R6.1.3, R6.1.4 inputs, R9.3.1, kitty graphics rows | S1 | — | pending |
+| S6 | Rendered mode in one window: per-window mode switch that never waits, Markdown prose layout, OSC 66 headings, inline formula row expansion and baseline, placeholders and newest valid artifact, in-place errors, render on write only, status-line stale indicator, row↔source tables, editing-mode diagnostic gutter with reserved sign column, rendered scrolling | R1.8.1–R1.8.3, R1.8.10, R1.12.6, R1.12.9, R6.2, R6.3.1, R6.3.2, R6.5.3 | S3, S4, S5 | — | pending |
+| S7 | Source/rendered split: two windows on one buffer with per-window state, cross-window position fix-up, split/close/focus actions | R1.8.2, R1.12.2–R1.12.5 (M2 subset) | S6 | — | pending |
+| S8 | SyncTeX reader: one-page record tree, innermost-box lookup, bounded parse cache, temp-line mapping, fuzz target | R1.8.11a, R1.8.12–R1.8.15 | S3 | — | pending |
+| S9 | View sync: forward/inverse continuous or explicit per direction, global and per-window toggles, minimal forward scroll, sidebar reticle, no-output-line fallback, post-jump cue, degrade to scrolling when mapping is unavailable | R1.8.4–R1.8.6, R1.8.8, R1.8.9, R1.8.16–R1.8.18 | S7, S8 | — | pending |
+| S10 | Rendered search and observability: `/` search with `n`/`N` over rendered text, internal message log, notification history, diagnostics pane toggle, state dump | R6.3.3 (M2 part), R1.14.5, R1.14.6, FEATURES M2 log/notification/pane rows | S6 | — | pending |
 
 ## Milestone 3 — data-safe vault and Git sync
 
@@ -280,7 +304,7 @@ frontmatter and typed properties required by approved workflows; indexed titles,
 aliases, headings, links, backlinks, properties, TODO comments, and attachment
 metadata; exact normalized link resolution and collision guard; wikilinks,
 heading links, completion, backlinks, and outgoing links; the Notes browser and
-outline; full-text, phrase, Boolean, typed, property, and bounded regex queries;
+outline; rendered-mode link focus, follow and back stack (R6.3.3a); full-text, phrase, Boolean, typed, property, and bounded regex queries;
 saved searches; multiple-vault selection; attachments folder; and explicit
 rename-and-fix-links.
 
@@ -309,7 +333,7 @@ Vim/vimtex-style authoring workspace without delaying the first usable build.
 
 **Scope.** Full operator/count grammar; complete text objects; character/line and
 block Visual modes; registers, macros, marks, jump list, and conditional change
-list; search, substitute, formatting, filters, dot repeat, surround, LaTeX motions
+list, including sync-jump recording (R1.8.7a); search, substitute, formatting, filters, dot repeat, surround, LaTeX motions
 and manipulations; folding and indentation; tabs, split layout, sidebars, buffer
 reuse/removal, and session policy; command/environment/file completion; command
 palette, contextual help, themes, and the remaining accepted editor polish; and
