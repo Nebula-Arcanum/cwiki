@@ -1,0 +1,192 @@
+{
+  "schema": "t4-contract/plan",
+  "version": 1,
+  "delivery_id": "d-20261011-ff71bd",
+  "sha256": "26dbcd91e8ccaa50eb9a30bad48671c6fb7e986f3ae64798c3b9b44fecd2aada",
+  "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
+  "steps": [
+    {
+      "id": "S1",
+      "criteria": [
+        "AC8"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "support-test"
+          ],
+          "phase": "red"
+        },
+        {
+          "argv": [
+            "make",
+            "support-test"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "criteria": [
+        "AC5",
+        "AC6",
+        "AC7"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_render_fixture.sh"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "criteria": [
+        "AC12",
+        "AC13",
+        "AC14",
+        "AC15"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/test_tex_probe.sh"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "criteria": [
+        "AC8",
+        "AC9",
+        "AC10",
+        "AC11"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/test_m2_demo.sh",
+            "build/cwiki-m2-demo"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "make",
+            "demo"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "criteria": [
+        "AC16",
+        "AC17",
+        "AC18",
+        "AC19",
+        "AC20"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC7"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "sh",
+            "tests/docs/check_m2_closure.sh"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S7",
+      "criteria": [
+        "AC21"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "152787c",
+            "--",
+            "src",
+            "tests/snapshots",
+            "tests/fixtures/keys"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "make",
+            "verify"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "make",
+            "demo"
+          ],
+          "phase": "final"
+        }
+      ]
+    }
+  ]
+}
