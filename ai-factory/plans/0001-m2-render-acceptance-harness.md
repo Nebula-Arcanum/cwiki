@@ -56,7 +56,7 @@ documentation.
   vault into another and compare bytes; source tree unchanged afterwards; a symlink in the source
   is rejected. Expected red: `build/test-fixture-vault` fails to build because
   `fixture_vault_copy_in` is undeclared. Verify (red): `make support-test` Verify: `make support-test`
-- [ ] Step 2 — Render fixture vault. AC5, AC6, AC7. Write `preamble.tex` (no `\documentclass`, no
+- [x] Step 2 — Render fixture vault. AC5, AC6, AC7. Write `preamble.tex` (no `\documentclass`, no
   `\begin{document}`), `class-note.md` and `tests/fixtures/vaults/README.md`. The failing block is
   display math `$$…$$` on one line using an undefined control sequence (`\undefinedfixturemacro`),
   so R2.9.4 would send it to TeX and the error is "Undefined control sequence" at that single line.
