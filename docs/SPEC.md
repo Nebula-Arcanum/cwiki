@@ -1093,6 +1093,16 @@ keeps the ordinary modified flag. Optionally, and off by default, the sync
 sidebar additionally marks the specific rendered rows whose source has changed,
 which needs per-block dirty tracking mapped back to rendered rows.
 
+**R1.12.9a (schedule)** The status-line stale indicator ships with the first
+render milestone (Milestone 2). The optional per-row sidebar marking ships in
+Milestone 5 and remains off by default. Decided on 2026-10-11; see
+`ai-factory/adr/0002-per-row-stale-markers-deferred-to-m5.md`. Shipping it in
+Milestone 2 was rejected because it adds a dirty-block → rendered-row projection
+to the largest-risk milestone for a feature that is off by default. Milestone 2
+keeps per-block change detection and the rendered row → source range table
+addressable per block so Milestone 5 adds a projection rather than reworking the
+layout pass.
+
 **R1.12.10 (save policy)** When the note is written is configurable, with three
 policies:
 
@@ -2471,6 +2481,5 @@ deferred to the milestone that first needs them.
 
 | Question | Milestone |
 |---|---|
-| Per-row stale-render marking in the sync sidebar (R1.12.9, off by default) | rendering |
 | Named sessions beyond the implicit one (R1.12.11) | after the editor core is stable |
 | Change list `g;`/`g,` alongside the jump list — kept only if cheap once the jump list exists | editor core |

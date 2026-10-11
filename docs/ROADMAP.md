@@ -232,11 +232,11 @@ precision. CI installs only packages exercised by fixtures and caches them.
 **Effort.** XL, 20–28 focused tasks, including the SyncTeX sidecar reader, its
 parse cache and fuzz target.
 
-**Decision resolved.** SyncTeX sidecars ship in this milestone (R1.8.11a,
-accepted 2026-10-11).
-
-**Decisions due before coding.** Decide whether to include the off-by-default
-per-row stale render markers from R1.12.9. Record the outcome in `docs/SPEC.md`.
+**Decisions resolved.** SyncTeX sidecars ship in this milestone (R1.8.11a,
+accepted 2026-10-11). Per-row stale render markers are not part of this
+milestone; they ship in Milestone 5, optional and off by default (R1.12.9a,
+decided 2026-10-11). The status-line stale indicator remains in scope. No
+Milestone 2 decision remains open.
 
 ## Milestone 3 — data-safe vault and Git sync
 
@@ -312,7 +312,9 @@ block Visual modes; registers, macros, marks, jump list, and conditional change
 list; search, substitute, formatting, filters, dot repeat, surround, LaTeX motions
 and manipulations; folding and indentation; tabs, split layout, sidebars, buffer
 reuse/removal, and session policy; command/environment/file completion; command
-palette, contextual help, themes, and the remaining accepted editor polish.
+palette, contextual help, themes, and the remaining accepted editor polish; and
+the optional, off-by-default per-row stale-render markers in the sync sidebar
+(R1.12.9a).
 
 **Acceptance criteria.** The operator×motion/text-object matrix passes generated
 tests over wrapped, concealed, Unicode, empty, and ragged lines; dot-repeat and
