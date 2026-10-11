@@ -91,6 +91,26 @@ not a risk classifier. Match verification to the phase and run required final ch
 Implement milestones in the order of `docs/ROADMAP.md`. Before a milestone, turn its acceptance
 criteria into executable checks and a user-runnable fixture-vault demo.
 
+## Milestone autopilot
+"Start milestone N" or "continue milestone N" from the user runs the whole milestone without
+further prompting, in the top-level session:
+1. Slice once. Read the milestone in `docs/ROADMAP.md`, its `docs/FEATURES.md` rows, the `R` ids
+   they cite and the current code. Add a `Slices` table under the milestone: ordered vertical
+   slices, each independently testable, listing the `R` ids it covers, its dependencies, its
+   delivery ID once known and its status. Every scope item and acceptance criterion lands in
+   exactly one slice; the first slice turns the acceptance criteria into executable checks and the
+   fixture-vault demo. Commit, then proceed without waiting.
+2. Per slice, in order: `/t4:spec`, `/t4:plan`, then `/t4:continue <delivery id>` repeatedly until
+   it reports complete. After each `/t4:run` step run `make check` and commit a checkpoint; at
+   slice end run `make verify`, update the slice row, commit. Use `/t4:explore` only when the spec
+   leaves an implementation choice genuinely open.
+3. The table is the resume point: "continue milestone N" picks up the first unfinished slice.
+4. Stop and ask only for: a product decision `docs/SPEC.md` does not settle, a contradiction
+   between sources, a `/t4:continue` question or block, a check still failing after a fix attempt,
+   or a step that would break a non-negotiable rule. Record answers in `docs/SPEC.md`.
+5. After the last slice, run `make verify` and the milestone demo, then stop for the user's
+   acceptance under `docs/ACCEPTANCE.md`. Never mark a milestone complete yourself.
+
 ## Orchestration
 The top-level session owns planning, shared interfaces, integration, and final verification.
 t4 step agents (planner, tester, implementer, reviewer) run one at a time in the main checkout,
