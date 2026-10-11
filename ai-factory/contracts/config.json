@@ -1,0 +1,14 @@
+{
+  "schema": "t4-contracts-config",
+  "version": 1,
+  "code_scope": {
+    "include": [
+      "src/**",
+      "tests/**",
+      "scripts/**",
+      "Makefile",
+      ".github/**"
+    ],
+    "exclude": []
+  }
+}

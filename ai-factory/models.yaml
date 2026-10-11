@@ -33,8 +33,36 @@ review:
 # restart the session; interactive tasks stop with that instruction until you do.
 # Supported syntax: this layout, two spaces per level, `enabled: true|false`, one scalar per tool.
 routing:
-  enabled: false
+  enabled: true
   tasks:
+    start:
+      claude: claude-haiku-5-5
+    explore:
+      claude: claude-opus-5-5
+    analyse:
+      claude: claude-opus-5-5
+    design:
+      claude: claude-opus-5-5
+    adr:
+      claude: claude-opus-5-5
+    spec:
+      claude: claude-opus-5-5
+    plan:
+      claude: claude-opus-5-5
+    check:
+      claude: claude-opus-5-5
+    fix:
+      claude: claude-opus-5-5
+    test:
+      claude: claude-sonnet-5-5
+    run:
+      claude: claude-sonnet-5-5
+    chore:
+      claude: claude-sonnet-5-5
+    quick:
+      claude: claude-sonnet-5-5
+    report:
+      claude: claude-sonnet-5-5
 # Delete only the leading # to use an example; the indentation is already right.
 #    plan:
 #      claude: gateway/planning-claude

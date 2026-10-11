@@ -265,5 +265,10 @@
       "received": "sha256:fcedac58009bd2a974faaf4c9529b601b6b045441027f2fd4c0b71625f6d334a",
       "template": "sha256:fcedac58009bd2a974faaf4c9529b601b6b045441027f2fd4c0b71625f6d334a"
     }
+  },
+  "capabilities": {
+    "contracts": {
+      "version": 1
+    }
   }
 }
