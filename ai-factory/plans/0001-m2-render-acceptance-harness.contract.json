@@ -2,7 +2,7 @@
   "schema": "t4-contract/plan",
   "version": 1,
   "delivery_id": "d-20261011-ff71bd",
-  "sha256": "26dbcd91e8ccaa50eb9a30bad48671c6fb7e986f3ae64798c3b9b44fecd2aada",
+  "sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde",
   "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
   "steps": [
     {
@@ -185,6 +185,13 @@
             "demo"
           ],
           "phase": "final"
+        },
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "phase": "step"
         }
       ]
     }

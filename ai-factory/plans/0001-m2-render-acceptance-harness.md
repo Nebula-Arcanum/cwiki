@@ -129,11 +129,11 @@ documentation.
   resolving it. `check_m2_closure.sh` asserts the section, S1–S10, the five deferred ids each on a
   deferred line naming M3/M4/M5, the checklist heading, and no **verified** disposition yet.
   Verify: `sh tests/docs/check_m2_closure.sh`
-- [ ] Step 7 — Final verification. AC21 and all ACs. No file under `src/` and no approved snapshot
+- [x] Step 7 — Final verification. AC21 and all ACs. No file under `src/` and no approved snapshot
   or key recording changed since the spec commit; the full suite passes with the toolchain
   required. Verify (final): `git diff --exit-code 152787c -- src tests/snapshots tests/fixtures/keys`
   Verify (final): `make verify` Verify (final): `env CWIKI_REQUIRE_TEX=1 make check`
-  Verify (final): `make demo`
+  Verify (final): `make demo` Verify: `make check`
 
 ## Risks and how each is checked
 

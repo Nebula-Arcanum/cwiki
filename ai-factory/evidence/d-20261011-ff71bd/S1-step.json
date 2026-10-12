@@ -10,12 +10,12 @@
   "expected": "pass",
   "inputs": {
     "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
-    "plan_sha256": "26dbcd91e8ccaa50eb9a30bad48671c6fb7e986f3ae64798c3b9b44fecd2aada"
+    "plan_sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde"
   },
   "code": {
-    "snapshot_sha256": "2236962e27300ece8c2bbe8e679920cab7c408c40f60646e95b0cfb384884ed6",
-    "head": "04d740be7f763760c64cfe4fb5ab1d925762ba25",
-    "files": 119
+    "snapshot_sha256": "d208bb5bd22bf5e8680d043e2401a6ac9c9fbfba31aae7481dd73bf2eafe3c11",
+    "head": "68ba598ba96694753687c1b5ca67ee3a76c61814",
+    "files": 130
   },
   "commands": [
     {
@@ -29,8 +29,8 @@
     }
   ],
   "status": "passed",
-  "started_at": "2026-10-11T23:50:07.628Z",
-  "finished_at": "2026-10-11T23:50:07.948Z",
+  "started_at": "2026-10-12T01:23:16.236Z",
+  "finished_at": "2026-10-12T01:23:16.503Z",
   "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S1-step.log",
   "output_sha256": "62f232a5b8ca89a63c94154c7385280c64c359ec1c55b7ec3e0ac4e280c214a0"
 }

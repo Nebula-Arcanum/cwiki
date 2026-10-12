@@ -1,0 +1,70 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261011-ff71bd",
+  "scope": {
+    "kind": "final"
+  },
+  "phase": "final",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
+    "plan_sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde"
+  },
+  "code": {
+    "snapshot_sha256": "d208bb5bd22bf5e8680d043e2401a6ac9c9fbfba31aae7481dd73bf2eafe3c11",
+    "head": "68ba598ba96694753687c1b5ca67ee3a76c61814",
+    "files": 130
+  },
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "152787c",
+        "--",
+        "src",
+        "tests/snapshots",
+        "tests/fixtures/keys"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    },
+    {
+      "argv": [
+        "make",
+        "verify"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    },
+    {
+      "argv": [
+        "env",
+        "CWIKI_REQUIRE_TEX=1",
+        "make",
+        "check"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    },
+    {
+      "argv": [
+        "make",
+        "demo"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    }
+  ],
+  "status": "passed",
+  "started_at": "2026-10-12T01:19:57.198Z",
+  "finished_at": "2026-10-12T01:22:51.607Z",
+  "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/final.log",
+  "output_sha256": "7d3fab71bc588f52dec0b26b1f7ede8185859268e43f13c99e300dd8cd47b82f"
+}
