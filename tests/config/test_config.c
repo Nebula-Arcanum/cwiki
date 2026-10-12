@@ -445,6 +445,59 @@ parse_tex(const char *text, struct cwiki_config_note_tex *tex,
 }
 
 static void
+test_environments(void)
+{
+   struct cwiki_action_registry *registry = actions();
+   struct cwiki_config *a = NULL;
+   struct cwiki_config *b = NULL;
+   struct cwiki_config *bad = NULL;
+   const struct cwiki_config *configs[2];
+   struct cwiki_config_environment_table table;
+   struct cwiki_config_error error = {0};
+   static const char global[] =
+       "environments:\n  tikz-cd: [tikzcd]\n  siunitx: [unit, 'unit*']\n"
+       "  gone: [x]\n";
+   static const char local[] =
+       "environments:\n  siunitx: [quantity]\n  gone: null\n";
+   static const char *const invalid[] = {
+      "environments: [a]\n",
+      "environments:\n  p: x\n",
+      "environments:\n  p: [[a]]\n",
+      "environments:\n  p: [\"a b\"]\n",
+      "environments:\n  \"p q\": [a]\n",
+      "environments:\n  p: [a]\n  p: [b]\n",
+   };
+   size_t i;
+
+   assert(cwiki_config_parse(&a, (const unsigned char *)global,
+       sizeof(global) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   assert(cwiki_config_parse(&b, (const unsigned char *)local,
+       sizeof(local) - 1U, registry, &error) == CWIKI_CONFIG_OK);
+   configs[0] = a;
+   assert(cwiki_config_build_environments(configs, 1U, &table, &error) ==
+       CWIKI_CONFIG_OK && table.count == 3U);
+   cwiki_config_environment_table_free(&table);
+   configs[1] = b;
+   assert(cwiki_config_build_environments(configs, 2U, &table, &error) ==
+       CWIKI_CONFIG_OK && table.count == 2U);
+   assert(strcmp(table.entries[0].package, "tikz-cd") == 0 &&
+       table.entries[0].name_count == 1U &&
+       strcmp(table.entries[0].names[0], "tikzcd") == 0);
+   assert(strcmp(table.entries[1].package, "siunitx") == 0 &&
+       table.entries[1].name_count == 1U &&
+       strcmp(table.entries[1].names[0], "quantity") == 0);
+   cwiki_config_environment_table_free(&table);
+   cwiki_config_free(a);
+   cwiki_config_free(b);
+   for (i = 0U; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+      assert(cwiki_config_parse(&bad, (const unsigned char *)invalid[i],
+          strlen(invalid[i]), registry, &error) == CWIKI_CONFIG_SCHEMA_ERROR);
+      assert(bad == NULL && error.line >= 1U && error.column >= 1U);
+   }
+   cwiki_action_registry_free(registry);
+}
+
+static void
 test_note_tex(void)
 {
    struct cwiki_config_note_tex tex;
@@ -700,6 +753,7 @@ main(void)
    zone_settings_and_precedence();
    note_subject_frontmatter();
    test_note_tex();
+   test_environments();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;

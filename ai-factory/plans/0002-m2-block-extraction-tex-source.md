@@ -112,7 +112,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   rejected; `preamble: [x]` rejected; `preamble: |` block bytes exact; `environments:` in
   frontmatter rejected with location.
   Verify: `make build/test-config` Verify: `build/test-config`
-- [ ] Step 3 — User environment table in configuration. AC13, AC33. `cwiki_config_parse` accepts
+- [x] Step 3 — User environment table in configuration. AC13, AC33. `cwiki_config_parse` accepts
   `environments:` (mapping package → sequence of environment names; strict schema, duplicate keys
   and wrong types rejected with source locations per R7.1.2) in global, vault and machine-local
   files; `cwiki_config_build_environments(configs, count, …)` composes scopes, later scope replacing

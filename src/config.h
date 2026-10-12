@@ -5,6 +5,7 @@
 #include "conceal.h"
 #include "keymap.h"
 #include "snippet.h"
+#include "tex_env.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -138,6 +139,8 @@ struct cwiki_config_named_info {
  *       math-inline: '\\frac{d$1}{d$2}$0'
  *       math-display: '\\frac{d$1}{d$2}$0'
  *   vimtex.alpha: null  # disable a builtin
+ * environments:
+ *   tikz-cd: [tikzcd]  # package -> extra environments; null removes
  * zones:
  *   custom.my-math:
  *     kind: math-display
@@ -170,6 +173,20 @@ enum cwiki_config_status cwiki_config_build_zones(
     struct cwiki_config_zone_table *table,
     struct cwiki_config_error *error);
 void cwiki_config_zone_table_free(struct cwiki_config_zone_table *table);
+
+/* Composed user environment table (R2.9.5, R1.14.2): a later scope replaces a
+ * package's whole entry and null removes it. Entries feed cwiki_tex_env_build. */
+struct cwiki_config_environment_table {
+   struct cwiki_tex_env_user_entry *entries;
+   size_t count;
+};
+
+enum cwiki_config_status cwiki_config_build_environments(
+    const struct cwiki_config *const *configs, size_t config_count,
+    struct cwiki_config_environment_table *table,
+    struct cwiki_config_error *error);
+void cwiki_config_environment_table_free(
+    struct cwiki_config_environment_table *table);
 
 /* Parse only M1's note-scoped subject list from opening YAML frontmatter. */
 enum cwiki_config_status cwiki_config_parse_note_subjects(

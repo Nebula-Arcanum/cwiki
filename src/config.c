@@ -69,6 +69,13 @@ struct config_zone {
    bool disabled;
 };
 
+struct config_env {
+   char *package;
+   struct config_names names;
+   struct source_mark mark;
+   bool disabled;
+};
+
 struct cwiki_config {
    struct config_binding *bindings;
    size_t binding_count;
@@ -78,6 +85,8 @@ struct cwiki_config {
    size_t snippet_count;
    struct config_zone *zones;
    size_t zone_count;
+   struct config_env *envs;
+   size_t env_count;
    char *continuation_marker;
    uint32_t conceal_categories;
    uint32_t concealcursor_modes;
@@ -1418,6 +1427,155 @@ parse_zones(yaml_document_t *document, struct cwiki_config *config,
 }
 
 static bool
+tex_name_ok(const yaml_node_t *node, bool allow_star)
+{
+   size_t i;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE ||
+       node->data.scalar.length == 0U ||
+       node->data.scalar.length > CONFIG_MAX_TEXT) {
+      return false;
+   }
+   for (i = 0U; i < node->data.scalar.length; i++) {
+      unsigned char c = node->data.scalar.value[i];
+
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+          (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-' ||
+          (allow_star && c == '*'))) {
+         return false;
+      }
+   }
+   return true;
+}
+
+static enum cwiki_config_status
+parse_env_names(yaml_document_t *document, struct config_env *env,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_item_t *item;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_SEQUENCE_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column,
+          "environment names must be a sequence");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.sequence.items.top -
+       node->data.sequence.items.start);
+   if (count > CONFIG_MAX_ENTRIES) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many environment names");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      env->names.values = calloc(count, sizeof(*env->names.values));
+      if (env->names.values == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (item = node->data.sequence.items.start;
+       item < node->data.sequence.items.top; item++) {
+      yaml_node_t *value = yaml_document_get_node(document, *item);
+
+      if (!tex_name_ok(value, true)) {
+         struct source_mark at = value == NULL ? mark(node) : mark(value);
+
+         set_error(error, at.line, at.column,
+             "environment names must be [A-Za-z0-9._*-]+ scalars");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      env->names.values[used] = copy_scalar(value);
+      if (env->names.values[used] == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      used++;
+      env->names.count = used;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_environments(yaml_document_t *document, struct cwiki_config *config,
+    const yaml_node_t *node, struct cwiki_config_error *error)
+{
+   yaml_node_pair_t *pair;
+   size_t count;
+   size_t used = 0U;
+
+   if (node == NULL || node->type != YAML_MAPPING_NODE) {
+      struct source_mark at = node == NULL ? (struct source_mark){1U, 1U} :
+          mark(node);
+
+      set_error(error, at.line, at.column, "environments must be a mapping");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   count = (size_t)(node->data.mapping.pairs.top -
+       node->data.mapping.pairs.start);
+   if (count > CONFIG_MAX_ENTRIES) {
+      struct source_mark at = mark(node);
+
+      set_error(error, at.line, at.column, "too many environment packages");
+      return CWIKI_CONFIG_SCHEMA_ERROR;
+   }
+   if (count != 0U) {
+      config->envs = calloc(count, sizeof(*config->envs));
+      if (config->envs == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+   }
+   for (pair = node->data.mapping.pairs.start;
+       pair < node->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(document, pair->key);
+      yaml_node_t *value = yaml_document_get_node(document, pair->value);
+      struct config_env *env = &config->envs[used];
+      yaml_node_pair_t *earlier;
+      enum cwiki_config_status status;
+
+      if (!tex_name_ok(key, false)) {
+         struct source_mark at = key == NULL ? mark(node) : mark(key);
+
+         set_error(error, at.line, at.column,
+             "environment table keys must be [A-Za-z0-9._-]+ package names");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      for (earlier = node->data.mapping.pairs.start; earlier < pair; earlier++) {
+         yaml_node_t *previous = yaml_document_get_node(document, earlier->key);
+
+         if (previous != NULL && previous->type == YAML_SCALAR_NODE &&
+             previous->data.scalar.length == key->data.scalar.length &&
+             memcmp(previous->data.scalar.value, key->data.scalar.value,
+             key->data.scalar.length) == 0) {
+            struct source_mark at = mark(key);
+
+            set_error(error, at.line, at.column,
+                "duplicate environment package");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      }
+      env->package = copy_scalar(key);
+      if (env->package == NULL) {
+         return CWIKI_CONFIG_NO_MEMORY;
+      }
+      config->env_count = used + 1U;
+      env->mark = mark(key);
+      env->disabled = null_node(value);
+      if (!env->disabled) {
+         status = parse_env_names(document, env, value, error);
+         if (status != CWIKI_CONFIG_OK) {
+            return status;
+         }
+      }
+      used++;
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static bool
 parse_mode(const yaml_node_t *node, enum cwiki_keymap_mode *mode)
 {
    static const char *const names[] = {
@@ -1898,6 +2056,16 @@ cwiki_config_free(struct cwiki_config *config)
       free(config->zones[i].parents.values);
       free(config->zones[i].contains.values);
    }
+   for (i = 0U; i < config->env_count; i++) {
+      size_t j;
+
+      free(config->envs[i].package);
+      for (j = 0U; j < config->envs[i].names.count; j++) {
+         free(config->envs[i].names.values[j]);
+      }
+      free(config->envs[i].names.values);
+   }
+   free(config->envs);
    free(config->bindings);
    free(config->groups);
    free(config->snippets);
@@ -1912,7 +2080,8 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
     struct cwiki_config_error *error)
 {
    static const char *const allowed[] = {"keymaps", "modules", "clue-groups",
-       "display", "indentation", "save-policy", "snippets", "zones"};
+       "display", "indentation", "save-policy", "snippets", "zones",
+       "environments"};
    static const unsigned char empty[] = "";
    yaml_parser_t parser;
    yaml_document_t document;
@@ -1927,6 +2096,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    yaml_node_t *save_policy;
    yaml_node_t *snippets;
    yaml_node_t *zones;
+   yaml_node_t *environments;
    enum cwiki_config_status status;
    bool parser_ready = false;
    bool document_ready = false;
@@ -1980,6 +2150,7 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    save_policy = mapping_get(&document, root, "save-policy");
    snippets = mapping_get(&document, root, "snippets");
    zones = mapping_get(&document, root, "zones");
+   environments = mapping_get(&document, root, "environments");
    if (keymaps != NULL) {
       status = parse_keymaps(&document, created, keymaps, actions, error);
       if (status != CWIKI_CONFIG_OK) {
@@ -2024,6 +2195,12 @@ cwiki_config_parse(struct cwiki_config **config, const unsigned char *bytes,
    }
    if (zones != NULL) {
       status = parse_zones(&document, created, zones, error);
+      if (status != CWIKI_CONFIG_OK) {
+         goto done;
+      }
+   }
+   if (environments != NULL) {
+      status = parse_environments(&document, created, environments, error);
       if (status != CWIKI_CONFIG_OK) {
          goto done;
       }
@@ -2460,6 +2637,98 @@ done:
       cwiki_config_zone_table_free(table);
    }
    return status;
+}
+
+enum cwiki_config_status
+cwiki_config_build_environments(const struct cwiki_config *const *configs,
+    size_t config_count, struct cwiki_config_environment_table *table,
+    struct cwiki_config_error *error)
+{
+   size_t i;
+   size_t j;
+   size_t k;
+   size_t total = 0U;
+
+   if (table == NULL || (configs == NULL && config_count != 0U)) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *table = (struct cwiki_config_environment_table){0};
+   if (error != NULL) {
+      *error = (struct cwiki_config_error){0};
+   }
+   for (i = 0U; i < config_count; i++) {
+      total += configs[i]->env_count;
+   }
+   if (total == 0U) {
+      return CWIKI_CONFIG_OK;
+   }
+   table->entries = calloc(total, sizeof(*table->entries));
+   if (table->entries == NULL) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   for (i = 0U; i < config_count; i++) {
+      for (j = 0U; j < configs[i]->env_count; j++) {
+         const struct config_env *env = &configs[i]->envs[j];
+         bool latest = true;
+         char **names;
+         struct cwiki_tex_env_user_entry *entry;
+
+         for (k = i + 1U; k < config_count && latest; k++) {
+            size_t m;
+
+            for (m = 0U; m < configs[k]->env_count; m++) {
+               if (strcmp(configs[k]->envs[m].package, env->package) == 0) {
+                  latest = false;
+               }
+            }
+         }
+         if (!latest || env->disabled) {
+            continue;
+         }
+         entry = &table->entries[table->count];
+         names = calloc(env->names.count == 0U ? 1U : env->names.count,
+             sizeof(*names));
+         entry->package = strdup(env->package);
+         entry->names = (const char *const *)names;
+         if (names == NULL || entry->package == NULL) {
+            free(names);
+            free((char *)entry->package);
+            cwiki_config_environment_table_free(table);
+            return CWIKI_CONFIG_NO_MEMORY;
+         }
+         table->count++;
+         for (k = 0U; k < env->names.count; k++) {
+            names[k] = strdup(env->names.values[k]);
+            if (names[k] == NULL) {
+               entry->name_count = k;
+               cwiki_config_environment_table_free(table);
+               return CWIKI_CONFIG_NO_MEMORY;
+            }
+         }
+         entry->name_count = env->names.count;
+      }
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+void
+cwiki_config_environment_table_free(struct cwiki_config_environment_table *table)
+{
+   size_t i;
+   size_t j;
+
+   if (table == NULL) {
+      return;
+   }
+   for (i = 0U; i < table->count; i++) {
+      for (j = 0U; j < table->entries[i].name_count; j++) {
+         free((char *)table->entries[i].names[j]);
+      }
+      free((void *)table->entries[i].names);
+      free((char *)table->entries[i].package);
+   }
+   free(table->entries);
+   *table = (struct cwiki_config_environment_table){0};
 }
 
 void
