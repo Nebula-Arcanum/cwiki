@@ -169,7 +169,7 @@ Slice numbers and `R` ids come from the Slices table in `docs/ROADMAP.md`.
 | No partial artifact is displayed | S3 | **Open** |
 | Source and inverse jumps land on the specified line/fallback, at line granularity inside multi-line blocks | S9 (reader from S8) | **Open** |
 | A missing or unparseable sidecar degrades to scrolling and says so | S9 | **Open** |
-| Render and SyncTeX fuzz targets pass | S4 (TeX-log parser) and S8 (SyncTeX reader); closes when both land | **Open** |
+| Render and SyncTeX fuzz targets pass | S2 (block extraction), S4 (TeX-log parser) and S8 (SyncTeX reader); closes when all three land | **Open** |
 
 ### Scope items
 

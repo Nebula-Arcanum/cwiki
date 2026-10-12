@@ -7,8 +7,8 @@ The approved specification is the implementation authority. `docs/FEATURES.md`
 assigns every kept or changed inventory row to exactly one milestone; dropped
 rows remain unassigned. Milestones are ordered first by dependency and data
 safety, then by the workflow priorities in `docs/PRODUCT.md`. Milestone 1 passed
-its user ship/test gate on 2026-10-01. Milestone 2 is eligible to proceed but
-remains unstarted until the user explicitly directs it to begin.
+its user ship/test gate on 2026-10-01. Milestone 2 started on 2026-10-11 at the
+user's direction.
 
 Effort uses focused implementation tasks: **S** = under one task, **M** = 1–3,
 **L** = 4–10, and **XL** = more than 10. A milestone total is a planning range,
