@@ -121,7 +121,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   each rejected with line/column; two scopes compose with replacement. `cwiki --inspect-config`
   output is not extended (not required by the spec).
   Verify: `make build/test-config` Verify: `build/test-config`
-- [ ] Step 4 — Block extraction (`tex_block`). AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC26, AC31.
+- [x] Step 4 — Block extraction (`tex_block`). AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC26, AC31.
   `cwiki_tex_extract(engine, note buffer, body first line, availability set, result)` → ordered
   blocks {kind inline/display/chemistry/environment, env name, byte range per line, note line range,
   compilable, suppressed} and reports {kind, name, note line}. Body-only buffer copy as above;
