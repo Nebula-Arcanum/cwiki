@@ -1,0 +1,84 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261011-ff71bd",
+  "scope": {
+    "kind": "review"
+  },
+  "phase": "final",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
+    "plan_sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde"
+  },
+  "code": {
+    "snapshot_sha256": "65bb6007a92886272a5efda6d5bbf1e54f1688b76edf4dda40c4b46499a716ac",
+    "head": "92dadb0cd44ac2bbcb1d8a06f62a3b099e81c159",
+    "files": 131
+  },
+  "commands": [
+    {
+      "argv": [
+        "make",
+        "review"
+      ],
+      "exit_code": 1,
+      "signal": null,
+      "status": "failed"
+    }
+  ],
+  "status": "failed",
+  "review": {
+    "tool": "claude",
+    "verdict": "request_changes",
+    "output_sha256": "842bdec4949f1048552d7caebe53b3512804bce9f074fba155c8516f4ca892fa",
+    "findings": [
+      {
+        "severity": "major",
+        "file": "docs/ACCEPTANCE.md",
+        "line": 192,
+        "issue": "AC3 is violated. The open S10 scope row 'Render search navigation (`/`, `n`/`N`)' cites R6.3.3a, which is the deferred link focus, follow and back-stack decision. The Deferred table also lists R6.3.3a as deferred to M4. The AC3 regex in tests/docs/check_s1_gaps.sh does not include R6.3.3a, so the ch"
+      },
+      {
+        "severity": "major",
+        "file": "docs/ACCEPTANCE.md",
+        "line": 173,
+        "issue": "AC2 is not fully met. (a) ROADMAP's 'rendered scrolling and search' scope item is owned by S6 in the Slices table, but rendered scrolling has no closure row; only search appears, under S10. (b) The S3 Slices row lists R1.8.11 (SyncTeX -synctex=-1 sidecar generation) and R6.4.2 (synchronized content "
+      },
+      {
+        "severity": "minor",
+        "file": "tests/docs/check_s1_gaps.sh",
+        "line": 1,
+        "issue": "No make target or script runs check_s1_gaps.sh, and no delivery evidence records a run of it. Its AC2, AC10, AC16-AC19 and AC21 checks therefore run only by hand. Its AC21 check (`git diff 152787c -- src`) will fail permanently once S2 changes src/, so it cannot be added to make check as written."
+      },
+      {
+        "severity": "minor",
+        "file": "tests/support/fixture_vault.c",
+        "line": 0,
+        "issue": "copy_file opens the destination with O_CREAT|O_TRUNC without O_EXCL or O_NOFOLLOW, and copy_tree accepts EEXIST from mkdir and recurses into the existing directory. If copy_in targets a root that already has content (test_copy_in calls it twice on the same dst), a symlink already in the destination "
+      },
+      {
+        "severity": "minor",
+        "file": "tests/support/m2_demo.c",
+        "line": 0,
+        "issue": "The root path is copied into saved[4096] with snprintf before destroy, but truncation is not checked. A truncated path would make the post-destroy access() check test the wrong path and pass falsely."
+      },
+      {
+        "severity": "minor",
+        "file": "ai-factory/evidence/d-20261011-ff71bd/S7-step.json",
+        "line": 0,
+        "issue": "The S7 step evidence (started 01:19:24Z) predates the S1-S6 step evidence (01:23-01:25Z), and all of them record the same head and snapshot. The step evidence was therefore recorded in one batch after implementation, not after each step. The validator accepts this, and final.json covers the current "
+      },
+      {
+        "severity": "minor",
+        "file": ".github/workflows/ci.yml",
+        "line": 0,
+        "issue": "The macOS cache path /usr/local/texlive matches where BasicTeX installs, and the PATH loop finds its bin directory. On a cache hit, however, the cask's /etc/paths.d entry and /Library/TeX links are not restored, and restoring into root-owned /usr/local has not been tried on the runner. ADR 0003 alre"
+      }
+    ],
+    "independence": "independent",
+    "boundary": "make review"
+  },
+  "started_at": "2026-10-12T11:45:57.025Z",
+  "finished_at": "2026-10-12T11:45:57.026Z"
+}

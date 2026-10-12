@@ -183,6 +183,7 @@ Slice numbers and `R` ids come from the Slices table in `docs/ROADMAP.md`.
 | Color/cell-aware render keys | S3 | R6.1.4, R1.12.8 | **Open** |
 | Precompiled preambles and cache warming (on open and after cwiki's own writes) | S3 | R6.1.4, R1.14.3 | **Open** |
 | Atomic artifact swaps | S3 | R1.8.19 | **Open** |
+| SyncTeX sidecar generation for multi-line blocks; `-no-shell-escape` on every run | S3 | R1.8.11, R6.4.2 | **Open** |
 | Structured TeX diagnostics and raw logs | S4 | R6.5 | **Open** |
 | Kitty shared-memory images, placeholders, z-index | S5 | R6.1.3, R9.3.1 | **Open** |
 | OSC 66 headings | S6 | R6.3.2 | **Open** |
@@ -192,7 +193,8 @@ Slice numbers and `R` ids come from the Slices table in `docs/ROADMAP.md`.
 | Multiple windows for a source/rendered split | S7 | R1.8.2, R1.12.2-R1.12.5 (M2 subset) | **Open** |
 | SyncTeX sidecars for multi-line blocks (reader) | S8 | R1.8.11a, R1.8.12-R1.8.15 | **Open** |
 | Line-granular source/render synchronization | S9 | R1.8.4-R1.8.6, R1.8.8, R1.8.9, R1.8.16-R1.8.18 | **Open** |
-| Render search navigation (`/`, `n`/`N`) | S10 | R6.3.3 (M2 part), R6.3.3a | **Open** |
+| Rendered scrolling | S6 | R6.3.3 (scrolling part) | **Open** |
+| Render search navigation (`/`, `n`/`N`) | S10 | R6.3.3 (search part) | **Open** |
 
 ### FEATURES rows assigned to M2
 
