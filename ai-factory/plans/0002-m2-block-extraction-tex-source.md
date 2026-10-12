@@ -174,7 +174,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   construct, display/environment blocks inside the varwidth box; two runs byte-identical.
   Expected red: `build/test-tex-source` fails to build, `tex_source.h` not found.
   Verify: `make build/test-tex-source` Verify: `build/test-tex-source`
-- [ ] Step 7 — Real TeX compile check. AC24, AC26. `tex_compile_driver.c` →
+- [x] Step 7 — Real TeX compile check. AC24, AC26. `tex_compile_driver.c` →
   `build/cwiki-tex-compile ROOT_FIXTURE SCRIPT` (built like `m2_demo.c`, `-Itests/support`, in
   `ANALYZE_SOURCES`): copy fixture in, extract and generate all six blocks, write `class-note.tex`
   and `class-note.lines` (`genline origin noteline` per line) into the root, `fork`/`execl` `/bin/sh

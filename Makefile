@@ -79,7 +79,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST) \
 	$(CLI_TEST) $(KITTY_WIDTH_TEST) $(TEX_ENV_TEST) $(TEX_BLOCK_TEST) \
 	$(TEX_SOURCE_TEST)
-ANALYZE_SOURCES = src/tex_env.c tests/render/test_tex_env.c src/tex_block.c \
+ANALYZE_SOURCES = tests/render/tex_compile_driver.c src/tex_env.c tests/render/test_tex_env.c src/tex_block.c \
 	tests/render/test_tex_block.c src/tex_source.c tests/render/test_tex_source.c tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
@@ -108,7 +108,7 @@ ANALYZE_SOURCES = src/tex_env.c tests/render/test_tex_env.c src/tex_block.c \
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
 	tests/app/test_app.c tests/app/test_cli.c tests/terminal/kitty_width_test.c
 
-.PHONY: m2-demo m2-demo-test tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
+.PHONY: tex-compile-test m2-demo m2-demo-test tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
 	kitty-width-test sanitize analyze verify demo clean
 
 all: $(CWIKI)
@@ -524,6 +524,24 @@ kitty-width-test: $(KITTY_WIDTH_TEST)
 	scripts/run-kitty-width-test.sh $(KITTY_WIDTH_TEST)
 
 M2_DEMO = $(BUILD_DIR)/cwiki-m2-demo
+TEX_COMPILE = $(BUILD_DIR)/cwiki-tex-compile
+
+$(TEX_COMPILE): tests/render/tex_compile_driver.c src/tex_source.c \
+		src/tex_block.c src/tex_env.c src/config.c src/action.c src/keymap.c \
+		src/undo.c src/snippet.c src/snippet_catalog.c src/zone.c src/regex.c \
+		src/buffer.c src/unicode.c tests/support/fixture_vault.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		$(YAML_CFLAGS) -Isrc -Itests/support tests/render/tex_compile_driver.c \
+		src/tex_source.c src/tex_block.c src/tex_env.c src/config.c \
+		src/action.c src/keymap.c src/undo.c src/snippet.c \
+		src/snippet_catalog.c src/buffer.c src/unicode.c src/regex.c \
+		src/zone.c tests/support/fixture_vault.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) \
+		-o $(TEX_COMPILE)
+
+tex-compile-test: $(TEX_COMPILE)
+	$(TEX_COMPILE) tests/fixtures/vaults/m2-render tests/render/tex_compile_check.sh
 
 $(M2_DEMO): tests/support/m2_demo.c tests/support/fixture_vault.c \
 		tests/support/fixture_vault.h
@@ -549,7 +567,7 @@ tex-probe:
 m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 
-test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test m2-demo-test
+test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test m2-demo-test tex-compile-test
 	$(SMOKE)
 
 check: test tex-probe

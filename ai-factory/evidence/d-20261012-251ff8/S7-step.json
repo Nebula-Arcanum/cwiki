@@ -1,0 +1,47 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261012-251ff8",
+  "scope": {
+    "kind": "step",
+    "step": "S7"
+  },
+  "phase": "step",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+    "plan_sha256": "f56a2f59c6c46d151a62c7b0f3315a26cd1b4f1a70ee314b26cb738623e065e5"
+  },
+  "code": {
+    "snapshot_sha256": "a3594be2cc7cb7fc0993016657a8745d8cc63fe5552f7a17c0303b927e3b6012",
+    "head": "a22a9651d64f30cc211de3509565b3a11845d75f",
+    "files": 146
+  },
+  "commands": [
+    {
+      "argv": [
+        "make",
+        "tex-compile-test"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    },
+    {
+      "argv": [
+        "env",
+        "CWIKI_REQUIRE_TEX=1",
+        "make",
+        "tex-compile-test"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    }
+  ],
+  "status": "passed",
+  "started_at": "2026-10-12T23:45:36.846Z",
+  "finished_at": "2026-10-12T23:45:41.007Z",
+  "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S7-step.log",
+  "output_sha256": "ead4f949b90732a8c208553603aa4a5c401a396df0f4f24f944d23e7c8760b40"
+}
