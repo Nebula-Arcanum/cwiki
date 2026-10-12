@@ -1,0 +1,280 @@
+{
+  "schema": "t4-contract/plan",
+  "version": 1,
+  "delivery_id": "d-20261012-251ff8",
+  "sha256": "5c102ddba8a6fe7fd8073ebe953bcf04f8d0b9b91b4a3a8294f86f0a265e3eb5",
+  "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+  "steps": [
+    {
+      "id": "S1",
+      "criteria": [
+        "AC9",
+        "AC12",
+        "AC32",
+        "AC33"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-env"
+          ],
+          "phase": "red"
+        },
+        {
+          "argv": [
+            "make",
+            "build/test-tex-env"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-tex-env"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "criteria": [
+        "AC16",
+        "AC18",
+        "AC19",
+        "AC28",
+        "AC33"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-config"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-config"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "criteria": [
+        "AC13",
+        "AC33"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-config"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-config"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC5",
+        "AC6",
+        "AC7",
+        "AC8",
+        "AC26",
+        "AC31"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-block"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-tex-block"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "criteria": [
+        "AC10",
+        "AC11",
+        "AC12",
+        "AC13",
+        "AC14",
+        "AC15",
+        "AC29",
+        "AC30",
+        "AC33"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-block"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-tex-block"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "criteria": [
+        "AC16",
+        "AC17",
+        "AC20",
+        "AC21",
+        "AC22",
+        "AC23",
+        "AC28",
+        "AC34",
+        "AC35"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-source"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/test-tex-source"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S7",
+      "criteria": [
+        "AC24",
+        "AC26"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "tex-compile-test"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "tex-compile-test"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S8",
+      "criteria": [
+        "AC25"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "make",
+            "build/fuzz-tex"
+          ],
+          "phase": "step"
+        },
+        {
+          "argv": [
+            "build/fuzz-tex"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S9",
+      "criteria": [
+        "AC27"
+      ],
+      "verify": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_s2_boundaries.sh"
+          ],
+          "phase": "step"
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "criteria": [],
+      "verify": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "135a625",
+            "--",
+            "tests/snapshots",
+            "tests/fixtures/keys",
+            "tests/fixtures/vaults/m2-render/class-note.md",
+            "tests/fixtures/vaults/m2-render/.cwiki/preamble.tex",
+            "src/zone.c"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "make",
+            "verify"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_s2_boundaries.sh"
+          ],
+          "phase": "final"
+        }
+      ]
+    }
+  ]
+}
