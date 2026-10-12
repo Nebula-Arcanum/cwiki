@@ -2,7 +2,7 @@
   "schema": "t4-contract/plan",
   "version": 1,
   "delivery_id": "d-20261012-251ff8",
-  "sha256": "5c102ddba8a6fe7fd8073ebe953bcf04f8d0b9b91b4a3a8294f86f0a265e3eb5",
+  "sha256": "f56a2f59c6c46d151a62c7b0f3315a26cd1b4f1a70ee314b26cb738623e065e5",
   "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
   "steps": [
     {
@@ -246,7 +246,17 @@
             "tests/snapshots",
             "tests/fixtures/keys",
             "tests/fixtures/vaults/m2-render/class-note.md",
-            "tests/fixtures/vaults/m2-render/.cwiki/preamble.tex",
+            "tests/fixtures/vaults/m2-render/.cwiki/preamble.tex"
+          ],
+          "phase": "final"
+        },
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "3b936ee",
+            "--",
             "src/zone.c"
           ],
           "phase": "final"

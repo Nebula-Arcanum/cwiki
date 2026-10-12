@@ -39,7 +39,10 @@ Modify:
 | `tests/render/check_render_fixture.sh` | Only if it assumes `class-note.md` is the vault's sole note; otherwise untouched. |
 | `ai-factory/docs/architecture.md` | Module map gains `tex_env`, `tex_block`, `tex_source` (spec "Components touched"). |
 
-Not touched: `src/zone.c` (read-only use; AC "Out of scope"), `tests/snapshots/`,
+Not touched by this delivery: `src/zone.c` (read-only use; AC "Out of scope"). Two separate
+commits outside this delivery changed it on 2026-10-12 at the developer's direction: `0b2c337`
+(bounded scan cost on long lines) and `3b936ee` (prose `\ce{}` is a top-level chemistry zone,
+replacing Step 4's extraction-only engine). Also not touched: `tests/snapshots/`,
 `tests/fixtures/keys/`, `tests/fixtures/vaults/m2-render/class-note.md`,
 `tests/fixtures/vaults/m2-render/.cwiki/preamble.tex`, `docs/SPEC.md`. The ROADMAP S2 row's delivery
 ID and status are the session's slice-end action under the milestone autopilot, not a plan step.
@@ -200,7 +203,8 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   Verify: `sh tests/render/check_s2_boundaries.sh`
 - [ ] Step 10 — Final verification. All ACs. Approved snapshots, key recordings and the committed
   S1 fixture files are unchanged since the spec commit; the full suite passes, with TeX required.
-  Verify (final): `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex src/zone.c`
+  Verify (final): `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex`
+  Verify (final): `git diff --exit-code 3b936ee -- src/zone.c`
   Verify (final): `make verify` Verify (final): `env CWIKI_REQUIRE_TEX=1 make check`
   Verify (final): `sh tests/render/check_s2_boundaries.sh`
 
@@ -232,7 +236,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
 | step | `make tex-compile-test`; `env CWIKI_REQUIRE_TEX=1 make tex-compile-test` | AC24, AC26 |
 | step | `make build/fuzz-tex`; `build/fuzz-tex` | AC25 |
 | step | `sh tests/render/check_s2_boundaries.sh` | AC27 |
-| final | `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex src/zone.c`; `make verify`; `env CWIKI_REQUIRE_TEX=1 make check`; `sh tests/render/check_s2_boundaries.sh` | all |
+| final | `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex` and `git diff --exit-code 3b936ee -- src/zone.c`; `make verify`; `env CWIKI_REQUIRE_TEX=1 make check`; `sh tests/render/check_s2_boundaries.sh` | all |
 
 Red tests are scoped to Step 1; Steps 4 and 6 note their own expected build failure for the tester's
 next red run. Final completion requires every final command to pass. `make analyze` needs
