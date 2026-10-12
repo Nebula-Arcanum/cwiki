@@ -1666,7 +1666,10 @@ note. Decided on 2026-10-12.
 **R2.8.6 (missing or unreadable vault preamble)** A missing
 `<vault>/.cwiki/preamble.tex` contributes nothing. An unreadable one is reported
 with its path, and no TeX is generated until it is readable. This matches the
-missing/unreadable rule for configuration files in R7.2.1a. Decided on 2026-10-12.
+missing/unreadable rule for configuration files in R7.2.1a. Decided on 2026-10-12. A vault preamble larger than 1 MiB, the same cap as frontmatter, is treated as
+unreadable. Decided on 2026-10-12; reading a preamble of any size was rejected
+because notes and their preamble arrive over Git and every other authored input
+is bounded.
 
 **R2.8.7 (preamble order)** A generated document contains, in order, the vault
 preamble, then one `\usepackage` line per `packages:` entry in list order, then
@@ -1755,7 +1758,12 @@ LaTeX-core environments are always in force. Decided on 2026-10-12.
 package name to the environment names it provides. An entry is in force only when
 its package is loaded, the same as a shipped table. It may be set in global,
 synchronized-vault and machine-local configuration, but not in note frontmatter.
-Decided on 2026-10-12.
+Decided on 2026-10-12. The configuration key is `environments:`, a mapping
+from package name to a list of environment names. A later configuration scope
+replaces a package's whole entry and `null` removes it, the same rule as
+snippets and zone regions. Decided on 2026-10-12; merging lists across scopes
+was rejected because no later scope could then remove a name an earlier one
+added.
 
 **R2.9.6** When an environment is unrecognised, the report names it, so the user
 knows exactly what to add to the user table or which package declaration is missing.
@@ -1769,7 +1777,10 @@ Decided on 2026-10-12.
 **R2.9.7 (unterminated and untrusted blocks)** A block whose closing delimiter is
 missing before the end of the note, or one that touches a line the zone engine
 marks degraded (R1.11.4), is not compiled. It is reported with its start line and
-the reason. Decided on 2026-10-12.
+the reason. Decided on 2026-10-12. The rule covers every block kind: inline `$`, `\(` and `\ce{` as well as
+`$$`, `\[` and `\begin`. Decided on 2026-10-12; limiting it to multi-line kinds
+was rejected because an unclosed inline delimiter also leaves the block's extent
+unknown.
 
 Rejected:
 
