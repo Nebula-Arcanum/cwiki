@@ -104,6 +104,8 @@ further prompting, in the top-level session:
    it reports complete. After each `/t4:run` step run `make check` and commit a checkpoint; at
    slice end run `make verify`, update the slice row, commit. Use `/t4:explore` only when the spec
    leaves an implementation choice genuinely open.
+   When `/t4:continue` asks `gaps_tested` and no gaps run is recorded for the delivery, answer
+   `gaps_tested=no` and run `/t4:test gaps`; never answer `yes` without that evidence.
 3. The table is the resume point: "continue milestone N" picks up the first unfinished slice.
 4. Stop and ask only for: a product decision `docs/SPEC.md` does not settle, a contradiction
    between sources, a `/t4:continue` question or block, a check still failing after a fix attempt,
