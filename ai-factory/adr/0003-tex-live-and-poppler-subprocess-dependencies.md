@@ -33,7 +33,7 @@ Probe must report all eight items found, with `CWIKI_REQUIRE_TEX=1` set on every
 | Job | Install | Caching |
 |---|---|---|
 | Arch | `texlive-basic texlive-latex texlive-latexextra texlive-mathscience texlive-pictures texlive-luatex poppler` | pacman download cache, keyed on `ci.yml` |
-| macOS | `brew install poppler`; cask `basictex`, then `tlmgr install standalone preview mhchem pgf chemgreek` (dependencies resolved by tlmgr) | `/usr/local/texlive`, keyed on `ci.yml`; install skipped on a hit |
+| macOS | `brew install poppler`; cask `basictex`, then `tlmgr install standalone preview mhchem pgf chemgreek` (proven only against the probe; S2–S3 grow this list until the fixture compiles in CI) | `/usr/local/texlive`, keyed on `ci.yml`; install skipped on a hit |
 | FreeBSD | `texlive-base texlive-texmf poppler-utils` (omits `texlive-docs` and `texlive-tlmgr`) | none |
 
 Any change to the subset edits `ci.yml`, which invalidates both caches.

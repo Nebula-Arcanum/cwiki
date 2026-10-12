@@ -9,7 +9,7 @@ while IFS='|' read -r id slice desc; do
 	[ -n "$id" ] || continue
 	if [ -f "$dir/m2-demo/$id.sh" ]; then
 		echo "runnable: $id ($slice) $desc"
-		sh "$dir/m2-demo/$id.sh" "$vault" || { echo "demo step failed: $id" >&2; exit 1; }
+		sh "$dir/m2-demo/$id.sh" "$vault" </dev/null || { echo "demo step failed: $id" >&2; exit 1; }
 	else
 		echo "pending - owner $slice: $id: $desc"
 	fi

@@ -43,3 +43,7 @@ ts,session_id,source,user,branch,task,tool,agent,model,turns,input_tokens,output
 2026-10-12T01:28:14.489Z,456fb861-00b5-4929-a85a-00d01eb07c02,session,leon,master,check,claude,,claude-opus-5-5,10,20,2862,2397073,0,1.00,0.7621,
 2026-10-12T01:29:42.485Z,456fb861-00b5-4929-a85a-00d01eb07c02,session,leon,master,check,claude,,claude-opus-5-5,2,4,663,487294,0,1.00,0.1561,
 2026-10-12T01:31:31.279Z,456fb861-00b5-4929-a85a-00d01eb07c02,agent,leon,master,check,claude,t4-route-test-d3ed8215b3,claude-sonnet-5-5,12,24,5823,1277424,244732,0.84,1.3884,
+2026-10-12T01:35:36.421Z,456fb861-00b5-4929-a85a-00d01eb07c02,session,leon,master,check,claude,,claude-opus-5-5,5,10,1587,1238695,0,1.00,0.3954,
+2026-10-12T01:36:05.743Z,456fb861-00b5-4929-a85a-00d01eb07c02,agent,leon,master,check,claude,t4-route-check-28c0b51f67,claude-opus-5-5,11,22,1644,804649,452954,0.64,1.9647,
+2026-10-12T01:36:43.202Z,456fb861-00b5-4929-a85a-00d01eb07c02,session,leon,master,check,claude,,claude-opus-5-5,5,10,1323,1263955,0,1.00,0.3991,
+2026-10-12T01:40:50.253Z,456fb861-00b5-4929-a85a-00d01eb07c02,agent,leon,master,check,claude,t4-route-check-28c0b51f67,claude-opus-5-5,13,26,10676,1478164,279422,0.84,1.6515,
