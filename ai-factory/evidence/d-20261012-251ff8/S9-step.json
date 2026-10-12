@@ -1,0 +1,36 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261012-251ff8",
+  "scope": {
+    "kind": "step",
+    "step": "S9"
+  },
+  "phase": "step",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+    "plan_sha256": "f56a2f59c6c46d151a62c7b0f3315a26cd1b4f1a70ee314b26cb738623e065e5"
+  },
+  "code": {
+    "snapshot_sha256": "1db33cdc13f2416ce6e69b839e51615fbb1ab416975c2aa0c90caf48907752f9",
+    "head": "ce89742549a329ca4c419f1a33b0c2cb6969abc5",
+    "files": 148
+  },
+  "commands": [
+    {
+      "argv": [
+        "sh",
+        "tests/render/check_s2_boundaries.sh"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    }
+  ],
+  "status": "passed",
+  "started_at": "2026-10-12T23:52:36.693Z",
+  "finished_at": "2026-10-12T23:52:36.828Z",
+  "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S9-step.log",
+  "output_sha256": "cdadab6fb9672e4d082de02c41b7dd4bd2eeb16e9c7201f2da639b26d0f18732"
+}

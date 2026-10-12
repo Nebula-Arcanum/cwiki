@@ -21,6 +21,7 @@ All product code is flat in `src/`, one `.c`/`.h` pair per module. Tests mirror 
 | Text and Unicode | `buffer`, `unicode`, `undo` | §1.1–§1.3 |
 | Terminal and input | `terminal`, `capabilities`, `input`, `key_record` | §1.5 |
 | Parsing | `zone`, `structural_search`, `regex`, `vim_regex` | §1.9, §1.11 |
+| Render input | `tex_env`, `tex_block`, `tex_source` | R2.3, R2.8, R2.9, R6.1.1, R1.8.14 |
 | Display | `highlight`, `conceal`, `layout`, `render` | §1.4, §1.6, §1.7 |
 | Editing | `motion`, `editor`, `editor_input` | §1.7, §1.2 |
 | Snippets | `snippet`, `snippet_catalog` | §1.10, R9.4.1 |

@@ -195,7 +195,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   line and an existing note line or origin line; bounded iteration count so `make check` stays fast.
   `$(TEX_FUZZ)` in `PRODUCT_TESTS`, `product-test` and `ANALYZE_SOURCES`; runs under `make sanitize`.
   Verify: `make build/fuzz-tex` Verify: `build/fuzz-tex`
-- [ ] Step 9 — Boundary check and docs. AC27. `check_s2_boundaries.sh` (target `s2-boundary-test`
+- [x] Step 9 — Boundary check and docs. AC27. `check_s2_boundaries.sh` (target `s2-boundary-test`
   in `test`) fails if `src/tex_env.c`, `src/tex_block.c` or `src/tex_source.c` mention `fork`,
   `exec`, `popen`, `system(`, `socket`, `connect(`, `STDOUT_FILENO`, `printf(` or `fputs(`.
   Architecture module map: add `tex_env`, `tex_block`, `tex_source` under a "Render input" row

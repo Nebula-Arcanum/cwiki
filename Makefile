@@ -109,7 +109,7 @@ ANALYZE_SOURCES = tests/render/tex_compile_driver.c src/tex_env.c tests/render/t
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
 	tests/app/test_app.c tests/app/test_cli.c tests/terminal/kitty_width_test.c
 
-.PHONY: tex-compile-test m2-demo m2-demo-test tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
+.PHONY: s2-boundary-test tex-compile-test m2-demo m2-demo-test tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
 	kitty-width-test sanitize analyze verify demo clean
 
 all: $(CWIKI)
@@ -573,6 +573,9 @@ m2-demo-test: $(M2_DEMO)
 render-fixture-test:
 	sh tests/render/check_render_fixture.sh
 
+s2-boundary-test:
+	sh tests/render/check_s2_boundaries.sh
+
 tex-probe-test:
 	sh tests/render/test_tex_probe.sh
 
@@ -582,7 +585,7 @@ tex-probe:
 m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 
-test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test m2-demo-test tex-compile-test
+test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test m2-demo-test tex-compile-test s2-boundary-test
 	$(SMOKE)
 
 check: test tex-probe
