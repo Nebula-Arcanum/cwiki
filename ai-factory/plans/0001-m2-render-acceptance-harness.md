@@ -116,7 +116,7 @@ documentation.
   with `CWIKI_REQUIRE_TEX=1` (Arch through the `Review changes` step env). Report any SPEC §0
   name/version/availability change in the step report for the user; do not edit `docs/SPEC.md`.
   Verify: `env CWIKI_REQUIRE_TEX=1 make check`
-- [ ] Step 6 — Milestone 2 closure table. AC1, AC2, AC3, AC4. Add "## Milestone 2 closure" to
+- [x] Step 6 — Milestone 2 closure table. AC1, AC2, AC3, AC4. Add "## Milestone 2 closure" to
   `docs/ACCEPTANCE.md`: one **open** row per ROADMAP M2 acceptance criterion (eight) naming its
   owning slice; one **open** row per M2 scope item mapped to exactly one slice with that slice's R
   ids; per-slice FEATURES rows listing the names of the 28 FEATURES rows marked `M2`, each named

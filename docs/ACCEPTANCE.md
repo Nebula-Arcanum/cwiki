@@ -151,3 +151,86 @@ binary.
 production demo, feedback fixes, clean-room 52-row audit, and final release-gate
 verification. This closes Milestone 1; Milestone 2 remains unstarted until the
 user explicitly directs it to begin.
+
+## Milestone 2 closure
+
+Status: **open.** Slice S1 (this harness) records the table; no row is verified
+until its owning slice lands and its named checks run on the integration branch.
+Slice numbers and `R` ids come from the Slices table in `docs/ROADMAP.md`.
+
+### Acceptance criteria
+
+| Criterion (ROADMAP Milestone 2) | Owning slice | Disposition |
+|---|---|---|
+| Switching an uncached note to rendered mode returns without waiting | S6 | **Open** |
+| Successful formula, chemistry and TikZ blocks replace their placeholders | S6 (pipeline from S3) | **Open** |
+| One failing block shows its mapped diagnostic while successful blocks remain visible | S6 (diagnostics from S4) | **Open** |
+| Changing source, preamble, colors, cell metrics or engine invalidates only incompatible artifacts | S3 | **Open** |
+| No partial artifact is displayed | S3 | **Open** |
+| Source and inverse jumps land on the specified line/fallback, at line granularity inside multi-line blocks | S9 (reader from S8) | **Open** |
+| A missing or unparseable sidecar degrades to scrolling and says so | S9 | **Open** |
+| Render and SyncTeX fuzz targets pass | S4 (TeX-log parser) and S8 (SyncTeX reader) | **Open** |
+
+### Scope items
+
+| Scope item (ROADMAP Milestone 2) | Slice | R ids | Disposition |
+|---|---|---|---|
+| Acceptance harness, closure table, fixture vault, demo skeleton, dependency ADR, CI TeX subset | S1 | R6.1.1-R6.1.3 dependency gate | **Open** |
+| LuaLaTeX with explicit pdfLaTeX override | S2 | R6.1.1 | **Open** |
+| Vault, note and block preambles | S2 | R2.3, R2.8, R2.9, R1.8.14 | **Open** |
+| One changed-block TeX run per note | S3 | R6.1.2 | **Open** |
+| Poppler rasterization | S3 | R6.1.3 | **Open** |
+| Color/cell-aware render keys | S3 | R6.1.4, R1.12.8 | **Open** |
+| Precompiled preambles and cache warming (on open and after cwiki's own writes) | S3 | R6.1.4, R1.14.3 | **Open** |
+| Atomic artifact swaps | S3 | R1.8.19 | **Open** |
+| Structured TeX diagnostics and raw logs | S4 | R6.5 | **Open** |
+| Kitty shared-memory images, placeholders, z-index | S5 | R6.1.3, R9.3.1 | **Open** |
+| OSC 66 headings | S6 | R6.3.2 | **Open** |
+| Editing/rendered mode separation | S6 | R1.8.1-R1.8.3, R1.12.6, R1.12.9, R6.2 | **Open** |
+| Markdown layout | S6 | R6.3.1, R1.8.10 | **Open** |
+| Partial failure | S6 | R6.5.3 | **Open** |
+| Multiple windows for a source/rendered split | S7 | R1.8.2, R1.12.2-R1.12.5 (M2 subset) | **Open** |
+| SyncTeX sidecars for multi-line blocks (reader) | S8 | R1.8.11a, R1.8.12-R1.8.15 | **Open** |
+| Line-granular source/render synchronization | S9 | R1.8.4-R1.8.6, R1.8.8, R1.8.9, R1.8.16-R1.8.18 | **Open** |
+| Render search navigation (`/`, `n`/`N`) | S10 | R6.3.3 (M2 part), R6.3.3a | **Open** |
+
+### FEATURES rows assigned to M2
+
+Each of the 28 `M2` rows in `docs/FEATURES.md` is named in exactly one row.
+
+| Slice | FEATURES rows (by feature name) | Disposition |
+|---|---|---|
+| S2 | Per-note engine and preamble directives; Inline math and display math delimiters; mhchem chemistry notation; TikZ diagrams; Vault-wide preamble plus per-note/per-block additions; Compile one block against the note's preamble | **Open** |
+| S3 | One TeX run per note for changed blocks only; Render cache plus precompiled preamble, warmed in background; Never display an artefact that is being written | **Open** |
+| S4 | Structured TeX-log to diagnostics; Diagnostic filtering; Detect which packages a note actually uses | **Open** |
+| S5 | Terminal-native image display via kitty graphics protocol; Images rendered at terminal's font size/colors; Full kitty graphics protocol; Terminal colour queries; Terminal-background sync | **Open** |
+| S6 | Separate editing and rendered modes; Sign column always reserved; LaTeX errors shown in place of the formula; OSC 66 text sizing; Source position to rendered position mapping | **Open** |
+| S9 | Rendered position to source position mapping; Treat position mapping as an optional capability | **Open** |
+| S10 | Quickfix-list toggle (diagnostics pane); Notification history; Timestamped internal message log; State dump | **Open** |
+
+### Deferred
+
+| Id | Item | Owning milestone | Decision source | Disposition |
+|---|---|---|---|---|
+| R1.12.7 | Pull-triggered cache warming and external-write refresh | M3 | ROADMAP Slices note (depends on M3 change detection) | **Deferred** to M3 |
+| R6.4.1 | Trusted-vault shell-escape override | M3 | ROADMAP Slices note; M2 always passes `-no-shell-escape` | **Deferred** to M3 |
+| R1.12.9a | Per-row stale render markers in the sync sidebar | M5 | SPEC R1.12.9a; ADR 0002 | **Deferred** to M5 |
+| R6.3.3a | Rendered link focus, Enter to follow and back stack | M4 | SPEC R6.3.3a (2026-10-11), commit 42e6aea | **Deferred** to M4 |
+| R1.8.7 / R1.8.7a | Sync jump-list recording and its toggle | M5 | SPEC R1.8.7a (2026-10-11), commit 42e6aea | **Deferred** to M5 |
+
+### Fixture hand-compile record
+
+The render fixture's hand-compile commands and result are recorded in
+`tests/fixtures/vaults/README.md`.
+
+### User acceptance checklist
+
+Mirrors `scripts/m2-demo-steps.txt`; each step becomes runnable when its slice lands.
+Run on a disposable fixture, never the real vault (`make m2-demo`).
+
+1. Open the fixture note in source and rendered windows. (S7)
+2. Save an edit; the rendered view refreshes from disk. (S6)
+3. Observe non-blocking stale/placeholder behaviour and the eventual image. (S6)
+4. Trigger a TeX error and see its diagnostic in place. (S6)
+5. Inspect the failing block's raw TeX log. (S10)
+6. Jump source to rendered and rendered to source. (S9)
