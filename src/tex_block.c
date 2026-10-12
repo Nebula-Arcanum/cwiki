@@ -11,8 +11,11 @@ struct cursor {
    struct cwiki_tex_extraction *out;
    size_t block_capacity;
    size_t report_capacity;
+   const struct cwiki_tex_env_set *env;
    bool open;
    bool untrusted;
+   bool unknown;
+   bool suppressed;
 };
 
 static int
@@ -75,6 +78,8 @@ renderable(enum cwiki_zone_kind kind, enum cwiki_tex_block_kind *block_kind)
    }
 }
 
+static int check_env(struct cursor *cursor, const char *name, size_t line);
+
 static int
 start_block(struct cursor *cursor, struct cwiki_zone_engine *zones,
     enum cwiki_tex_block_kind kind, uint16_t detail, size_t line, size_t byte)
@@ -102,12 +107,17 @@ start_block(struct cursor *cursor, struct cwiki_zone_engine *zones,
    cursor->out->block_count++;
    cursor->open = true;
    cursor->untrusted = false;
+   cursor->unknown = false;
+   cursor->suppressed = false;
+   if (kind == CWIKI_TEX_BLOCK_ENVIRONMENT) {
+      return check_env(cursor, block->env, line);
+   }
    return 0;
 }
 
 static int
-report(struct cursor *cursor, const struct cwiki_tex_block *block,
-    enum cwiki_tex_report_reason reason)
+add_report(struct cursor *cursor, enum cwiki_tex_report_reason reason,
+    const char *name, size_t line)
 {
    struct cwiki_tex_report *entry;
 
@@ -117,13 +127,98 @@ report(struct cursor *cursor, const struct cwiki_tex_block *block,
    }
    entry = &cursor->out->reports[cursor->out->report_count];
    entry->reason = reason;
-   entry->line = block->first_line;
-   entry->name = block->env == NULL ? NULL : copy_string(block->env);
-   if (block->env != NULL && entry->name == NULL) {
+   entry->line = line;
+   entry->name = name == NULL ? NULL : copy_string(name);
+   if (name != NULL && entry->name == NULL) {
       return -1;
    }
    cursor->out->report_count++;
    return 0;
+}
+
+static int
+report(struct cursor *cursor, const struct cwiki_tex_block *block,
+    enum cwiki_tex_report_reason reason)
+{
+   return add_report(cursor, reason, block->env, block->first_line);
+}
+
+/* Withholds the open block when `name` is not available; reports it once. */
+static int
+check_env(struct cursor *cursor, const char *name, size_t line)
+{
+   size_t index;
+
+   if (cursor->env == NULL || cwiki_tex_env_available(cursor->env, name)) {
+      return 0;
+   }
+   cursor->unknown = true;
+   for (index = 0U; index < cursor->out->report_count; index++) {
+      const struct cwiki_tex_report *seen = &cursor->out->reports[index];
+
+      if (seen->reason == CWIKI_TEX_REPORT_UNKNOWN_ENV &&
+          seen->name != NULL && strcmp(seen->name, name) == 0) {
+         return 0;
+      }
+   }
+   return add_report(cursor, CWIKI_TEX_REPORT_UNKNOWN_ENV, name, line);
+}
+
+/* A line of its own `% cwiki: word` inside the open block (R2.9.2). */
+static int
+scan_directive(struct cursor *cursor, const struct cwiki_buffer *body,
+    size_t index, size_t line)
+{
+   const struct cwiki_tex_block *block =
+       &cursor->out->blocks[cursor->out->block_count - 1U];
+   const char *bytes = body->lines[index].bytes;
+   size_t length = body->lines[index].length;
+   size_t at = 0U;
+   size_t start;
+   char *word;
+   int status;
+
+   if (block->kind != CWIKI_TEX_BLOCK_DISPLAY &&
+       block->kind != CWIKI_TEX_BLOCK_ENVIRONMENT) {
+      return 0;
+   }
+   while (at < length && (bytes[at] == ' ' || bytes[at] == '\t')) {
+      at++;
+   }
+   if (at >= length || bytes[at] != '%') {
+      return 0;
+   }
+   at++;
+   while (at < length && (bytes[at] == ' ' || bytes[at] == '\t')) {
+      at++;
+   }
+   if (length - at < 6U || memcmp(bytes + at, "cwiki:", 6U) != 0) {
+      return 0;
+   }
+   at += 6U;
+   while (at < length && (bytes[at] == ' ' || bytes[at] == '\t')) {
+      at++;
+   }
+   start = at;
+   while (at < length && ((bytes[at] >= 'a' && bytes[at] <= 'z') ||
+       (bytes[at] >= 'A' && bytes[at] <= 'Z') ||
+       (bytes[at] >= '0' && bytes[at] <= '9') || bytes[at] == '-' ||
+       bytes[at] == '_')) {
+      at++;
+   }
+   if (at - start == 8U && memcmp(bytes + start, "norender", 8U) == 0) {
+      cursor->suppressed = true;
+      return 0;
+   }
+   word = malloc(at - start + 1U);
+   if (word == NULL) {
+      return -1;
+   }
+   memcpy(word, bytes + start, at - start);
+   word[at - start] = '\0';
+   status = add_report(cursor, CWIKI_TEX_REPORT_UNKNOWN_DIRECTIVE, word, line);
+   free(word);
+   return status;
 }
 
 /* Closes the open block; a block that did not end properly is reported. */
@@ -135,12 +230,14 @@ finish_block(struct cursor *cursor, size_t line, size_t end, bool terminated)
 
    block->last_line = line;
    block->last_end = end;
+   block->suppressed = cursor->suppressed;
    cursor->open = false;
    if (!terminated) {
       block->compilable = false;
       return report(cursor, block, CWIKI_TEX_REPORT_UNTERMINATED);
    }
-   block->compilable = !cursor->untrusted;
+   block->compilable = !cursor->untrusted && !cursor->unknown &&
+       !cursor->suppressed;
    if (cursor->untrusted) {
       return report(cursor, block, CWIKI_TEX_REPORT_UNTRUSTED);
    }
@@ -171,7 +268,10 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
    if (cursor->open && cwiki_buffer_line_degraded(body, index)) {
       cursor->untrusted = true;
    }
-   if (spans.degraded && !cursor->open && depth == 0U &&
+   if (cursor->open) {
+      status = scan_directive(cursor, body, index, line);
+   }
+   if (status == 0 && spans.degraded && !cursor->open && depth == 0U &&
        body->lines[index].end_zones.depth != 0U) {
       enum cwiki_tex_block_kind kind;
       const struct cwiki_zone *top = &body->lines[index].end_zones.zones[0];
@@ -186,6 +286,8 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
       enum cwiki_tex_block_kind kind;
 
       if (item->token == CWIKI_ZONE_OPEN) {
+         bool started = false;
+
          if (cursor->open && item->zone.kind == CWIKI_ZONE_COMMENT_PERCENT &&
              item->zone.detail == IGNORE_DETAIL) {
             /* SynIgnore resets the stack: the open block never closes. */
@@ -199,6 +301,14 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
              renderable(item->zone.kind, &kind)) {
             status = start_block(cursor, zones, kind, item->zone.detail,
                 line, item->source_start);
+            started = true;
+         }
+         if (status == 0 && !started && cursor->open &&
+             renderable(item->zone.kind, &kind) &&
+             kind == CWIKI_TEX_BLOCK_ENVIRONMENT) {
+            const char *name = cwiki_zone_detail(zones, item->zone.detail);
+
+            status = check_env(cursor, name == NULL ? "" : name, line);
          }
          if (counts_in_depth(item)) {
             depth++;
@@ -224,7 +334,7 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
 int
 cwiki_tex_extract(struct cwiki_zone_engine *zones,
     const struct cwiki_buffer *note, size_t body_first_line,
-    struct cwiki_tex_extraction *out)
+    const struct cwiki_tex_env_set *env, struct cwiki_tex_extraction *out)
 {
    struct cursor cursor;
    struct cwiki_buffer body;
@@ -243,6 +353,7 @@ cwiki_tex_extract(struct cwiki_zone_engine *zones,
    memset(out, 0, sizeof(*out));
    memset(&cursor, 0, sizeof(cursor));
    cursor.out = out;
+   cursor.env = env;
    if (first >= note->line_count) {
       return 0;
    }

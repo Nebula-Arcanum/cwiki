@@ -144,7 +144,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   committed fixture directory's bytes are unchanged after the test.
   Expected red: `build/test-tex-block` fails to build, `tex_block.h` not found.
   Verify: `make build/test-tex-block` Verify: `build/test-tex-block`
-- [ ] Step 5 — Availability gating, directives and reports. AC10, AC11, AC12, AC13, AC14, AC15,
+- [x] Step 5 — Availability gating, directives and reports. AC10, AC11, AC12, AC13, AC14, AC15,
   AC29, AC30, AC33. Environment blocks and every nested `\begin` name are checked against the
   availability set; any unknown name makes the whole block not compilable and is reported once per
   name per extraction with its first line. `% cwiki: norender` on a line of its own inside an

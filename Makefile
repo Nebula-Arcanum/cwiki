@@ -214,15 +214,19 @@ $(TEX_ENV_TEST): tests/render/test_tex_env.c
 		-o $(TEX_ENV_TEST)
 
 $(TEX_BLOCK_TEST): tests/render/test_tex_block.c src/tex_block.c src/tex_block.h \
+		src/tex_env.c src/tex_env.h src/config.c src/config.h src/action.c \
+		src/keymap.c src/undo.c src/snippet.c src/snippet_catalog.c \
 		src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c src/buffer.h \
 		src/unicode.c src/unicode.h tests/support/fixture_vault.c \
 		tests/support/fixture_vault.h
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
-		-Itests/support tests/render/test_tex_block.c src/tex_block.c \
-		src/buffer.c src/unicode.c src/regex.c src/zone.c \
-		tests/support/fixture_vault.c $(LDFLAGS) $(UTF8PROC_LIBS) \
-		$(PCRE2_LIBS) -o $(TEX_BLOCK_TEST)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		$(YAML_CFLAGS) -Isrc -Itests/support tests/render/test_tex_block.c \
+		src/tex_block.c src/tex_env.c src/config.c src/action.c src/keymap.c \
+		src/undo.c src/snippet.c src/snippet_catalog.c src/buffer.c \
+		src/unicode.c src/regex.c src/zone.c tests/support/fixture_vault.c \
+		$(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) $(YAML_LIBS) \
+		-o $(TEX_BLOCK_TEST)
 
 $(ZONE_FUZZ): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		src/buffer.h src/unicode.c src/unicode.h tests/zone/fuzz_zone.c

@@ -1,10 +1,11 @@
 /*
- * Tests for src/tex_block.h (delivery d-20261012-251ff8, plan step 4):
- * AC1-AC8, AC26, AC31. Line numbers in checks are 1-based note lines; the
+ * Tests for src/tex_block.h (delivery d-20261012-251ff8, plan steps 4-5):
+ * AC1-AC8, AC10-AC15, AC26, AC29-AC31. Line numbers in checks are 1-based note lines; the
  * API reports 0-based indices.
  */
 #include "tex_block.h"
 
+#include "config.h"
 #include "fixture_vault.h"
 
 #include <stdio.h>
@@ -49,7 +50,7 @@ extract_text(struct cwiki_zone_engine *engine, const char *text,
     struct cwiki_tex_extraction *out)
 {
    load(note, text, strlen(text));
-   check(cwiki_tex_extract(engine, note, body_first, out) == 0,
+   check(cwiki_tex_extract(engine, note, body_first, NULL, out) == 0,
        "extraction succeeds");
 }
 
@@ -263,6 +264,19 @@ read_from_fixture(const struct fixture_vault *vault, const char *name,
    return bytes;
 }
 
+static struct cwiki_tex_env_set *
+build_env(const char *vault, const char *note, const char *const *packages,
+    size_t package_count, const struct cwiki_tex_env_user_entry *user,
+    size_t user_count)
+{
+   struct cwiki_tex_env_set *env = NULL;
+
+   check(cwiki_tex_env_build(&env, vault, vault == NULL ? 0U : strlen(vault),
+       note, note == NULL ? 0U : strlen(note), packages, package_count, user,
+       user_count) == 0, "env builds");
+   return env;
+}
+
 static void
 test_fixtures(void)
 {
@@ -277,7 +291,15 @@ test_fixtures(void)
        "copy render fixture into root");
 
    bytes = read_from_fixture(&vault, "class-note.md", &note);
-   check(cwiki_tex_extract(engine, &note, 0U, &x) == 0, "AC8 extract");
+   {
+      struct cwiki_tex_env_set *gate =
+          build_env("\\usepackage{amsmath}\n\\usepackage{tikz}\n", NULL,
+          NULL, 0U, NULL, 0U);
+
+      check(cwiki_tex_extract(engine, &note, 0U, gate, &x) == 0,
+          "AC8 extract");
+      cwiki_tex_env_free(gate);
+   }
    check(x.block_count == 6U && x.report_count == 0U,
        "AC8 six blocks and no reports");
    check(block_is(&note, &x, 0U, CWIKI_TEX_BLOCK_INLINE, 3U, 3U, "$E = mc^2$"),
@@ -306,7 +328,7 @@ test_fixtures(void)
    free(bytes);
 
    bytes = read_from_fixture(&vault, "fence-note.md", &note);
-   check(cwiki_tex_extract(engine, &note, 0U, &x) == 0, "fence note extract");
+   check(cwiki_tex_extract(engine, &note, 0U, NULL, &x) == 0, "fence note extract");
    check(x.block_count == 1U && x.report_count == 0U,
        "AC5/AC6 fences, comments, SynIgnore and \\$ yield no blocks");
    check(block_is(&note, &x, 0U, CWIKI_TEX_BLOCK_INLINE, 23U, 23U, "$r$"),
@@ -316,18 +338,166 @@ test_fixtures(void)
    free(bytes);
 
    bytes = read_from_fixture(&vault, "unknown-env-note.md", &note);
-   check(cwiki_tex_extract(engine, &note, 0U, &x) == 0, "unterminated note");
-   check(x.block_count == 2U && x.blocks[0].compilable &&
-       !x.blocks[1].compilable && x.report_count == 1U &&
-       x.reports[0].reason == CWIKI_TEX_REPORT_UNTERMINATED &&
-       x.reports[0].line == 4U && x.reports[0].name != NULL &&
-       strcmp(x.reports[0].name, "align") == 0,
-       "AC31 fixture unterminated environment reported with name and line");
-   cwiki_tex_extraction_free(&x);
+   {
+      static const char *const packages[] = {"amsmath"};
+      struct cwiki_tex_env_set *env = NULL;
+
+      check(cwiki_tex_env_build(&env, NULL, 0U, NULL, 0U, packages, 1U, NULL,
+          0U) == 0, "env for unknown-env note");
+      check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0,
+          "unknown-env note extract");
+      check(x.block_count == 6U && x.blocks[0].compilable &&
+          !x.blocks[1].compilable && !x.blocks[2].compilable &&
+          !x.blocks[3].compilable && !x.blocks[4].compilable &&
+          !x.blocks[5].compilable,
+          "AC14/AC30 unknown names withhold exactly their blocks");
+      check(x.report_count == 3U &&
+          x.reports[0].reason == CWIKI_TEX_REPORT_UNKNOWN_ENV &&
+          strcmp(x.reports[0].name, "zzz") == 0 && x.reports[0].line == 4U &&
+          x.reports[1].reason == CWIKI_TEX_REPORT_UNKNOWN_ENV &&
+          strcmp(x.reports[1].name, "bar") == 0 && x.reports[1].line == 13U &&
+          x.reports[2].reason == CWIKI_TEX_REPORT_UNTERMINATED &&
+          strcmp(x.reports[2].name, "align") == 0,
+          "AC14 zzz and bar reported once each; align unterminated");
+      cwiki_tex_extraction_free(&x);
+      cwiki_tex_env_free(env);
+   }
    cwiki_buffer_free(&note);
    free(bytes);
 
    check(fixture_vault_destroy(&vault) == 0, "destroy disposable root");
+   cwiki_zone_engine_free(engine);
+}
+
+static void
+test_gating(void)
+{
+   static const char *const loaded[] = {"extras"};
+   static const char *const names[] = {"widget"};
+   static const struct cwiki_tex_env_user_entry user[] = {{"extras", names, 1U}};
+   static const char align[] = "\\begin{align}\na\n\\end{align}\n";
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer note;
+   struct cwiki_tex_extraction x;
+   struct cwiki_tex_env_set *env;
+
+   /* AC10 */
+   env = build_env("\\usepackage{amsmath}\n", NULL, NULL, 0U, NULL, 0U);
+   extract_text(engine, align, 0U, &note, &x);
+   cwiki_tex_extraction_free(&x);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 1U && x.blocks[0].compilable && x.report_count == 0U,
+       "AC10 align compilable with amsmath loaded");
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   env = build_env("", NULL, NULL, 0U, NULL, 0U);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 1U && !x.blocks[0].compilable &&
+       x.report_count == 1U &&
+       x.reports[0].reason == CWIKI_TEX_REPORT_UNKNOWN_ENV &&
+       strcmp(x.reports[0].name, "align") == 0 && x.reports[0].line == 0U,
+       "AC10 align withheld and named without amsmath");
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   cwiki_buffer_free(&note);
+
+   /* AC11, AC12: frontmatter note */
+   {
+      struct fixture_vault vault;
+      struct cwiki_config_note_tex tex;
+      struct cwiki_config_error error;
+      char *bytes;
+
+      check(fixture_vault_create(&vault) == 0, "create disposable root");
+      check(fixture_vault_copy_in(&vault, "tests/fixtures/vaults/m2-render") ==
+          0, "copy render fixture into root");
+      bytes = read_from_fixture(&vault, "frontmatter-note.md", &note);
+      memset(&error, 0, sizeof(error));
+      check(cwiki_config_parse_note_tex(&note, &tex, &error) ==
+          CWIKI_CONFIG_OK, "frontmatter note parses");
+      env = build_env("", tex.preamble, (const char *const *)tex.packages,
+          tex.package_count, NULL, 0U);
+      check(cwiki_tex_extract(engine, &note, tex.body_first_line, env, &x) ==
+          0 && x.block_count == 2U && x.blocks[0].compilable &&
+          x.blocks[1].compilable && x.report_count == 0U,
+          "AC11/AC12 tikzcd via packages and foo via note preamble");
+      cwiki_tex_extraction_free(&x);
+      cwiki_tex_env_free(env);
+      env = build_env("", tex.preamble, NULL, 0U, NULL, 0U);
+      check(cwiki_tex_extract(engine, &note, tex.body_first_line, env, &x) ==
+          0 && x.block_count == 2U && !x.blocks[0].compilable &&
+          x.blocks[1].compilable && x.report_count == 1U &&
+          strcmp(x.reports[0].name, "tikzcd") == 0,
+          "AC11 tikzcd withheld without the package");
+      cwiki_tex_extraction_free(&x);
+      cwiki_tex_env_free(env);
+      env = build_env("\\newenvironment{foo}{}{}\n", NULL, (const char *const *)
+          tex.packages, tex.package_count, NULL, 0U);
+      check(cwiki_tex_extract(engine, &note, tex.body_first_line, env, &x) ==
+          0 && x.block_count == 2U && x.blocks[1].compilable &&
+          x.report_count == 0U, "AC12 foo via vault preamble");
+      cwiki_tex_extraction_free(&x);
+      cwiki_tex_env_free(env);
+      cwiki_config_note_tex_free(&tex);
+      cwiki_buffer_free(&note);
+      free(bytes);
+
+      /* AC15, AC29, AC33 directives */
+      bytes = read_from_fixture(&vault, "directive-note.md", &note);
+      env = build_env("\\usepackage{tikz}\n", NULL, NULL, 0U, NULL, 0U);
+      check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+          x.block_count == 4U, "directive note extracts four blocks");
+      if (x.block_count == 4U) {
+         check(x.blocks[0].suppressed && !x.blocks[0].compilable &&
+             x.blocks[1].suppressed && !x.blocks[1].compilable &&
+             x.blocks[2].suppressed && !x.blocks[2].compilable,
+             "AC15/AC29 norender suppresses environment, $$ and \\[ blocks");
+         check(!x.blocks[3].suppressed && x.blocks[3].compilable,
+             "AC29 unknown directive leaves the block compilable");
+      }
+      check(x.report_count == 1U &&
+          x.reports[0].reason == CWIKI_TEX_REPORT_UNKNOWN_DIRECTIVE &&
+          strcmp(x.reports[0].name, "frobnicate") == 0 &&
+          x.reports[0].line == 18U,
+          "AC15/AC29 only the unknown directive word is reported");
+      cwiki_tex_extraction_free(&x);
+      cwiki_tex_env_free(env);
+      cwiki_buffer_free(&note);
+      free(bytes);
+      check(fixture_vault_destroy(&vault) == 0, "destroy disposable root");
+   }
+
+   /* AC13 user table */
+   extract_text(engine, "\\begin{widget}\nw\n\\end{widget}\n", 0U, &note, &x);
+   cwiki_tex_extraction_free(&x);
+   env = build_env("", NULL, loaded, 1U, user, 1U);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 1U && x.blocks[0].compilable && x.report_count == 0U,
+       "AC13 user entry compilable with its package loaded");
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   env = build_env("", NULL, NULL, 0U, user, 1U);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 1U && !x.blocks[0].compilable &&
+       x.report_count == 1U, "AC13 user entry inactive without its package");
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   cwiki_buffer_free(&note);
+
+   /* AC30 nested unknown in align and in $$ */
+   env = build_env("\\usepackage{amsmath}\n", NULL, NULL, 0U, NULL, 0U);
+   extract_text(engine,
+       "\\begin{align}\n\\begin{bar}\n\\end{bar}\n\\end{align}\n"
+       "$$\n\\begin{bar}\nx\n\\end{bar}\n$$\n", 0U, &note, &x);
+   cwiki_tex_extraction_free(&x);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 2U && !x.blocks[0].compilable &&
+       !x.blocks[1].compilable && x.report_count == 1U &&
+       strcmp(x.reports[0].name, "bar") == 0 && x.reports[0].line == 1U,
+       "AC30 nested unknown environment withholds align and $$ blocks");
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   cwiki_buffer_free(&note);
    cwiki_zone_engine_free(engine);
 }
 
@@ -340,6 +510,7 @@ main(void)
    test_unterminated();
    test_untrusted();
    test_fixtures();
+   test_gating();
    if (failures != 0) {
       (void)fprintf(stderr, "%d failure(s)\n", failures);
       return 1;

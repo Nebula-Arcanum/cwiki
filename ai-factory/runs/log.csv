@@ -79,3 +79,5 @@ ts,session_id,source,user,branch,task,tool,agent,model,turns,input_tokens,output
 2026-10-12T22:20:48.689Z,525046d6-02ef-4340-9524-634c9aa2db9a,agent,leon,master,run,claude,t4-route-fix-853e2d9934,claude-opus-5-5,37,6030,41997,5903025,0,1.00,2.4190,
 2026-10-12T22:22:13.040Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,4,7,2031,1622815,0,1.00,0.5173,
 2026-10-12T22:25:49.412Z,525046d6-02ef-4340-9524-634c9aa2db9a,agent,leon,master,run,claude,t4-route-quick-74d25df7d4,claude-sonnet-5-5,18,36,5331,1760945,504121,0.78,2.4988,
+2026-10-12T22:27:34.875Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,6,12,2593,2473578,0,1.00,0.7810,
+2026-10-12T22:32:58.006Z,525046d6-02ef-4340-9524-634c9aa2db9a,agent,leon,master,run,claude,t4-route-run-9cebb94f53,claude-sonnet-5-5,18,36,19996,2312781,255584,0.90,1.9523,

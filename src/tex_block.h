@@ -2,6 +2,7 @@
 #define CWIKI_TEX_BLOCK_H
 
 #include "buffer.h"
+#include "tex_env.h"
 #include "zone.h"
 
 #include <stdbool.h>
@@ -24,11 +25,14 @@ struct cwiki_tex_block {
    size_t last_line;
    size_t last_end;
    bool compilable;
+   bool suppressed; /* `% cwiki: norender` inside the block (R2.9.2) */
 };
 
 enum cwiki_tex_report_reason {
    CWIKI_TEX_REPORT_UNTERMINATED,
-   CWIKI_TEX_REPORT_UNTRUSTED
+   CWIKI_TEX_REPORT_UNTRUSTED,
+   CWIKI_TEX_REPORT_UNKNOWN_ENV, /* name: the unrecognised environment */
+   CWIKI_TEX_REPORT_UNKNOWN_DIRECTIVE /* name: the unknown `% cwiki:` word */
 };
 
 struct cwiki_tex_report {
@@ -49,10 +53,16 @@ struct cwiki_tex_extraction {
  * lines from body_first_line on, using only the zone engine's data. The body
  * is scanned from an empty zone stack so frontmatter text cannot leak zone
  * state. Unterminated blocks and blocks touching a degraded line are kept,
- * not compilable, and reported (R2.9.7). Returns 0, or -1 with errno set.
+ * not compilable, and reported (R2.9.7). With `env` non-NULL, an environment
+ * block or nested \begin whose name is not available withholds the whole
+ * block and is reported once per name (R2.9.4a, R2.9.6a); `% cwiki: norender`
+ * on a line of its own inside a display or environment block suppresses it,
+ * and any other `% cwiki:` word is reported while the block stays compilable.
+ * A NULL `env` skips availability gating. Returns 0, or -1 with errno set.
  */
 int cwiki_tex_extract(struct cwiki_zone_engine *zones,
     const struct cwiki_buffer *note, size_t body_first_line,
+    const struct cwiki_tex_env_set *env,
     struct cwiki_tex_extraction *out);
 void cwiki_tex_extraction_free(struct cwiki_tex_extraction *extraction);
 
