@@ -67,7 +67,7 @@ documentation.
   `\begin{tikzpicture}`, an `align` of ≥5 lines all but the last ending `\\`; exactly one line
   contains `\undefinedfixturemacro`) and target `render-fixture-test` in `test`.
   Verify: `sh tests/render/check_render_fixture.sh`
-- [ ] Step 3 — Toolchain probe. AC12, AC13, AC13a, AC14, AC15. `scripts/tex-probe.sh` uses only
+- [x] Step 3 — Toolchain probe. AC12, AC13, AC13a, AC14, AC15. `scripts/tex-probe.sh` uses only
   shell builtins plus the probed tools: checks `lualatex`, `pdflatex`, `pdftocairo` via `command
   -v`, and `mhchem.sty`, `tikz.sty`, `amsmath.sty`, `standalone.cls`, `preview.sty` via
   `kpsewhich` (each reported missing, with the reason, when `kpsewhich` is absent). Prints one

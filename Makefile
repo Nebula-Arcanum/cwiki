@@ -103,7 +103,7 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
 	tests/app/test_app.c tests/app/test_cli.c tests/terminal/kitty_width_test.c
 
-.PHONY: render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
+.PHONY: tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
 	kitty-width-test sanitize analyze verify demo clean
 
 all: $(CWIKI)
@@ -482,13 +482,19 @@ kitty-width-test: $(KITTY_WIDTH_TEST)
 render-fixture-test:
 	sh tests/render/check_render_fixture.sh
 
+tex-probe-test:
+	sh tests/render/test_tex_probe.sh
+
+tex-probe:
+	sh scripts/tex-probe.sh
+
 m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 
-test: smoke replay-test support-test product-test m1-demo-test render-fixture-test
+test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test
 	$(SMOKE)
 
-check: test
+check: test tex-probe
 
 sanitize:
 	$(MAKE) clean
