@@ -1657,7 +1657,34 @@ frontmatter.
 `<vault>/.cwiki/preamble.tex`, synchronized through Git with the rest of the
 vault. Its path is fixed and not configurable. Decided on 2026-10-11.
 
+**R2.8.5 (frontmatter validation)** Each `packages:` entry is a plain package name
+matching `[A-Za-z0-9._-]+`; package options belong in `preamble:`. A `packages:`
+value that is not a list of such names, or a `preamble:` value that is not a
+string, is reported with its frontmatter location and no TeX is generated for that
+note. Decided on 2026-10-12.
+
+**R2.8.6 (missing or unreadable vault preamble)** A missing
+`<vault>/.cwiki/preamble.tex` contributes nothing. An unreadable one is reported
+with its path, and no TeX is generated until it is readable. This matches the
+missing/unreadable rule for configuration files in R7.2.1a. Decided on 2026-10-12.
+
+**R2.8.7 (preamble order)** A generated document contains, in order, the vault
+preamble, then one `\usepackage` line per `packages:` entry in list order, then
+the note's `preamble:` text, so note additions can rely on vault definitions.
+Decided on 2026-10-12.
+
 Rejected:
+
+- **Accepting arbitrary text as a package name.** Lets `packages:` smuggle raw
+  LaTeX into the `\usepackage` line; raw LaTeX belongs in `preamble:`.
+- **Ignoring an invalid key and rendering anyway.** Renders the note against a
+  preamble other than the one written, so failures look like TeX errors in
+  unrelated blocks.
+- **Treating a missing vault preamble as an error.** A vault with no shared
+  preamble is a valid, simple vault.
+- **Note additions before the vault preamble.** Note macros could not use vault
+  definitions, and a vault redefinition would silently override a note's
+  deliberate local choice.
 
 - **A configurable vault-preamble path.** Adds a setting and a lookup step for
   no workflow need, and lets machines disagree about which file is the shared
@@ -1681,6 +1708,15 @@ the zone stack (R1.1.3).
 Anything cwiki-specific, such as suppressing a render, is a `% cwiki:` directive line
 inside the environment, which is already a comment zone inside LaTeX (R1.9.6c).
 
+**R2.9.2a (directive syntax)** `% cwiki: norender`, on a line of its own
+anywhere inside an environment block or a multi-line `$$…$$` or `\[…\]` block,
+suppresses rendering of that block. A suppressed block is not compiled and is not
+an error. An unknown `% cwiki:` word is reported by name and the block still
+compiles. Decided on 2026-10-12. Rejected alternatives: limiting directives to
+environments only, which would leave multi-line display math without an opt-out
+even though `%` is a comment there too (R1.9.6c); and silently ignoring unknown
+words, which hides typos in directives.
+
 **R2.9.3** Fences therefore **invert meaning**: a ```` ```latex ```` fence *displays*
 LaTeX as source code rather than compiling it. That is how a note about LaTeX syntax
 is written.
@@ -1691,6 +1727,11 @@ once. Rationale: an environment from an unloaded package, or one that is a typo,
 would produce a compile error anyway, so compiling it buys nothing and costs a worse
 error message.
 
+**R2.9.4a (nested environments)** Every `\begin{…}` inside a block, including one
+nested in a math zone or another environment, must be available. A single
+unrecognised nested environment withholds the whole block, and that environment
+is reported. Decided on 2026-10-12.
+
 **R2.9.5** The available set is derived from what is actually loaded, not from a
 fixed list, which is what makes R2.9.4 exact:
 
@@ -1698,12 +1739,37 @@ fixed list, which is what makes R2.9.4 exact:
 |---|---|
 | Shipped per-package environment tables | environments of the packages cwiki knows — LaTeX core, amsmath, mhchem, TikZ/PGF, pgfplots, tikz-cd — each keyed by package and activated only when that package is loaded |
 | Vault-wide preamble and a note's `packages:` (R2.8.1) | which of those tables are in force here |
-| Preamble scan | `\newenvironment` and `\RenewEnvironment` in the vault-wide or per-note preamble, registered automatically — the same scan that populates the arity table (R1.15.3) |
+| Preamble scan | `\newenvironment`, `\renewenvironment`, `\NewDocumentEnvironment`, `\RenewDocumentEnvironment`, `\ProvideDocumentEnvironment` and `\DeclareDocumentEnvironment` in the vault-wide or per-note preamble, registered automatically — the same scan that populates the arity table (R1.15.3) |
 | User table | environments of a package cwiki does not ship a table for, declared once as data per R1.14.2 |
+
+Correction, 2026-10-12: this table previously listed `\newenvironment` and
+`\RenewEnvironment`. `\RenewEnvironment` is not a LaTeX command; the list now
+names the LaTeX2e pair and the four LaTeX3 document-environment declarations.
+
+A package is **loaded** when `\usepackage[…]{a,b}` or `\RequirePackage` names it in
+the vault preamble or the note's `preamble:`, or when the note's `packages:` lists
+it. Implied loads apply: pgfplots and tikz-cd load TikZ, and TikZ loads PGF.
+LaTeX-core environments are always in force. Decided on 2026-10-12.
+
+**R2.9.5a (user environment table)** The user table is configuration mapping a
+package name to the environment names it provides. An entry is in force only when
+its package is loaded, the same as a shipped table. It may be set in global,
+synchronized-vault and machine-local configuration, but not in note frontmatter.
+Decided on 2026-10-12.
 
 **R2.9.6** When an environment is unrecognised, the report names it, so the user
 knows exactly what to add to the user table or which package declaration is missing.
 A typo is therefore distinguishable from an unshipped package without cwiki guessing.
+
+**R2.9.6a (report scope)** "Reported once" in R2.9.4 means once per environment
+name per extraction of a note, with the first line where the name occurs.
+De-duplication across a session belongs to the surfaces that show reports.
+Decided on 2026-10-12.
+
+**R2.9.7 (unterminated and untrusted blocks)** A block whose closing delimiter is
+missing before the end of the note, or one that touches a line the zone engine
+marks degraded (R1.11.4), is not compiled. It is reported with its start line and
+the reason. Decided on 2026-10-12.
 
 Rejected:
 
@@ -1716,6 +1782,18 @@ Rejected:
   which is work guaranteed to fail.
 - **Gating on a fixed shipped table alone.** Would make every new package a
   maintenance task on cwiki rather than a one-line user declaration.
+- **Checking only a block's outermost environment.** Sends blocks containing a
+  known-unavailable nested environment to TeX, which R2.9.4 exists to prevent.
+- **Unconditional user-table entries without a package key.** Simpler data, but
+  the environment would count as available even when its package is not loaded,
+  which is the exact failure R2.9.5 avoids.
+- **User environment tables in note frontmatter.** Puts per-package availability,
+  which is a vault or machine fact, into individual notes.
+- **Session-wide "report once" at extraction.** Extraction is pure and
+  per-note; de-duplication across a session belongs to the surfaces that display
+  reports.
+- **Compiling unterminated or degraded blocks.** Their extent is not known, so
+  they would send arbitrary trailing note text to TeX.
 
 ---
 
@@ -2009,6 +2087,14 @@ Rejected:
 handling, and broad package compatibility. A note may explicitly select
 pdfLaTeX in frontmatter for compatibility; cwiki never guesses or silently
 switches engines.
+
+**R6.1.1a (engine key)** The frontmatter key is `engine:`, with value `lualatex`
+or `pdflatex`. An absent key means LuaLaTeX. Any other value is reported with its
+frontmatter location and no TeX is generated for that note; cwiki never falls back
+to LuaLaTeX. Decided on 2026-10-12. Rejected alternatives: falling back to
+LuaLaTeX on an unknown value, which is the silent engine switch R6.1.1 forbids;
+and accepting case or spelling variants such as `LuaTeX`, which adds guessing for
+no workflow need.
 
 **R6.1.2** Math, mhchem, and TikZ all use one PDF pipeline. A note render
 produces tightly bounded PDF pages for its changed blocks; cwiki does not
