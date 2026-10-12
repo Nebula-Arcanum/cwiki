@@ -78,7 +78,7 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
-	src/durable_write.c tests/io/test_durable_write.c \
+	tests/support/m2_demo.c src/durable_write.c tests/io/test_durable_write.c \
 	src/input.c tests/input/input_test.c src/key_record.c \
 	tests/input/key_record_test.c src/buffer.c src/unicode.c \
 	tests/buffer/test_buffer.c src/capabilities.c \
@@ -103,7 +103,7 @@ ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
 	src/config_files.c tests/config/test_config_files.c src/app.c src/main.c \
 	tests/app/test_app.c tests/app/test_cli.c tests/terminal/kitty_width_test.c
 
-.PHONY: tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
+.PHONY: m2-demo m2-demo-test tex-probe tex-probe-test render-fixture-test all smoke replay-test support-test product-test m1-demo-test test check \
 	kitty-width-test sanitize analyze verify demo clean
 
 all: $(CWIKI)
@@ -479,6 +479,20 @@ product-test: $(PRODUCT_TESTS)
 kitty-width-test: $(KITTY_WIDTH_TEST)
 	scripts/run-kitty-width-test.sh $(KITTY_WIDTH_TEST)
 
+M2_DEMO = $(BUILD_DIR)/cwiki-m2-demo
+
+$(M2_DEMO): tests/support/m2_demo.c tests/support/fixture_vault.c \
+		tests/support/fixture_vault.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/support tests/support/m2_demo.c \
+		tests/support/fixture_vault.c $(LDFLAGS) -o $(M2_DEMO)
+
+m2-demo: $(M2_DEMO)
+	$(M2_DEMO) tests/fixtures/vaults/m2-render scripts/m2-demo.sh
+
+m2-demo-test: $(M2_DEMO)
+	sh tests/render/test_m2_demo.sh $(M2_DEMO)
+
 render-fixture-test:
 	sh tests/render/check_render_fixture.sh
 
@@ -491,7 +505,7 @@ tex-probe:
 m1-demo-test: $(APP_TEST) $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 	$(APP_TEST) --demo $(M1_KEYS) $(M1_SCREEN) $(M1_MARKDOWN)
 
-test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test
+test: smoke replay-test support-test product-test m1-demo-test render-fixture-test tex-probe-test m2-demo-test
 	$(SMOKE)
 
 check: test tex-probe
@@ -517,7 +531,7 @@ analyze:
 
 verify: check sanitize
 
-demo: replay-test m1-demo-test
+demo: replay-test m1-demo-test m2-demo
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -1,0 +1,6 @@
+split-view|S7|Open the fixture note in source and rendered windows
+save-edit|S6|Save an edit; the rendered view refreshes from disk
+placeholder|S6|Observe non-blocking stale/placeholder behaviour and the eventual image
+tex-error|S6|Trigger a TeX error and see its diagnostic in place
+raw-log|S10|Inspect the failing block's raw TeX log
+sync-jumps|S9|Jump source->rendered and rendered->source

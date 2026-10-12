@@ -81,7 +81,7 @@ documentation.
   `tex-probe` runs the script; `check: test tex-probe` (so `make sanitize` does not rerun it, and
   `verify`/`review-changes.sh` reach it through `check`). Verify: `sh tests/render/test_tex_probe.sh`
   Verify: `make check` Verify: `env CWIKI_REQUIRE_TEX=1 make check`
-- [ ] Step 4 — Demo skeleton. AC8, AC9, AC10, AC11. `tests/support/m2_demo.c` → `build/cwiki-m2-demo
+- [x] Step 4 — Demo skeleton. AC8, AC9, AC10, AC11. `tests/support/m2_demo.c` → `build/cwiki-m2-demo
   FIXTURE_DIR SCRIPT`: create root, copy in, print the root, `fork`/`execl("/bin/sh", …)` the script
   with the root as its only argument, destroy, verify with `access` that the root is gone, exit
   with the script status (nonzero also on any harness failure). `scripts/m2-demo.sh VAULT` runs the

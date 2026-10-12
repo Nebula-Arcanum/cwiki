@@ -48,4 +48,12 @@ CI applies the same checks on Arch Linux, macOS with Homebrew, and FreeBSD. The
 deterministic change-review gate is `scripts/review-changes.sh`; it also rejects
 whitespace errors and tracked build artifacts before running the checks.
 
+`make demo` also runs `make m2-demo`, the Milestone 2 demo skeleton. It copies
+`tests/fixtures/vaults/m2-render` into a disposable root, runs
+`scripts/tex-probe.sh`, then walks `scripts/m2-demo-steps.txt`, reporting each
+step as pending with its owning slice until that slice adds
+`scripts/m2-demo/<id>.sh`. The probe lists the TeX and Poppler tools it needs;
+when any is missing it skips and exits 0 unless `CWIKI_REQUIRE_TEX=1`, which CI
+sets and which makes a missing item fail `make check`.
+
 Build artifacts stay under `build/` and are removed by `make clean`.
