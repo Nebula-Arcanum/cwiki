@@ -1,0 +1,1053 @@
+{
+  "schema": "t4-delivery-report",
+  "version": 1,
+  "generated_at": "2026-10-12T11:51:48.647Z",
+  "note": "Assembled from local evidence only. Ready means ready for delivery handoff — not merged, deployed or published. Contract validation is structural; it does not judge whether a requirement is right.",
+  "delivery": {
+    "id": "d-20261011-ff71bd",
+    "kind": "planned",
+    "tracker_key": null,
+    "title": "0001 — Milestone 2 acceptance harness for rendered notes",
+    "sources": [
+      {
+        "kind": "plan",
+        "markdown": "ai-factory/plans/0001-m2-render-acceptance-harness.md",
+        "sidecar": "ai-factory/plans/0001-m2-render-acceptance-harness.contract.json",
+        "sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde",
+        "state": "valid"
+      },
+      {
+        "kind": "spec",
+        "markdown": "ai-factory/specs/0001-m2-render-acceptance-harness.md",
+        "sidecar": "ai-factory/specs/0001-m2-render-acceptance-harness.contract.json",
+        "sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
+        "state": "valid"
+      }
+    ]
+  },
+  "snapshot": {
+    "code_sha256": "65bb6007a92886272a5efda6d5bbf1e54f1688b76edf4dda40c4b46499a716ac",
+    "head": "7cfc0a1cc2ee32896a3e51033dadd274e28d32a8",
+    "files": 131,
+    "fingerprint": "f974e4642a6c30f51ff675be645fdc2b8c419a2e64daf6f58717cfc3bb941650"
+  },
+  "status": "ready",
+  "reasons": [],
+  "counts": {
+    "criteria": 21,
+    "passed": 21,
+    "attested": 0,
+    "pending": 0,
+    "failed": 0,
+    "uncovered": 0,
+    "unverified": 0
+  },
+  "policy": {
+    "require_review": true,
+    "require_review_quick": false,
+    "blocking_severities": [
+      "blocker"
+    ],
+    "allow_attestation": false
+  },
+  "criteria": [
+    {
+      "id": "AC1",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/docs/check_m2_closure.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC2",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/docs/check_m2_closure.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC3",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/docs/check_m2_closure.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC4",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/docs/check_m2_closure.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC5",
+      "steps": [
+        "S2"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/check_render_fixture.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S2-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC6",
+      "steps": [
+        "S2"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/check_render_fixture.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S2-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC7",
+      "steps": [
+        "S2",
+        "S6"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/check_render_fixture.sh"
+        ],
+        [
+          "sh",
+          "tests/docs/check_m2_closure.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S2-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC8",
+      "steps": [
+        "S1",
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "support-test"
+        ],
+        [
+          "sh",
+          "tests/render/test_m2_demo.sh",
+          "build/cwiki-m2-demo"
+        ],
+        [
+          "make",
+          "demo"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S1-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC9",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_m2_demo.sh",
+          "build/cwiki-m2-demo"
+        ],
+        [
+          "make",
+          "demo"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC10",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_m2_demo.sh",
+          "build/cwiki-m2-demo"
+        ],
+        [
+          "make",
+          "demo"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC11",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_m2_demo.sh",
+          "build/cwiki-m2-demo"
+        ],
+        [
+          "make",
+          "demo"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC12",
+      "steps": [
+        "S3"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_tex_probe.sh"
+        ],
+        [
+          "make",
+          "check"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC13",
+      "steps": [
+        "S3"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_tex_probe.sh"
+        ],
+        [
+          "make",
+          "check"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC14",
+      "steps": [
+        "S3"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_tex_probe.sh"
+        ],
+        [
+          "make",
+          "check"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC15",
+      "steps": [
+        "S3"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/test_tex_probe.sh"
+        ],
+        [
+          "make",
+          "check"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC16",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC17",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC18",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC19",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC20",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC21",
+      "steps": [
+        "S7"
+      ],
+      "tests": [
+        [
+          "git",
+          "diff",
+          "--exit-code",
+          "152787c",
+          "--",
+          "src",
+          "tests/snapshots",
+          "tests/fixtures/keys"
+        ],
+        [
+          "make",
+          "verify"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "check"
+        ],
+        [
+          "make",
+          "demo"
+        ],
+        [
+          "make",
+          "check"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261011-ff71bd/S7-step.json",
+        "ai-factory/evidence/d-20261011-ff71bd/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    }
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC8"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S1-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S2",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC5",
+        "AC6",
+        "AC7"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S2-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S3",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC12",
+        "AC13",
+        "AC14",
+        "AC15"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S4",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC8",
+        "AC9",
+        "AC10",
+        "AC11"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S5",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC16",
+        "AC17",
+        "AC18",
+        "AC19",
+        "AC20"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S6",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC7"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S7",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC21"
+      ],
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S7-step.json",
+      "evidence_status": "passed"
+    }
+  ],
+  "contract_status": "valid",
+  "changes": {
+    "base": null,
+    "counts": {
+      "added": 0,
+      "modified": 0,
+      "deleted": 0,
+      "untracked": 0,
+      "other": 0
+    },
+    "total": 0,
+    "paths": [],
+    "truncated": false
+  },
+  "verification": [
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S1-red.json",
+      "scope": {
+        "kind": "step",
+        "step": "S1"
+      },
+      "phase": "red",
+      "expected": "fail",
+      "status": "failed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "support-test"
+          ],
+          "exit_code": 2,
+          "signal": null,
+          "status": "failed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S1-red.log",
+      "output_sha256": "222dc4cdc8173d58c853c06bef787165e91c98858ed89cc2016d4566f8629e46",
+      "finished_at": "2026-10-11T23:40:37.354Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S1-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S1"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "support-test"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S1-step.log",
+      "output_sha256": "62f232a5b8ca89a63c94154c7385280c64c359ec1c55b7ec3e0ac4e280c214a0",
+      "finished_at": "2026-10-12T01:23:16.503Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S2-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S2"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_render_fixture.sh"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S2-step.log",
+      "output_sha256": "a48275cca9060fd1d5c21f86c10b6e1fe2956f61dce9b7d6098101c8d74aeeae",
+      "finished_at": "2026-10-12T01:23:16.907Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S3-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S3"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/test_tex_probe.sh"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S3-step.log",
+      "output_sha256": "ee0b29712c92f3776ba1d1ef4329410b6830afce6bf6afdd93047ce8425424ec",
+      "finished_at": "2026-10-12T01:24:24.556Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S4-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S4"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/test_m2_demo.sh",
+            "build/cwiki-m2-demo"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "make",
+            "demo"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S4-step.log",
+      "output_sha256": "84fe5da73a269948bed148bcc731b065ad6d1a1394c104d947768e089cf24851",
+      "finished_at": "2026-10-12T01:24:27.503Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S5-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S5"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S5-step.log",
+      "output_sha256": "da1fe5a9846c174e02f9988f048579e846123a61de815d8d7526c34dd2e37962",
+      "finished_at": "2026-10-12T01:25:01.178Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S6-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S6"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "sh",
+            "tests/docs/check_m2_closure.sh"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S6-step.log",
+      "output_sha256": "1ddcca01f2e1d24fb13bd0022eae7204b587ffcad224f2ee084d17defe10723c",
+      "finished_at": "2026-10-12T01:25:01.561Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/S7-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S7"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S7-step.log",
+      "output_sha256": "b61217e016666e9b01b9c718af80d868b46dcad5032f402a480df33dcd0d598a",
+      "finished_at": "2026-10-12T01:19:57.002Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/final.json",
+      "scope": {
+        "kind": "final"
+      },
+      "phase": "final",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "152787c",
+            "--",
+            "src",
+            "tests/snapshots",
+            "tests/fixtures/keys"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "make",
+            "verify"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "make",
+            "demo"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/final.log",
+      "output_sha256": "526e69335f339083963723d8d20d7d7435c54770f64fb9007cf334b1d450129e",
+      "finished_at": "2026-10-12T11:49:34.769Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261011-ff71bd/review.json",
+      "scope": {
+        "kind": "review"
+      },
+      "phase": "final",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "review"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": null,
+      "output_sha256": null,
+      "finished_at": "2026-10-12T11:51:10.479Z"
+    }
+  ],
+  "review": {
+    "required": true,
+    "evidence": "ai-factory/evidence/d-20261011-ff71bd/review.json",
+    "state": "valid",
+    "status": "passed",
+    "verdict": "approve",
+    "tool": "claude",
+    "output_sha256": "938a1a54c9037a8c0689717daa30aab7a2d307524e7cc47b37620c9985ec7472",
+    "findings": [
+      {
+        "severity": "minor",
+        "file": "tests/docs/check_s1_gaps.sh",
+        "line": 24,
+        "issue": "The AC3 guard regex (`R1\\.12\\.7|R6\\.4\\.1|R1\\.12\\.9a|R1\\.8\\.7`) still omits R6.3.3a. The S10 row now correctly cites 'R6.3.3 (search part)', but a regression that puts the deferred link-navigation id back into an open scope row would pass the check.",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "tests/docs/check_s1_gaps.sh",
+        "line": 1,
+        "issue": "No make target, script or step evidence runs check_s1_gaps.sh. Only review.json mentions it, so its AC2, AC10, AC16-AC19 and AC21 assertions are manual. Its AC21 `git diff 152787c -- src` will fail for good once S2 touches src/, so it cannot join `make check` as written.",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "tests/support/fixture_vault.c",
+        "line": 42,
+        "issue": "copy_file opens the destination with O_CREAT|O_TRUNC but without O_EXCL or O_NOFOLLOW, and copy_tree accepts EEXIST from mkdir and recurses into the existing directory. If a destination root already holds a symlink, the copy would follow it and write outside the root. That breaks the plan's rule tha",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "tests/support/m2_demo.c",
+        "line": 52,
+        "issue": "The root is copied into saved[4096] with an unchecked snprintf. If the path were truncated, the access() check after destroy would test the wrong path and could pass falsely.",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "docs/ACCEPTANCE.md",
+        "line": 189,
+        "issue": "The S5 scope row cites R6.1.3 and R9.3.1, but the ROADMAP S5 Slices row also lists 'R6.1.4 inputs' (cell metrics and colours that feed the render key). Each slice's R ids should match the ROADMAP Slices table.",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": ".github/workflows/ci.yml",
+        "line": 68,
+        "issue": "The macOS BasicTeX cache restores /usr/local/texlive only. On a cache hit, the cask's /etc/paths.d entry and the /Library/TeX symlinks are absent, and restoring into root-owned /usr/local has not been tried on a runner. The PATH loop should still find the binaries, but this is unproven, as ADR 0003 ",
+        "blocking": false
+      }
+    ],
+    "reason": null,
+    "independence": "independent"
+  },
+  "attestations": [],
+  "limitations": {
+    "open_questions": "None.",
+    "risks": "| Risk | Check |\n|---|---|\n| Probe or demo script uses a GNU/bash extension, or the Makefile gains a GNU make construct. | Scripts run under `/bin/sh` in the tests; macOS `make` is GNU, so the real POSIX-make proof is the FreeBSD CI job (bmake). `make analyze` and FreeBSD CI only run after the user approves a push. |\n| `PATH`-stubbed probe test accidentally finds real TeX tools. | Test sets `PATH` to the stub directory alone and invokes `/bin/sh` by absolute path; the empty-install case asserts eight `missing` lines on this TeX-equipped machine. |\n| Copy-in writes outside the root or follows a symlink out of the fixture. | Step 1 symlink-rejection test; copy-in builds destination paths only under `vault->root`. |\n| Demo leaves a temporary vault behind. | Driver asserts the root is gone; `test_m2_demo.sh` checks the printed root no longer exists. |\n| Fixture blocks compile differently in a later standalone template (S2). | AC7 records the exact wrapper; S2 owns the real template and must re-assert the same failing line. |\n| CI TeX subset too small (a package dependency missing, e.g. `chemgreek` for `mhchem`, LuaTeX format). | `CWIKI_REQUIRE_TEX=1` makes the probe fail the job; first CI run after push approval is the evidence. Locally only the MacTeX install is exercised. |\n| BasicTeX cache restored but stale or `PATH` not set. | Probe in `make check` fails with named items under `CWIKI_REQUIRE_TEX=1`. |\n| Package revalidation drifts from SPEC §0. | Step 5 reports changes to the user (AC20); SPEC untouched. |\n| Closure table misses or duplicates a FEATURES M2 row. | `check_m2_closure.sh` checks structure only; the exactly-once mapping of the 28 rows is checked by `/t4:check` review against `docs/FEATURES.md`. |",
+    "follow_up": []
+  },
+  "telemetry": {
+    "status": "unavailable",
+    "reason": "no delivery-scoped telemetry export exists for this delivery",
+    "source": "ai-factory/runs/telemetry/d-20261011-ff71bd.json",
+    "coverage": null,
+    "metrics": null,
+    "pricing": null
+  },
+  "mr_draft": {
+    "draft": true,
+    "title": "0001 — Milestone 2 acceptance harness for rendered notes",
+    "body": "> Draft generated from local evidence by delivery-report. Review and edit before posting; nothing was published.\n\nDelivery `d-20261011-ff71bd` — status **ready**.\n\nAcceptance:\n- AC1: passed\n- AC2: passed\n- AC3: passed\n- AC4: passed\n- AC5: passed\n- AC6: passed\n- AC7: passed\n- AC8: passed\n- AC9: passed\n- AC10: passed\n- AC11: passed\n- AC12: passed\n- AC13: passed\n- AC14: passed\n- AC15: passed\n- AC16: passed\n- AC17: passed\n- AC18: passed\n- AC19: passed\n- AC20: passed\n- AC21: passed\n\nVerification run:\n- `make support-test` — passed\n- `sh tests/render/check_render_fixture.sh` — passed\n- `sh tests/render/test_tex_probe.sh`, `make check`, `env CWIKI_REQUIRE_TEX=1 make check` — passed\n- `sh tests/render/test_m2_demo.sh build/cwiki-m2-demo`, `make demo` — passed\n- `env CWIKI_REQUIRE_TEX=1 make check` — passed\n- `sh tests/docs/check_m2_closure.sh` — passed\n- `make check` — passed\n- `git diff --exit-code 152787c -- src tests/snapshots tests/fixtures/keys`, `make verify`, `env CWIKI_REQUIRE_TEX=1 make check`, `make demo` — passed\n- `make review` — passed\n\nReview: approve"
+  }
+}
