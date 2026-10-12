@@ -1,0 +1,36 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261012-251ff8",
+  "scope": {
+    "kind": "step",
+    "step": "S1"
+  },
+  "phase": "red",
+  "expected": "fail",
+  "inputs": {
+    "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+    "plan_sha256": "5c102ddba8a6fe7fd8073ebe953bcf04f8d0b9b91b4a3a8294f86f0a265e3eb5"
+  },
+  "code": {
+    "snapshot_sha256": "f89f9c28b0a85d9d1f72d4ce25531f3845124d6806709462fa565c86fe98aba3",
+    "head": "36ebb4317843adb614d6d2630bfe14768729a679",
+    "files": 132
+  },
+  "commands": [
+    {
+      "argv": [
+        "make",
+        "build/test-tex-env"
+      ],
+      "exit_code": 2,
+      "signal": null,
+      "status": "failed"
+    }
+  ],
+  "status": "failed",
+  "started_at": "2026-10-12T17:03:34.765Z",
+  "finished_at": "2026-10-12T17:03:34.999Z",
+  "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S1-red.log",
+  "output_sha256": "5bd7f9654a37f39cabd4495eefc1ec1c6bbe8df6d848519e85cc9505f9b5a4f1"
+}

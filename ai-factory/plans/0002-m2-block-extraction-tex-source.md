@@ -85,7 +85,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
 
 ## Steps
 
-- [ ] Step 1 — Environment tables and preamble scan (`tex_env`). AC9, AC12, AC32, AC33. API: build
+- [x] Step 1 — Environment tables and preamble scan (`tex_env`). AC9, AC12, AC32, AC33. API: build
   an availability set from (vault preamble bytes, note `preamble:` bytes, note `packages:` list,
   composed user table). Shipped tables keyed by package; `latex` core always in force; implied
   loads pgfplots→tikz, tikz-cd→tikz, tikz→pgf; `\usepackage[opt]{a,b}` and `\RequirePackage`

@@ -28,6 +28,7 @@ TERMINAL_TEST = $(BUILD_DIR)/test-terminal
 UNDO_TEST = $(BUILD_DIR)/test-undo
 ZONE_TEST = $(BUILD_DIR)/test-zone
 ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
+TEX_ENV_TEST = $(BUILD_DIR)/test-tex-env
 REGEX_TEST = $(BUILD_DIR)/test-regex
 VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
@@ -57,7 +58,7 @@ KITTY_WIDTH_TEST = $(BUILD_DIR)/test-kitty-width
 M1_KEYS = tests/fixtures/keys/m1-class-note.keys.raw
 M1_SCREEN = tests/snapshots/m1-class-note.screen
 M1_MARKDOWN = tests/snapshots/m1-class-note.md
-APP_SOURCES = src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
+APP_SOURCES = src/tex_env.c src/app.c src/buffer.c src/unicode.c src/regex.c src/zone.c \
 	src/conceal.c src/layout.c src/highlight.c src/render.c src/input.c \
 	src/key_record.c src/capabilities.c src/terminal.c src/durable_write.c \
 	src/document.c src/undo.c src/motion.c src/editor.c src/action.c \
@@ -74,8 +75,8 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
 	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(PICKER_RENDER_TEST) \
 	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST) \
-	$(CLI_TEST) $(KITTY_WIDTH_TEST)
-ANALYZE_SOURCES = tests/smoke.c tests/replay/replay_test.c \
+	$(CLI_TEST) $(KITTY_WIDTH_TEST) $(TEX_ENV_TEST)
+ANALYZE_SOURCES = src/tex_env.c tests/render/test_tex_env.c tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	tests/support/m2_demo.c src/durable_write.c tests/io/test_durable_write.c \
@@ -201,6 +202,13 @@ $(ZONE_TEST): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		src/buffer.c src/unicode.c src/regex.c src/zone.c \
 		tests/zone/test_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
 		-o $(ZONE_TEST)
+
+$(TEX_ENV_TEST): tests/render/test_tex_env.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		tests/render/test_tex_env.c src/buffer.c src/unicode.c src/regex.c \
+		src/tex_env.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
+		-o $(TEX_ENV_TEST)
 
 $(ZONE_FUZZ): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		src/buffer.h src/unicode.c src/unicode.h tests/zone/fuzz_zone.c
