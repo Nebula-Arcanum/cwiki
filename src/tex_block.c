@@ -222,23 +222,6 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
 }
 
 int
-cwiki_tex_zone_engine_init(struct cwiki_zone_engine **engine)
-{
-   const struct cwiki_zone_region *regions;
-   size_t count;
-   size_t index;
-   uint64_t top_level;
-
-   regions = cwiki_zone_builtin_regions(&count, &top_level);
-   for (index = 0U; index < count; index++) {
-      if (regions[index].kind == CWIKI_ZONE_CHEMISTRY) {
-         top_level |= CWIKI_ZONE_REGION_BIT(index);
-      }
-   }
-   return cwiki_zone_engine_init(engine, regions, count, top_level);
-}
-
-int
 cwiki_tex_extract(struct cwiki_zone_engine *zones,
     const struct cwiki_buffer *note, size_t body_first_line,
     struct cwiki_tex_extraction *out)

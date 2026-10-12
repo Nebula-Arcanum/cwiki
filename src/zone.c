@@ -438,7 +438,7 @@ cwiki_zone_builtin_regions(size_t *count, uint64_t *top_level)
           BIT(REGION_MATH_DISPLAY_DOLLAR) |
           BIT(REGION_MATH_DISPLAY_BRACKET) |
           BIT(REGION_MATH_INLINE_DOLLAR) | BIT(REGION_MATH_INLINE_PAREN) |
-          BIT(REGION_TIKZ) | BIT(REGION_LATEX);
+          BIT(REGION_TIKZ) | BIT(REGION_LATEX) | BIT(REGION_CHEMISTRY);
    }
    return builtin_regions;
 }

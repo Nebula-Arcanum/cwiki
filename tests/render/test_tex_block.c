@@ -26,8 +26,13 @@ static struct cwiki_zone_engine *
 builtin_engine(void)
 {
    struct cwiki_zone_engine *engine = NULL;
-   check(cwiki_tex_zone_engine_init(&engine) == 0,
-       "extraction zone engine compiles");
+   size_t count;
+   uint64_t top_level;
+   const struct cwiki_zone_region *regions =
+       cwiki_zone_builtin_regions(&count, &top_level);
+
+   check(cwiki_zone_engine_init(&engine, regions, count, top_level) == 0,
+       "builtin zone engine compiles");
    return engine;
 }
 

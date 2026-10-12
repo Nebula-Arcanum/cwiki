@@ -92,6 +92,33 @@ check_runs(const struct cwiki_highlight_line *line,
 }
 
 static void
+test_prose_chemistry(void)
+{
+   const char text[] = "a \\ce{H2O} b\n";
+   const struct cwiki_highlight_run expected[] = {
+      {0U, 2U, CWIKI_HIGHLIGHT_PROSE},
+      {2U, 6U, CWIKI_HIGHLIGHT_CHEMISTRY_DELIMITER},
+      {6U, 9U, CWIKI_HIGHLIGHT_CHEMISTRY},
+      {9U, 10U, CWIKI_HIGHLIGHT_CHEMISTRY_DELIMITER},
+      {10U, 12U, CWIKI_HIGHLIGHT_PROSE}
+   };
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_highlight_line line;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   line = highlight(engine, &buffer, 0U);
+   check_runs(&line, expected, sizeof(expected) / sizeof(expected[0]),
+       "prose ce content highlights as chemistry");
+   cwiki_highlight_line_free(&line);
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
+static void
 test_inline_math_holes_and_unicode(void)
 {
    const char text[] =
@@ -382,6 +409,7 @@ test_grapheme_delimiters(void)
 int
 main(void)
 {
+   test_prose_chemistry();
    test_inline_math_holes_and_unicode();
    test_display_comments_and_empty_line();
    test_code_latex_and_tikz();

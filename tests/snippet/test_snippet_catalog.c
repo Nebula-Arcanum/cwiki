@@ -165,7 +165,7 @@ verify_entry(const struct expected *expected)
    static const struct { const char *prefix; enum cwiki_zone_kind zone; } contexts[] = {
       {"", CWIKI_ZONE_PROSE}, {"$", CWIKI_ZONE_MATH_INLINE},
       {"\\[", CWIKI_ZONE_MATH_DISPLAY}, {"$$", CWIKI_ZONE_MATH_DISPLAY},
-      {"$\\ce{", CWIKI_ZONE_CHEMISTRY},
+      {"$\\ce{", CWIKI_ZONE_CHEMISTRY}, {"\\ce{", CWIKI_ZONE_CHEMISTRY},
       {"\\begin{tikzpicture}", CWIKI_ZONE_TIKZ}, {"```tex\n", CWIKI_ZONE_CODE},
       {"$% ", CWIKI_ZONE_COMMENT_PERCENT}, {"%% ", CWIKI_ZONE_COMMENT_NOTE},
       {"<!-- ", CWIKI_ZONE_COMMENT_HTML}, {"$\\text{", CWIKI_ZONE_TEXT},
@@ -288,6 +288,9 @@ test_structural_expansions(struct cwiki_snippet_registry *registry)
    expect_expansion(registry, "$mat", "$\\begin{pmatrix}\n &  \\\\\n & \n\\end{pmatrix}");
    expect_expansion(registry, "env", "\\begin{align}\n\n\\end{align}");
    expect_expansion(registry, "$chem", "$\\ce{}");
+   expect_match(registry, "chem", false); /* math-gated: not in prose */
+   expect_match(registry, "\\ce{chem", false); /* ... nor in prose ce */
+   expect_expansion(registry, "\\ce{reaction", "\\ce{A -> B"); /* prose \ce */
    expect_expansion(registry, "$unit", "$\\pu{1 mol}");
    expect_expansion(registry, "$\\ce{reaction", "$\\ce{A -> B");
    expect_expansion(registry, "$\\ce{equilibrium", "$\\ce{A <=> B");

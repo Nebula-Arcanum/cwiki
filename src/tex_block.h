@@ -45,13 +45,6 @@ struct cwiki_tex_extraction {
 };
 
 /*
- * Zone engine for block extraction: the built-in region table with `\ce{}`
- * also recognised in prose, so chemistry is a block of its own (R2.3, AC3).
- * The editor's engine is untouched. Free with cwiki_zone_engine_free.
- */
-int cwiki_tex_zone_engine_init(struct cwiki_zone_engine **engine);
-
-/*
  * Finds the outermost renderable zones (R2.3, R2.9.1) in the note body, the
  * lines from body_first_line on, using only the zone engine's data. The body
  * is scanned from an empty zone stack so frontmatter text cannot leak zone

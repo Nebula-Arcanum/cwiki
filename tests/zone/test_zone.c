@@ -284,6 +284,30 @@ test_incremental_propagation(void)
 }
 
 static void
+test_prose_chemistry(void)
+{
+   const char text[] = "a \\ce{H2O} b \\$x \\\\ce{no} c \\ce";
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   check_kind(engine, &buffer, 0U, "H2O", CWIKI_ZONE_CHEMISTRY,
+       "prose ce command opens a chemistry zone");
+   check_kind(engine, &buffer, 0U, " b", CWIKI_ZONE_PROSE,
+       "closing brace returns to prose");
+   check_kind(engine, &buffer, 0U, "x ", CWIKI_ZONE_PROSE,
+       "escaped dollar stays prose");
+   check_kind(engine, &buffer, 0U, "no}", CWIKI_ZONE_PROSE,
+       "escaped backslash before ce is not a chemistry command");
+   check(buffer.lines[0].end_zones.depth == 0U, "no zone left open");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
+static void
 test_synignore_escape_hatch(void)
 {
    const char text[] =
@@ -715,6 +739,7 @@ main(void)
    test_unicode_boundaries();
    test_declarative_skip_and_containment();
    test_incremental_propagation();
+   test_prose_chemistry();
    test_synignore_escape_hatch();
    test_depth_bound_and_malformed_input();
    test_regex_resource_degradation();
