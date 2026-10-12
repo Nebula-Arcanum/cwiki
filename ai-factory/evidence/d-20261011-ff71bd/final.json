@@ -12,9 +12,9 @@
     "plan_sha256": "53f1939aa9a9a4389f34f77f7c03d652b84592f3675bf843a0078f505516efde"
   },
   "code": {
-    "snapshot_sha256": "d208bb5bd22bf5e8680d043e2401a6ac9c9fbfba31aae7481dd73bf2eafe3c11",
-    "head": "68ba598ba96694753687c1b5ca67ee3a76c61814",
-    "files": 130
+    "snapshot_sha256": "cfa67891fcd83448ba838f71ea975d7e8f7f5a119cacda6ff647de96bd532fe7",
+    "head": "b36fa0ced1f85fb940ca2d1c1755367f1f006964",
+    "files": 131
   },
   "commands": [
     {
@@ -63,8 +63,8 @@
     }
   ],
   "status": "passed",
-  "started_at": "2026-10-12T01:19:57.198Z",
-  "finished_at": "2026-10-12T01:22:51.607Z",
+  "started_at": "2026-10-12T01:31:44.758Z",
+  "finished_at": "2026-10-12T01:34:40.442Z",
   "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/final.log",
-  "output_sha256": "7d3fab71bc588f52dec0b26b1f7ede8185859268e43f13c99e300dd8cd47b82f"
+  "output_sha256": "47aa69cafc01e7280c48d003eefaf7c0d8b7bf9ffd967a96ee4ec37115ef2f8a"
 }
