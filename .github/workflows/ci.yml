@@ -34,11 +34,13 @@ jobs:
           restore-keys: arch-pacman-
 
       - name: Install dependencies and analysis tools
-        run: pacman -Syu --needed --noconfirm clang kitty libutf8proc libyaml pcre2 pkgconf xorg-server-xvfb
+        run: pacman -Syu --needed --noconfirm clang kitty libutf8proc libyaml pcre2 pkgconf xorg-server-xvfb \
+          poppler texlive-basic texlive-latex texlive-latexextra texlive-mathscience texlive-pictures texlive-luatex
 
       - name: Review changes
         env:
           ASAN_OPTIONS: detect_leaks=1
+          CWIKI_REQUIRE_TEX: "1"
         run: scripts/review-changes.sh
 
       - name: Check Unicode widths against Kitty
@@ -61,10 +63,29 @@ jobs:
           restore-keys: macos-homebrew-
 
       - name: Install dependencies and LLVM
-        run: brew install llvm utf8proc libyaml pcre2 pkgconf
+        run: brew install llvm utf8proc libyaml pcre2 pkgconf poppler
+
+      - name: Cache BasicTeX
+        id: texcache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /usr/local/texlive
+          key: macos-basictex-${{ hashFiles('.github/workflows/ci.yml') }}
+
+      - name: Install BasicTeX subset
+        if: steps.texcache.outputs.cache-hit != 'true'
+        run: |
+          brew install --cask basictex
+          eval "$(/usr/libexec/path_helper)"
+          sudo tlmgr update --self
+          sudo tlmgr install standalone preview mhchem pgf chemgreek
 
       - name: Run strict build and tests
-        run: make CC="$(brew --prefix llvm)/bin/clang" check
+        env:
+          CWIKI_REQUIRE_TEX: "1"
+        run: |
+          for d in /usr/local/texlive/*/bin/*; do PATH="$d:$PATH"; done
+          make CC="$(brew --prefix llvm)/bin/clang" check
 
       - name: Run sanitizers
         run: make CC="$(brew --prefix llvm)/bin/clang" sanitize
@@ -81,6 +102,6 @@ jobs:
         with:
           release: "14.5"
           run: |
-            pkg install -y utf8proc libyaml pcre2 pkgconf
-            make check
+            pkg install -y utf8proc libyaml pcre2 pkgconf texlive-base texlive-texmf poppler-utils
+            CWIKI_REQUIRE_TEX=1 make check
             make sanitize

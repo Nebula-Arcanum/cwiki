@@ -101,7 +101,7 @@ documentation.
   m1-demo-test m2-demo`; `m2-demo-test` runs `tests/render/test_m2_demo.sh` and is in `test`.
   `docs/DEVELOPING.md` documents `make m2-demo`, the step list, the probe and `CWIKI_REQUIRE_TEX`.
   Verify: `sh tests/render/test_m2_demo.sh build/cwiki-m2-demo` Verify: `make demo`
-- [ ] Step 5 — ADR 0003 and CI subset. AC16, AC17, AC18, AC19, AC20. Write ADR 0003 in the
+- [x] Step 5 — ADR 0003 and CI subset. AC16, AC17, AC18, AC19, AC20. Write ADR 0003 in the
   `0000-template.md` shape: TeX Live (LuaLaTeX, pdfLaTeX) and Poppler `pdftocairo` are runtime
   subprocess dependencies, never linked, always invoked with `-no-shell-escape` until M3's
   machine-local trust policy; package matrix revalidated today against the FreeBSD ports/packages

@@ -1,0 +1,38 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261011-ff71bd",
+  "scope": {
+    "kind": "step",
+    "step": "S5"
+  },
+  "phase": "step",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "da4b5a1d37842f280a0bd6c0f497966e0b318aad500e19b3f9f2ad3a0d68fe5b",
+    "plan_sha256": "26dbcd91e8ccaa50eb9a30bad48671c6fb7e986f3ae64798c3b9b44fecd2aada"
+  },
+  "code": {
+    "snapshot_sha256": "20ffc96d9be8e7ca2e4d91dc2b9a22d5d8584a406c8282ac66e716bff3909394",
+    "head": "c9b12cc6cb42efd8b1f3019978ad98fbf0204d2a",
+    "files": 129
+  },
+  "commands": [
+    {
+      "argv": [
+        "env",
+        "CWIKI_REQUIRE_TEX=1",
+        "make",
+        "check"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "status": "passed"
+    }
+  ],
+  "status": "passed",
+  "started_at": "2026-10-12T01:05:27.320Z",
+  "finished_at": "2026-10-12T01:05:47.625Z",
+  "output_ref": "ai-factory/runs/evidence/d-20261011-ff71bd/S5-step.log",
+  "output_sha256": "da1fe5a9846c174e02f9988f048579e846123a61de815d8d7526c34dd2e37962"
+}
