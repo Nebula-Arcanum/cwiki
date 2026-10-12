@@ -101,6 +101,41 @@ cwiki_regex_capture_count(const struct cwiki_regex *regex)
    return regex == NULL ? 0U : regex->capture_count;
 }
 
+bool
+cwiki_regex_start_bytes(const struct cwiki_regex *regex, uint8_t bitmap[32])
+{
+   const uint8_t *table = NULL;
+   uint32_t type = 0U;
+   uint32_t unit = 0U;
+
+   if (regex == NULL ||
+       pcre2_pattern_info(regex->code, PCRE2_INFO_FIRSTCODETYPE, &type) != 0) {
+      return false;
+   }
+   if (type == 1U) {
+      /* Caseless state is not reported; ASCII letters admit both cases and a
+       * non-ASCII lead byte is not trusted. */
+      if (pcre2_pattern_info(regex->code, PCRE2_INFO_FIRSTCODEUNIT, &unit) !=
+          0 || unit >= 0x80U) {
+         return false;
+      }
+      memset(bitmap, 0, 32U);
+      bitmap[unit / 8U] |= (uint8_t)(1U << (unit % 8U));
+      unit ^= 0x20U;
+      if ((unit >= 'A' && unit <= 'Z') || (unit >= 'a' && unit <= 'z')) {
+         bitmap[unit / 8U] |= (uint8_t)(1U << (unit % 8U));
+      }
+      return true;
+   }
+   if (type != 0U ||
+       pcre2_pattern_info(regex->code, PCRE2_INFO_FIRSTBITMAP, &table) != 0 ||
+       table == NULL) {
+      return false;
+   }
+   memcpy(bitmap, table, 32U);
+   return true;
+}
+
 enum cwiki_regex_compile_status
 cwiki_regex_compile(struct cwiki_regex **output, const char *pattern,
     size_t pattern_length, uint32_t options, uint32_t match_limit,
@@ -208,15 +243,14 @@ is_utf_error(int error)
        error >= PCRE2_ERROR_UTF8_ERR21) || error == PCRE2_ERROR_BADUTFOFFSET;
 }
 
-struct cwiki_regex_result
-cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
-    size_t subject_length, size_t start_offset, bool anchored)
+static struct cwiki_regex_result
+execute(struct cwiki_regex *regex, const char *subject, size_t subject_length,
+    size_t start_offset, uint32_t options)
 {
    struct cwiki_regex_result match = {CWIKI_REGEX_INTERNAL_ERROR, NULL, 0U,
        NULL, 0U, PCRE2_ERROR_NULL, false};
    PCRE2_SIZE *offsets;
    PCRE2_SPTR mark;
-   uint32_t options = anchored ? PCRE2_ANCHORED : 0U;
    const char *input = subject;
    size_t index;
    int result;
@@ -273,4 +307,20 @@ cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
    match.alternative = (const char *)mark;
    match.alternative_length = mark == NULL ? 0U : strlen((const char *)mark);
    return match;
+}
+
+struct cwiki_regex_result
+cwiki_regex_execute(struct cwiki_regex *regex, const char *subject,
+    size_t subject_length, size_t start_offset, bool anchored)
+{
+   return execute(regex, subject, subject_length, start_offset,
+       anchored ? PCRE2_ANCHORED : 0U);
+}
+
+struct cwiki_regex_result
+cwiki_regex_execute_valid_utf(struct cwiki_regex *regex, const char *subject,
+    size_t subject_length, size_t start_offset, bool anchored)
+{
+   return execute(regex, subject, subject_length, start_offset,
+       PCRE2_NO_UTF_CHECK | (anchored ? PCRE2_ANCHORED : 0U));
 }

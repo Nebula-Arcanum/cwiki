@@ -9,6 +9,10 @@
 #include <string.h>
 
 #define UNESCAPED "(?<!\\\\)(?:\\\\\\\\)*\\K"
+/* The lookahead names the bytes an UNESCAPED match can begin with (a backslash
+ * pair or the delimiter itself). It does not change what matches; it lets
+ * PCRE2 report a start set, which \K after a repeat otherwise hides. */
+#define UNESCAPED_BEFORE(first) "(?=[\\\\" first "])" UNESCAPED
 #define BIT(index) CWIKI_ZONE_REGION_BIT(index)
 #define SYNIGNORE_DETAIL UINT16_MAX
 
@@ -49,48 +53,50 @@ static const struct cwiki_zone_region builtin_regions[REGION_COUNT] = {
        "^[ \\t]{0,3}```+[ \\t]*$", NULL, 0U, 0U, 1U, 0U, false},
    {CWIKI_ZONE_COMMENT_NOTE, "note block comment", "^[ \\t]*%%[ \\t]*$",
        "^[ \\t]*%%[ \\t]*$", NULL, 0U, 0U, 0U, 0U, false},
-   {CWIKI_ZONE_COMMENT_NOTE, "note inline comment", UNESCAPED "%%",
-       UNESCAPED "%%", NULL, 0U, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_COMMENT_NOTE, "note inline comment", UNESCAPED_BEFORE("%") "%%",
+       UNESCAPED_BEFORE("%") "%%", NULL, 0U, 0U, 0U, 0U, false},
    {CWIKI_ZONE_COMMENT_HTML, "HTML comment", "<!--", "-->", NULL, 0U, 0U,
        0U, 0U, false},
-   {CWIKI_ZONE_MATH_DISPLAY, "display math dollars", UNESCAPED "\\$\\$",
-       UNESCAPED "\\$\\$", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
-   {CWIKI_ZONE_MATH_DISPLAY, "display math brackets", UNESCAPED "\\\\\\[",
-       UNESCAPED "\\\\\\]", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
-   {CWIKI_ZONE_MATH_INLINE, "inline math dollars", UNESCAPED "\\$",
-       UNESCAPED "\\$", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
-   {CWIKI_ZONE_MATH_INLINE, "inline math parentheses", UNESCAPED "\\\\\\(",
-       UNESCAPED "\\\\\\)", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_MATH_DISPLAY, "display math dollars", UNESCAPED_BEFORE("$") "\\$\\$",
+       UNESCAPED_BEFORE("$") "\\$\\$", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_MATH_DISPLAY, "display math brackets", UNESCAPED_BEFORE("") "\\\\\\[",
+       UNESCAPED_BEFORE("") "\\\\\\]", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_MATH_INLINE, "inline math dollars", UNESCAPED_BEFORE("$") "\\$",
+       UNESCAPED_BEFORE("$") "\\$", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_MATH_INLINE, "inline math parentheses", UNESCAPED_BEFORE("") "\\\\\\(",
+       UNESCAPED_BEFORE("") "\\\\\\)", NULL, MATH_CHILDREN, 0U, 0U, 0U, false},
    {CWIKI_ZONE_TIKZ, "TikZ environment",
-       UNESCAPED "\\\\begin\\{(tikzpicture)\\}",
-       UNESCAPED "\\\\end\\{(tikzpicture)\\}", NULL, LATEX_CHILDREN, 0U,
+       UNESCAPED_BEFORE("") "\\\\begin\\{(tikzpicture)\\}",
+       UNESCAPED_BEFORE("") "\\\\end\\{(tikzpicture)\\}", NULL, LATEX_CHILDREN, 0U,
        1U, 1U, false},
    {CWIKI_ZONE_LATEX, "LaTeX environment",
-       UNESCAPED "\\\\begin\\{([A-Za-z*][A-Za-z0-9*@:-]*)\\}",
-       UNESCAPED "\\\\end\\{([A-Za-z*][A-Za-z0-9*@:-]*)\\}", NULL,
+       UNESCAPED_BEFORE("") "\\\\begin\\{([A-Za-z*][A-Za-z0-9*@:-]*)\\}",
+       UNESCAPED_BEFORE("") "\\\\end\\{([A-Za-z*][A-Za-z0-9*@:-]*)\\}", NULL,
        LATEX_CHILDREN, 0U, 1U, 1U, false},
-   {CWIKI_ZONE_CHEMISTRY, "chemistry", UNESCAPED "\\\\ce\\{",
-       UNESCAPED "\\}", NULL,
+   {CWIKI_ZONE_CHEMISTRY, "chemistry", UNESCAPED_BEFORE("") "\\\\ce\\{",
+       UNESCAPED_BEFORE("}") "\\}", NULL,
        EVERYWHERE_COMMENTS | BIT(REGION_COMMENT_PERCENT), 0U, 0U, 0U, false},
-   {CWIKI_ZONE_TEXT, "math text hole", UNESCAPED "\\\\text\\{",
-       UNESCAPED "\\}", NULL,
+   {CWIKI_ZONE_TEXT, "math text hole", UNESCAPED_BEFORE("") "\\\\text\\{",
+       UNESCAPED_BEFORE("}") "\\}", NULL,
        EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) |
        BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) |
        BIT(REGION_MATH_INLINE_PAREN), 0U, 0U, 0U, false},
-   {CWIKI_ZONE_TEXT, "math intertext hole", UNESCAPED "\\\\intertext\\{",
-       UNESCAPED "\\}", NULL,
+   {CWIKI_ZONE_TEXT, "math intertext hole", UNESCAPED_BEFORE("") "\\\\intertext\\{",
+       UNESCAPED_BEFORE("}") "\\}", NULL,
        EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) |
        BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) |
        BIT(REGION_MATH_INLINE_PAREN), 0U, 0U, 0U, false},
    {CWIKI_ZONE_REFERENCE, "reference hole",
-       UNESCAPED "\\\\(?:label|ref|eqref)\\{", UNESCAPED "\\}", NULL,
+       UNESCAPED_BEFORE("") "\\\\(?:label|ref|eqref)\\{", UNESCAPED_BEFORE("}") "\\}", NULL,
        EVERYWHERE_COMMENTS, 0U, 0U, 0U, false},
-   {CWIKI_ZONE_COMMENT_PERCENT, "LaTeX line comment", UNESCAPED "%", NULL,
+   {CWIKI_ZONE_COMMENT_PERCENT, "LaTeX line comment", UNESCAPED_BEFORE("%") "%", NULL,
        NULL, 0U, 0U, 0U, 0U, true}
 };
 
 struct compiled_pattern {
    struct cwiki_regex *regex;
+   uint8_t starts[32];
+   bool filtered;
 };
 
 struct compiled_region {
@@ -108,6 +114,7 @@ struct cwiki_zone_engine {
    size_t detail_count;
    size_t detail_capacity;
    size_t synignore_region;
+   size_t evaluations;
 };
 
 struct match {
@@ -176,6 +183,8 @@ compiled_pattern_init(struct compiled_pattern *compiled, const char *pattern,
       errno = status == CWIKI_REGEX_COMPILE_NO_MEMORY ? ENOMEM : EINVAL;
       return -1;
    }
+   compiled->filtered = cwiki_regex_start_bytes(compiled->regex,
+       compiled->starts);
    return 0;
 }
 
@@ -188,7 +197,8 @@ resource_limit(enum cwiki_regex_status status)
 }
 
 static int
-pattern_match(struct compiled_pattern *pattern, const char *bytes,
+pattern_match(struct cwiki_zone_engine *engine,
+    struct compiled_pattern *pattern, const char *bytes,
     size_t length, size_t limit, size_t offset, uint8_t detail_capture,
     struct match *match, bool *degraded)
 {
@@ -199,7 +209,16 @@ pattern_match(struct compiled_pattern *pattern, const char *bytes,
    if (pattern->regex == NULL) {
       return 0;
    }
-   result = cwiki_regex_execute(pattern->regex, subject, length, offset, true);
+   if (pattern->filtered && offset < length) {
+      unsigned char lead = (unsigned char)subject[offset];
+
+      if ((pattern->starts[lead / 8U] & (1U << (lead % 8U))) == 0U) {
+         return 0;
+      }
+   }
+   engine->evaluations++;
+   result = cwiki_regex_execute_valid_utf(pattern->regex, subject, length,
+       offset, true);
    if (result.status == CWIKI_REGEX_NO_MATCH) {
       return 0;
    }
@@ -567,6 +586,18 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
    }
    *degraded = false;
    stack = *start;
+   if (length > CWIKI_DEGRADED_LINE_BYTES) {
+      /* R1.1.5: an over-cap line is raw text. It is not scanned; the stack
+       * carries through unchanged and the line is marked degraded. */
+      *degraded = true;
+      *result = stack;
+      return 0;
+   }
+   /* Validated once here so each pattern call can skip PCRE2's own check. */
+   if (!cwiki_utf8_validate(bytes, length)) {
+      errno = EINVAL;
+      return -1;
+   }
    directive = engine->synignore_region == SIZE_MAX ? SYNIGNORE_NONE :
        synignore_directive(bytes == NULL ? "" : bytes, length);
    if (directive != SYNIGNORE_NONE && limit == length &&
@@ -601,7 +632,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
              &engine->regions[top->region];
          struct compiled_region *compiled = &engine->compiled[top->region];
 
-         if (pattern_match(&compiled->skip, bytes, length, limit, offset, 0U,
+         if (pattern_match(engine, &compiled->skip, bytes, length, limit, offset, 0U,
              &match, degraded) != 0) {
             return -1;
          }
@@ -612,7 +643,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
             continue;
          }
          if (!region->ends_at_line &&
-             pattern_match(&compiled->end, bytes, length, limit, offset,
+             pattern_match(engine, &compiled->end, bytes, length, limit, offset,
              region->end_detail_capture, &match, degraded) != 0) {
             return -1;
          }
@@ -643,7 +674,7 @@ scan(struct cwiki_zone_engine *engine, const char *bytes, size_t length,
             continue;
          }
          region = &engine->regions[region_index];
-         if (pattern_match(&engine->compiled[region_index].start, bytes,
+         if (pattern_match(engine, &engine->compiled[region_index].start, bytes,
              length, limit, offset, region->start_detail_capture, &match,
              degraded) != 0) {
             return -1;
@@ -846,3 +877,11 @@ cwiki_zone_line_free(struct cwiki_zone_line *line)
       memset(line, 0, sizeof(*line));
    }
 }
+
+#ifdef CWIKI_ZONE_TESTING
+size_t
+cwiki_zone_testing_evaluations(const struct cwiki_zone_engine *engine)
+{
+   return engine == NULL ? 0U : engine->evaluations;
+}
+#endif

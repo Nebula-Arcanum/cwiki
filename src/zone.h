@@ -110,4 +110,9 @@ int cwiki_zone_at(struct cwiki_zone_engine *engine,
     const struct cwiki_buffer *buffer, size_t line, size_t byte,
     struct cwiki_zone *zone);
 
+#ifdef CWIKI_ZONE_TESTING
+/* Number of region-pattern executions handed to PCRE2 by this engine. */
+size_t cwiki_zone_testing_evaluations(const struct cwiki_zone_engine *engine);
+#endif
+
 #endif

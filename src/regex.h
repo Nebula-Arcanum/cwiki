@@ -67,9 +67,20 @@ enum cwiki_regex_compile_status cwiki_regex_compile(
 void cwiki_regex_free(struct cwiki_regex *regex);
 /* Includes capture zero (the whole match); returns zero for NULL. */
 size_t cwiki_regex_capture_count(const struct cwiki_regex *regex);
+/* Fills a 256-bit table of the code units a match can begin with, from
+ * PCRE2's first-code-unit or start-bitmap analysis. Returns false when PCRE2
+ * knows no such set; the pattern may then start at any byte. */
+bool cwiki_regex_start_bytes(const struct cwiki_regex *regex,
+    uint8_t bitmap[32]);
 /* Returned pointers remain valid until this pattern is executed again or freed. */
 struct cwiki_regex_result cwiki_regex_execute(struct cwiki_regex *regex,
     const char *subject, size_t subject_length, size_t start_offset,
     bool anchored);
+/* As cwiki_regex_execute, for a subject the caller has already validated as
+ * UTF-8. PCRE2's own check covers the rest of the subject on every call, which
+ * makes repeated matching along one long line quadratic. */
+struct cwiki_regex_result cwiki_regex_execute_valid_utf(
+    struct cwiki_regex *regex, const char *subject, size_t subject_length,
+    size_t start_offset, bool anchored);
 
 #endif

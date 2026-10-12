@@ -623,9 +623,93 @@ test_span_boundaries_and_snapshots(void)
    cwiki_zone_line_free(&fresh);
 }
 
+static char *
+repeat_text(const char *prefix, const char *unit, size_t length,
+    const char *suffix)
+{
+   size_t prefix_length = strlen(prefix);
+   size_t unit_length = strlen(unit);
+   size_t suffix_length = strlen(suffix);
+   size_t total = prefix_length + length + suffix_length;
+   char *text = malloc(total + 1U);
+   size_t offset;
+
+   if (text == NULL) {
+      return NULL;
+   }
+   memcpy(text, prefix, prefix_length);
+   for (offset = 0U; offset < length; offset++) {
+      text[prefix_length + offset] = unit[offset % unit_length];
+   }
+   memcpy(text + prefix_length + length, suffix, suffix_length);
+   text[total] = '\0';
+   return text;
+}
+
+static void
+test_long_line_cost(void)
+{
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+   struct cwiki_zone_stack start = {{{CWIKI_ZONE_PROSE, 0U, 0U}}, 0U};
+   struct cwiki_zone_stack end;
+   struct cwiki_zone zone;
+   const size_t prose_length = CWIKI_DEGRADED_LINE_BYTES;
+   char *text;
+   size_t before;
+
+   /* A pattern is not run where its first byte cannot occur. Only the two
+    * line-start patterns (fence, block comment) can begin on a space, so a
+    * prose line costs at most two evaluations per space: a third of its
+    * bytes here, not every region at every byte. A line exactly at the
+    * R1.1.5 cap is still scanned. */
+   text = repeat_text("", "lorem ipsum ", prose_length, "");
+   check(text != NULL, "allocate long prose line");
+   before = cwiki_zone_testing_evaluations(engine);
+   check(cwiki_zone_scan_line(engine, text, prose_length, &start, &end) == 0 &&
+       end.depth == 0U, "scan long prose line at the degraded-line cap");
+   check(cwiki_zone_testing_evaluations(engine) - before <= prose_length / 2U,
+       "long prose line skips offsets where no region can start");
+   free(text);
+
+   /* Inside math only the block-comment child can begin on a space. */
+   text = repeat_text("$", "x+y=z ", 64U * 1024U, "$");
+   check(text != NULL, "allocate long inline-math line");
+   before = cwiki_zone_testing_evaluations(engine);
+   check(cwiki_zone_scan_line(engine, text, strlen(text), &start, &end) == 0 &&
+       end.depth == 0U, "scan long inline-math line");
+   check(cwiki_zone_testing_evaluations(engine) - before <= 64U * 1024U / 4U,
+       "long math body skips offsets where no end or child can start");
+   free(text);
+
+   /* A line over the R1.1.5 cap is not scanned: the zone stack carries
+    * through unchanged and the line is marked degraded. */
+   text = repeat_text("$$\n", "a $b$ ", CWIKI_DEGRADED_LINE_BYTES + 1U,
+       "\nafter");
+   check(text != NULL, "allocate over-cap line fixture");
+   before = cwiki_zone_testing_evaluations(engine);
+   parse(engine, &buffer, text);
+   check(cwiki_zone_testing_evaluations(engine) - before <= 8U,
+       "over-cap line costs no pattern evaluations");
+   check(cwiki_zone_stack_equal(&buffer.lines[0].end_zones,
+       &buffer.lines[1].end_zones) && buffer.lines[1].zone_degraded &&
+       cwiki_buffer_line_degraded(&buffer, 1U),
+       "over-cap line carries the zone stack unchanged and is degraded");
+   check(cwiki_zone_at(engine, &buffer, 1U, 4U, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_MATH_DISPLAY,
+       "cursor context inside an over-cap line is the carried zone");
+   check(cwiki_zone_at(engine, &buffer, 2U, 0U, &zone) == 0 &&
+       zone.kind == CWIKI_ZONE_MATH_DISPLAY,
+       "zone after an over-cap line continues from the carried stack");
+   cwiki_buffer_free(&buffer);
+   free(text);
+   cwiki_zone_engine_free(engine);
+}
+
 int
 main(void)
 {
+   test_long_line_cost();
    test_builtin_contexts();
    test_multiline_comments_and_escapes();
    test_unicode_boundaries();

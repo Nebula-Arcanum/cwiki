@@ -200,7 +200,8 @@ $(UNDO_TEST): src/undo.c src/undo.h src/buffer.c src/buffer.h src/unicode.c \
 $(ZONE_TEST): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		src/buffer.h src/unicode.c src/unicode.h tests/zone/test_zone.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		-DCWIKI_ZONE_TESTING -Isrc \
 		src/buffer.c src/unicode.c src/regex.c src/zone.c \
 		tests/zone/test_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
 		-o $(ZONE_TEST)
@@ -545,7 +546,7 @@ analyze:
 		-DCWIKI_KEY_RECORD_TESTING \
 		-DCWIKI_UNDO_TESTING -DCWIKI_SNIPPET_TESTING \
 		-DCWIKI_ACTION_TESTING -DCWIKI_KEYMAP_TESTING -DCWIKI_APP_TESTING \
-		-DCWIKI_LINE_EDIT_TESTING \
+		-DCWIKI_LINE_EDIT_TESTING -DCWIKI_ZONE_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
 		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) -Isrc -Itests/support
