@@ -177,6 +177,29 @@ enum cwiki_config_status cwiki_config_parse_note_subjects(
     struct cwiki_config_error *error);
 void cwiki_config_subjects_free(struct cwiki_config_subjects *subjects);
 
+enum cwiki_tex_engine {
+   CWIKI_TEX_ENGINE_LUALATEX,
+   CWIKI_TEX_ENGINE_PDFLATEX
+};
+
+/* Note TeX inputs from frontmatter (R2.8.1, R6.1.1). Lines are note lines. */
+struct cwiki_config_note_tex {
+   enum cwiki_tex_engine engine;
+   char **packages;
+   size_t *package_lines;
+   size_t *package_columns;
+   size_t package_count;
+   char *preamble; /* NUL-terminated copy; NULL when absent */
+   size_t preamble_length;
+   size_t preamble_line;
+   size_t body_first_line; /* 0 without frontmatter */
+};
+
+enum cwiki_config_status cwiki_config_parse_note_tex(
+    const struct cwiki_buffer *buffer, struct cwiki_config_note_tex *tex,
+    struct cwiki_config_error *error);
+void cwiki_config_note_tex_free(struct cwiki_config_note_tex *tex);
+
 const char *cwiki_config_clue_group(const struct cwiki_config *config,
     enum cwiki_keymap_mode mode, const struct cwiki_input_event *prefix,
     size_t prefix_count);

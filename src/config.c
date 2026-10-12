@@ -2650,20 +2650,19 @@ done:
    return status;
 }
 
-enum cwiki_config_status
-cwiki_config_parse_note_subjects(const struct cwiki_buffer *buffer,
-    struct cwiki_config_subjects *subjects, struct cwiki_config_error *error)
+/* Copy the opening frontmatter body. *bytes stays NULL when there is none;
+ * *body_first is the index of the first line after the closing delimiter. */
+static enum cwiki_config_status
+note_frontmatter(const struct cwiki_buffer *buffer, unsigned char **bytes,
+    size_t *length, size_t *body_first, struct cwiki_config_error *error)
 {
-   unsigned char *bytes = NULL;
-   size_t length = 0U;
    size_t closing;
    size_t line;
-   enum cwiki_config_status status;
+   size_t total = 0U;
 
-   if (buffer == NULL || subjects == NULL) {
-      return CWIKI_CONFIG_INVALID;
-   }
-   *subjects = (struct cwiki_config_subjects){0};
+   *bytes = NULL;
+   *length = 0U;
+   *body_first = 0U;
    if (error != NULL) {
       *error = (struct cwiki_config_error){0};
    }
@@ -2682,24 +2681,46 @@ cwiki_config_parse_note_subjects(const struct cwiki_buffer *buffer,
       return CWIKI_CONFIG_SCHEMA_ERROR;
    }
    for (line = 1U; line < closing; line++) {
-      if (buffer->lines[line].length > CONFIG_MAX_BYTES - length ||
-          length + buffer->lines[line].length > CONFIG_MAX_BYTES - 1U) {
+      if (buffer->lines[line].length > CONFIG_MAX_BYTES - total ||
+          total + buffer->lines[line].length > CONFIG_MAX_BYTES - 1U) {
          set_error(error, line + 1U, 1U,
              "note frontmatter exceeds the 1 MiB limit");
          return CWIKI_CONFIG_SCHEMA_ERROR;
       }
-      length += buffer->lines[line].length + 1U;
+      total += buffer->lines[line].length + 1U;
    }
-   bytes = malloc(length == 0U ? 1U : length);
-   if (bytes == NULL) {
+   *bytes = malloc(total == 0U ? 1U : total);
+   if (*bytes == NULL) {
       return CWIKI_CONFIG_NO_MEMORY;
    }
-   length = 0U;
+   total = 0U;
    for (line = 1U; line < closing; line++) {
-      memcpy(bytes + length, buffer->lines[line].bytes,
+      memcpy(*bytes + total, buffer->lines[line].bytes,
           buffer->lines[line].length);
-      length += buffer->lines[line].length;
-      bytes[length++] = '\n';
+      total += buffer->lines[line].length;
+      (*bytes)[total++] = '\n';
+   }
+   *length = total;
+   *body_first = closing + 1U;
+   return CWIKI_CONFIG_OK;
+}
+
+enum cwiki_config_status
+cwiki_config_parse_note_subjects(const struct cwiki_buffer *buffer,
+    struct cwiki_config_subjects *subjects, struct cwiki_config_error *error)
+{
+   unsigned char *bytes;
+   size_t length;
+   size_t body_first;
+   enum cwiki_config_status status;
+
+   if (buffer == NULL || subjects == NULL) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *subjects = (struct cwiki_config_subjects){0};
+   status = note_frontmatter(buffer, &bytes, &length, &body_first, error);
+   if (status != CWIKI_CONFIG_OK || bytes == NULL) {
+      return status;
    }
    status = parse_note_subject_document(bytes, length, subjects, error);
    free(bytes);
@@ -2707,6 +2728,220 @@ cwiki_config_parse_note_subjects(const struct cwiki_buffer *buffer,
       cwiki_config_subjects_free(subjects);
    }
    return status;
+}
+
+static bool
+tex_package_name(const yaml_node_t *node)
+{
+   size_t i;
+
+   if (node->type != YAML_SCALAR_NODE || node->data.scalar.length == 0U ||
+       node->data.scalar.length > CONFIG_MAX_TEXT) {
+      return false;
+   }
+   for (i = 0U; i < node->data.scalar.length; i++) {
+      unsigned char c = node->data.scalar.value[i];
+
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+          (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-')) {
+         return false;
+      }
+   }
+   return true;
+}
+
+static enum cwiki_config_status
+note_tex_apply(yaml_document_t *document, yaml_node_t *root,
+    struct cwiki_config_note_tex *tex, struct cwiki_config_error *error)
+{
+   yaml_node_pair_t *pair;
+   bool seen_engine = false;
+   bool seen_packages = false;
+   bool seen_preamble = false;
+
+   for (pair = root->data.mapping.pairs.start;
+       pair < root->data.mapping.pairs.top; pair++) {
+      yaml_node_t *key = yaml_document_get_node(document, pair->key);
+      yaml_node_t *value = yaml_document_get_node(document, pair->value);
+      struct source_mark at;
+
+      if (key == NULL || value == NULL) {
+         continue;
+      }
+      at = mark(key);
+      if (scalar_is(key, "environments")) {
+         set_error(error, at.line + 1U, at.column,
+             "environments is not a note key; set it in configuration");
+         return CWIKI_CONFIG_SCHEMA_ERROR;
+      }
+      if (scalar_is(key, "engine")) {
+         if (seen_engine) {
+            set_error(error, at.line + 1U, at.column, "duplicate engine key");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+         seen_engine = true;
+         if (scalar_is(value, "lualatex")) {
+            tex->engine = CWIKI_TEX_ENGINE_LUALATEX;
+         } else if (scalar_is(value, "pdflatex")) {
+            tex->engine = CWIKI_TEX_ENGINE_PDFLATEX;
+         } else {
+            at = mark(value);
+            set_error(error, at.line + 1U, at.column,
+                "engine must be lualatex or pdflatex");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+      } else if (scalar_is(key, "packages")) {
+         yaml_node_item_t *item;
+         size_t count;
+
+         if (seen_packages) {
+            set_error(error, at.line + 1U, at.column,
+                "duplicate packages key");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+         seen_packages = true;
+         if (value->type != YAML_SEQUENCE_NODE) {
+            at = mark(value);
+            set_error(error, at.line + 1U, at.column,
+                "packages must be a sequence of package names");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+         count = (size_t)(value->data.sequence.items.top -
+             value->data.sequence.items.start);
+         if (count > 0U) {
+            tex->packages = calloc(count, sizeof(*tex->packages));
+            tex->package_lines = calloc(count, sizeof(*tex->package_lines));
+            tex->package_columns = calloc(count,
+                sizeof(*tex->package_columns));
+            if (tex->packages == NULL || tex->package_lines == NULL ||
+                tex->package_columns == NULL) {
+               return CWIKI_CONFIG_NO_MEMORY;
+            }
+         }
+         for (item = value->data.sequence.items.start;
+             item < value->data.sequence.items.top; item++) {
+            yaml_node_t *name = yaml_document_get_node(document, *item);
+
+            if (name == NULL || !tex_package_name(name)) {
+               at = name == NULL ? mark(value) : mark(name);
+               set_error(error, at.line + 1U, at.column,
+                   "package names must match [A-Za-z0-9._-]+");
+               return CWIKI_CONFIG_SCHEMA_ERROR;
+            }
+            tex->packages[tex->package_count] = copy_scalar(name);
+            if (tex->packages[tex->package_count] == NULL) {
+               return CWIKI_CONFIG_NO_MEMORY;
+            }
+            tex->package_lines[tex->package_count] = mark(name).line + 1U;
+            tex->package_columns[tex->package_count] = mark(name).column;
+            tex->package_count++;
+         }
+      } else if (scalar_is(key, "preamble")) {
+         if (seen_preamble) {
+            set_error(error, at.line + 1U, at.column,
+                "duplicate preamble key");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+         seen_preamble = true;
+         if (value->type != YAML_SCALAR_NODE ||
+             !cwiki_utf8_validate((const char *)value->data.scalar.value,
+             value->data.scalar.length)) {
+            at = mark(value);
+            set_error(error, at.line + 1U, at.column,
+                "preamble must be a string");
+            return CWIKI_CONFIG_SCHEMA_ERROR;
+         }
+         tex->preamble = malloc(value->data.scalar.length + 1U);
+         if (tex->preamble == NULL) {
+            return CWIKI_CONFIG_NO_MEMORY;
+         }
+         memcpy(tex->preamble, value->data.scalar.value,
+             value->data.scalar.length);
+         tex->preamble[value->data.scalar.length] = '\0';
+         tex->preamble_length = value->data.scalar.length;
+         tex->preamble_line = mark(value).line + 1U;
+      }
+   }
+   return CWIKI_CONFIG_OK;
+}
+
+static enum cwiki_config_status
+parse_note_tex_document(const unsigned char *bytes, size_t length,
+    struct cwiki_config_note_tex *tex, struct cwiki_config_error *error)
+{
+   yaml_parser_t parser;
+   yaml_document_t document;
+   yaml_node_t *root;
+   enum cwiki_config_status status = CWIKI_CONFIG_OK;
+
+   if (!yaml_parser_initialize(&parser)) {
+      return CWIKI_CONFIG_NO_MEMORY;
+   }
+   yaml_parser_set_input_string(&parser, bytes, length);
+   if (!yaml_parser_load(&parser, &document)) {
+      set_error(error, parser.problem_mark.line + 2U,
+          parser.problem_mark.column + 1U,
+          parser.problem == NULL ? "invalid note frontmatter" : parser.problem);
+      status = parser.error == YAML_MEMORY_ERROR ? CWIKI_CONFIG_NO_MEMORY :
+          CWIKI_CONFIG_YAML_ERROR;
+      yaml_parser_delete(&parser);
+      return status;
+   }
+   root = yaml_document_get_root_node(&document);
+   if (root != NULL && root->type != YAML_MAPPING_NODE) {
+      struct source_mark at = mark(root);
+
+      set_error(error, at.line + 1U, at.column,
+          "note frontmatter must be a mapping");
+      status = CWIKI_CONFIG_SCHEMA_ERROR;
+   } else if (root != NULL) {
+      status = note_tex_apply(&document, root, tex, error);
+   }
+   yaml_document_delete(&document);
+   yaml_parser_delete(&parser);
+   return status;
+}
+
+enum cwiki_config_status
+cwiki_config_parse_note_tex(const struct cwiki_buffer *buffer,
+    struct cwiki_config_note_tex *tex, struct cwiki_config_error *error)
+{
+   unsigned char *bytes;
+   size_t length;
+   enum cwiki_config_status status;
+
+   if (buffer == NULL || tex == NULL) {
+      return CWIKI_CONFIG_INVALID;
+   }
+   *tex = (struct cwiki_config_note_tex){0};
+   status = note_frontmatter(buffer, &bytes, &length, &tex->body_first_line,
+       error);
+   if (status == CWIKI_CONFIG_OK && bytes != NULL) {
+      status = parse_note_tex_document(bytes, length, tex, error);
+   }
+   free(bytes);
+   if (status != CWIKI_CONFIG_OK) {
+      cwiki_config_note_tex_free(tex);
+   }
+   return status;
+}
+
+void
+cwiki_config_note_tex_free(struct cwiki_config_note_tex *tex)
+{
+   size_t i;
+
+   if (tex == NULL) {
+      return;
+   }
+   for (i = 0U; i < tex->package_count; i++) {
+      free(tex->packages[i]);
+   }
+   free(tex->packages);
+   free(tex->package_lines);
+   free(tex->package_columns);
+   free(tex->preamble);
+   *tex = (struct cwiki_config_note_tex){0};
 }
 
 const char *

@@ -99,7 +99,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   Expected red: `build/test-tex-env` fails to build, `tex_env.h` not found.
   Verify (red): `make build/test-tex-env`
   Verify: `make build/test-tex-env` Verify: `build/test-tex-env`
-- [ ] Step 2 — Note TeX frontmatter in `config`. AC16, AC18, AC19, AC28, AC33. Add
+- [x] Step 2 — Note TeX frontmatter in `config`. AC16, AC18, AC19, AC28, AC33. Add
   `cwiki_config_parse_note_tex(buffer, struct cwiki_config_note_tex *, error)` next to
   `cwiki_config_parse_note_subjects`, reusing its frontmatter delimiting and 1 MiB cap: returns
   engine (default LuaLaTeX), `packages:` names in order, `preamble:` bytes verbatim (literal block

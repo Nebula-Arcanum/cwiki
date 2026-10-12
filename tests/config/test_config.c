@@ -432,6 +432,74 @@ note_subject_frontmatter(void)
    cwiki_buffer_free(&buffer);
 }
 
+static void
+parse_tex(const char *text, struct cwiki_config_note_tex *tex,
+    struct cwiki_config_error *error, enum cwiki_config_status expected)
+{
+   struct cwiki_buffer buffer;
+
+   assert(cwiki_buffer_init(&buffer) == 0);
+   assert(cwiki_buffer_load(&buffer, text, strlen(text)) == 0);
+   assert(cwiki_config_parse_note_tex(&buffer, tex, error) == expected);
+   cwiki_buffer_free(&buffer);
+}
+
+static void
+test_note_tex(void)
+{
+   struct cwiki_config_note_tex tex;
+   struct cwiki_config_error error;
+
+   parse_tex("body\n", &tex, &error, CWIKI_CONFIG_OK);
+   assert(tex.engine == CWIKI_TEX_ENGINE_LUALATEX && tex.package_count == 0U &&
+       tex.preamble == NULL && tex.body_first_line == 0U);
+   cwiki_config_note_tex_free(&tex);
+
+   parse_tex("---\ntitle: x\n---\nbody\n", &tex, &error, CWIKI_CONFIG_OK);
+   assert(tex.engine == CWIKI_TEX_ENGINE_LUALATEX && tex.package_count == 0U &&
+       tex.preamble == NULL && tex.body_first_line == 3U);
+   cwiki_config_note_tex_free(&tex);
+
+   parse_tex("---\nengine: pdflatex\n---\n", &tex, &error, CWIKI_CONFIG_OK);
+   assert(tex.engine == CWIKI_TEX_ENGINE_PDFLATEX);
+   cwiki_config_note_tex_free(&tex);
+   parse_tex("---\nengine: lualatex\n---\n", &tex, &error, CWIKI_CONFIG_OK);
+   assert(tex.engine == CWIKI_TEX_ENGINE_LUALATEX);
+   cwiki_config_note_tex_free(&tex);
+   parse_tex("---\ntitle: x\nengine: LuaTeX\n---\n", &tex, &error,
+       CWIKI_CONFIG_SCHEMA_ERROR);
+   assert(error.line == 3U && error.column == 9U);
+
+   parse_tex("---\npackages: [tikz-cd, siunitx]\n---\n", &tex, &error,
+       CWIKI_CONFIG_OK);
+   assert(tex.package_count == 2U && strcmp(tex.packages[0], "tikz-cd") == 0 &&
+       strcmp(tex.packages[1], "siunitx") == 0 && tex.package_lines[1] == 2U);
+   cwiki_config_note_tex_free(&tex);
+   parse_tex("---\npackages: \"x\"\n---\n", &tex, &error,
+       CWIKI_CONFIG_SCHEMA_ERROR);
+   assert(error.line == 2U);
+   parse_tex("---\npackages: [\"a b\"]\n---\n", &tex, &error,
+       CWIKI_CONFIG_SCHEMA_ERROR);
+   assert(error.line == 2U);
+
+   parse_tex("---\npreamble: [x]\n---\n", &tex, &error,
+       CWIKI_CONFIG_SCHEMA_ERROR);
+   assert(error.line == 2U);
+   parse_tex("---\npreamble: |\n  \\newcommand{\\R}{\\mathbb{R}}\n"
+       "  \\usetikzlibrary{arrows.meta}\n---\nbody\n", &tex, &error,
+       CWIKI_CONFIG_OK);
+   assert(tex.preamble_length ==
+       strlen("\\newcommand{\\R}{\\mathbb{R}}\n\\usetikzlibrary{arrows.meta}\n") &&
+       strcmp(tex.preamble,
+       "\\newcommand{\\R}{\\mathbb{R}}\n\\usetikzlibrary{arrows.meta}\n") == 0 &&
+       tex.body_first_line == 5U);
+   cwiki_config_note_tex_free(&tex);
+
+   parse_tex("---\nengine: pdflatex\nenvironments:\n  x: [y]\n---\n", &tex,
+       &error, CWIKI_CONFIG_SCHEMA_ERROR);
+   assert(error.line == 3U && error.column == 1U);
+}
+
 static bool
 snippet_matches(struct cwiki_snippet_registry *registry, const char *text,
     enum cwiki_snippet_expand_kind kind)
@@ -631,6 +699,7 @@ main(void)
    snippet_settings_and_precedence();
    zone_settings_and_precedence();
    note_subject_frontmatter();
+   test_note_tex();
    bounded_input();
    (void)puts("config tests: ok");
    return EXIT_SUCCESS;
