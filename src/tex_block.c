@@ -455,7 +455,9 @@ cwiki_tex_block_bytes(const struct cwiki_buffer *note,
       size_t to = line == block->last_line ? block->last_end :
           note->lines[line].length;
 
-      memcpy(out + at, note->lines[line].bytes + from, to - from);
+      if (to > from) {
+         memcpy(out + at, note->lines[line].bytes + from, to - from);
+      }
       at += to - from;
       if (line != block->last_line) {
          out[at++] = '\n';

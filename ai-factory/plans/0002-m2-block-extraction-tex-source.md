@@ -187,7 +187,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   `class-note.tex:N: Undefined control sequence` line N maps to note line 23 in
   `class-note.lines`. Makefile target `tex-compile-test` added to `test`.
   Verify: `make tex-compile-test` Verify: `env CWIKI_REQUIRE_TEX=1 make tex-compile-test`
-- [ ] Step 8 — Fuzz target. AC25. `fuzz_tex.c` with `CWIKI_TEX_FUZZ_STANDALONE`, mirroring
+- [x] Step 8 — Fuzz target. AC25. `fuzz_tex.c` with `CWIKI_TEX_FUZZ_STANDALONE`, mirroring
   `fuzz_zone.c`: deterministic corpus plus seeded random bytes biased toward `---`, `$`, `\[`,
   `\begin{`, `\end{`, `%%`, `% cwiki:`, fences, `\newenvironment`, `\usepackage`; runs frontmatter
   parse, availability build, extraction and generation; asserts every block range lies in the

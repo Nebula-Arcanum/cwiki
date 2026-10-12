@@ -31,6 +31,7 @@ ZONE_FUZZ = $(BUILD_DIR)/fuzz-zone
 TEX_ENV_TEST = $(BUILD_DIR)/test-tex-env
 TEX_BLOCK_TEST = $(BUILD_DIR)/test-tex-block
 TEX_SOURCE_TEST = $(BUILD_DIR)/test-tex-source
+TEX_FUZZ = $(BUILD_DIR)/fuzz-tex
 REGEX_TEST = $(BUILD_DIR)/test-regex
 VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
@@ -78,9 +79,9 @@ PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_
 	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(PICKER_RENDER_TEST) \
 	$(CLUE_RENDER_TEST) $(CONFIG_TEST) $(CONFIG_FILES_TEST) $(APP_TEST) \
 	$(CLI_TEST) $(KITTY_WIDTH_TEST) $(TEX_ENV_TEST) $(TEX_BLOCK_TEST) \
-	$(TEX_SOURCE_TEST)
+	$(TEX_SOURCE_TEST) $(TEX_FUZZ)
 ANALYZE_SOURCES = tests/render/tex_compile_driver.c src/tex_env.c tests/render/test_tex_env.c src/tex_block.c \
-	tests/render/test_tex_block.c src/tex_source.c tests/render/test_tex_source.c tests/smoke.c tests/replay/replay_test.c \
+	tests/render/test_tex_block.c src/tex_source.c tests/render/test_tex_source.c tests/render/fuzz_tex.c tests/smoke.c tests/replay/replay_test.c \
 	tests/support/fixture_vault.c tests/support/reference_buffer.c \
 	tests/support/test_fixture_vault.c tests/support/test_reference_buffer.c \
 	tests/support/m2_demo.c src/durable_write.c tests/io/test_durable_write.c \
@@ -253,6 +254,19 @@ $(ZONE_FUZZ): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -Isrc src/buffer.c src/unicode.c \
 		src/regex.c src/zone.c tests/zone/fuzz_zone.c $(LDFLAGS) \
 		$(UTF8PROC_LIBS) $(PCRE2_LIBS) -o $(ZONE_FUZZ)
+
+$(TEX_FUZZ): tests/render/fuzz_tex.c src/tex_source.c src/tex_block.c \
+		src/tex_env.c src/config.c src/action.c src/keymap.c src/undo.c \
+		src/snippet.c src/snippet_catalog.c src/zone.c src/regex.c \
+		src/buffer.c src/unicode.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) \
+		$(YAML_CFLAGS) -DCWIKI_TEX_FUZZ_STANDALONE -Isrc \
+		tests/render/fuzz_tex.c src/tex_source.c src/tex_block.c \
+		src/tex_env.c src/config.c src/action.c src/keymap.c src/undo.c \
+		src/snippet.c src/snippet_catalog.c src/buffer.c src/unicode.c \
+		src/regex.c src/zone.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
+		$(YAML_LIBS) -o $(TEX_FUZZ)
 
 $(REGEX_TEST): src/regex.c src/regex.h tests/regex/test_regex.c
 	mkdir -p $(BUILD_DIR)
@@ -494,6 +508,7 @@ product-test: $(PRODUCT_TESTS)
 	$(UNDO_TEST)
 	$(ZONE_TEST)
 	$(ZONE_FUZZ)
+	$(TEX_FUZZ)
 	$(REGEX_TEST)
 	$(VIM_REGEX_TEST)
 	$(VIM_REGEX_FUZZ)
@@ -588,7 +603,7 @@ analyze:
 		-DCWIKI_ACTION_TESTING -DCWIKI_KEYMAP_TESTING -DCWIKI_APP_TESTING \
 		-DCWIKI_LINE_EDIT_TESTING -DCWIKI_ZONE_TESTING \
 		-DCWIKI_ZONE_FUZZ_STANDALONE -DCWIKI_VIM_REGEX_FUZZ_STANDALONE \
-		-DCWIKI_SNIPPET_FUZZ_STANDALONE \
+		-DCWIKI_SNIPPET_FUZZ_STANDALONE -DCWIKI_TEX_FUZZ_STANDALONE \
 		$(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) $(YAML_CFLAGS) -Isrc -Itests/support
 
 verify: check sanitize
