@@ -157,7 +157,7 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   three blocks reported once, all three not compilable; nested unknown `\begin{bar}` inside `align`
   and inside `$$…$$`; norender in environment, `$$…$$` and `\[…\]`; unknown directive word.
   Verify: `make build/test-tex-block` Verify: `build/test-tex-block`
-- [ ] Step 6 — TeX source generation (`tex_source`). AC16, AC17, AC20, AC21, AC22, AC23, AC28,
+- [x] Step 6 — TeX source generation (`tex_source`). AC16, AC17, AC20, AC21, AC22, AC23, AC28,
   AC34, AC35. Read `<vault>/.cwiki/preamble.tex` only (missing → nothing; unreadable or over the 1 MiB
   cap → report naming the path, no source; R2.8.6). Generate from (note bytes, blocks, chosen compilable subset
   in caller order, note TeX inputs, vault preamble) the document described above, the page → block
