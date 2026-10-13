@@ -292,11 +292,67 @@ test_vault_preamble(void)
    (void)fixture_vault_destroy(&vault);
 }
 
+static void
+test_refuses_withheld_blocks(void)
+{
+   /* AC14/AC15: bytes of non-compilable blocks never reach generated TeX. */
+   struct cwiki_buffer note;
+   struct cwiki_config_note_tex tex;
+   struct cwiki_config_error error;
+   struct cwiki_zone_engine *engine = NULL;
+   struct cwiki_tex_extraction x;
+   struct cwiki_tex_source s;
+   struct cwiki_tex_env_set *env = NULL;
+   size_t count;
+   uint64_t top;
+   const struct cwiki_zone_region *regions = cwiki_zone_builtin_regions(&count,
+       &top);
+   const char *text = "$ok$\n\n\\begin{zzzunknown}\nUNKNOWNBYTES\n"
+       "\\end{zzzunknown}\n\n$$\n% cwiki: norender\nSUPPRESSEDBYTES\n$$\n\n"
+       "$$\nUNTERMINATEDBYTES\n";
+   size_t chosen[1];
+   size_t i;
+
+   check(cwiki_zone_engine_init(&engine, regions, count, top) == 0, "engine");
+   check(cwiki_buffer_init(&note) == 0 &&
+       cwiki_buffer_load(&note, text, strlen(text)) == 0, "load");
+   memset(&tex, 0, sizeof(tex));
+   check(cwiki_config_parse_note_tex(&note, &tex, &error) == CWIKI_CONFIG_OK,
+       "parse");
+   check(cwiki_tex_env_build(&env, NULL, 0U, NULL, 0U, NULL, 0U, NULL, 0U) == 0,
+       "env");
+   check(cwiki_tex_extract(engine, &note, tex.body_first_line, env, &x) == 0 &&
+       x.block_count == 4U, "four blocks");
+   check(x.blocks[0].compilable && !x.blocks[1].compilable &&
+       !x.blocks[2].compilable && !x.blocks[3].compilable,
+       "only the first block is compilable");
+   for (i = 1U; i < x.block_count; i++) {
+      chosen[0] = i;
+      memset(&s, 0, sizeof(s));
+      check(cwiki_tex_generate(&note, &tex, NULL, 0U, &x, chosen, 1U, &s) != 0,
+          "AC14/AC15 non-compilable block refused");
+      cwiki_tex_source_free(&s);
+   }
+   chosen[0] = 0U;
+   check(cwiki_tex_generate(&note, &tex, NULL, 0U, &x, chosen, 1U, &s) == 0 &&
+       strstr(s.text, "UNKNOWNBYTES") == NULL &&
+       strstr(s.text, "SUPPRESSEDBYTES") == NULL &&
+       strstr(s.text, "UNTERMINATEDBYTES") == NULL,
+       "AC14/AC15 withheld bytes absent from generated TeX");
+   cwiki_tex_source_free(&s);
+   cwiki_tex_extraction_free(&x);
+   cwiki_tex_env_free(env);
+   cwiki_zone_engine_free(engine);
+   cwiki_buffer_free(&note);
+   cwiki_config_note_tex_free(&tex);
+}
+
 int
 main(void)
 {
    test_fixture();
    test_inputs();
+   test_refuses_withheld_blocks();
    test_vault_preamble();
    if (failures != 0) {
       (void)fprintf(stderr, "%d failure(s)\n", failures);
