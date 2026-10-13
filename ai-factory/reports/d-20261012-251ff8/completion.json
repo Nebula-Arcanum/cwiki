@@ -1,0 +1,1549 @@
+{
+  "schema": "t4-delivery-report",
+  "version": 1,
+  "generated_at": "2026-10-13T15:51:40.207Z",
+  "note": "Assembled from local evidence only. Ready means ready for delivery handoff — not merged, deployed or published. Contract validation is structural; it does not judge whether a requirement is right.",
+  "delivery": {
+    "id": "d-20261012-251ff8",
+    "kind": "planned",
+    "tracker_key": null,
+    "title": "0002 — Milestone 2 block extraction and TeX source generation",
+    "sources": [
+      {
+        "kind": "plan",
+        "markdown": "ai-factory/plans/0002-m2-block-extraction-tex-source.md",
+        "sidecar": "ai-factory/plans/0002-m2-block-extraction-tex-source.contract.json",
+        "sha256": "092a3dba0e46df8cb9651dc85f9d302e17ddeb32f06cea6b3dfec3c9bbaf28e2",
+        "state": "valid"
+      },
+      {
+        "kind": "spec",
+        "markdown": "ai-factory/specs/0002-m2-block-extraction-tex-source.md",
+        "sidecar": "ai-factory/specs/0002-m2-block-extraction-tex-source.contract.json",
+        "sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+        "state": "valid"
+      }
+    ]
+  },
+  "snapshot": {
+    "code_sha256": "0ef13d3b7544bec2c2a249bc6cd5442a42b32221dfcbbb3629bb77c121d7e788",
+    "head": "4691ba7fc2b618a8473bbeecdd0ee8b83c261426",
+    "files": 149,
+    "fingerprint": "2d7c14c2f2426e63de115e78d8aabf8338a0c64139107a804563825c5d45a2eb"
+  },
+  "status": "ready",
+  "reasons": [],
+  "counts": {
+    "criteria": 35,
+    "passed": 35,
+    "attested": 0,
+    "pending": 0,
+    "failed": 0,
+    "uncovered": 0,
+    "unverified": 0
+  },
+  "policy": {
+    "require_review": true,
+    "require_review_quick": false,
+    "blocking_severities": [
+      "blocker"
+    ],
+    "allow_attestation": false
+  },
+  "criteria": [
+    {
+      "id": "AC1",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC2",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC3",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC4",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC5",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC6",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC7",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC8",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC9",
+      "steps": [
+        "S1"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-env"
+        ],
+        [
+          "build/test-tex-env"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC10",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC11",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC12",
+      "steps": [
+        "S1",
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-env"
+        ],
+        [
+          "build/test-tex-env"
+        ],
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC13",
+      "steps": [
+        "S3",
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ],
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S3-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC14",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC15",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC16",
+      "steps": [
+        "S2",
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ],
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC17",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC18",
+      "steps": [
+        "S2"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC19",
+      "steps": [
+        "S2"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC20",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC21",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC22",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC23",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC24",
+      "steps": [
+        "S7"
+      ],
+      "tests": [
+        [
+          "make",
+          "tex-compile-test"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "tex-compile-test"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S7-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC25",
+      "steps": [
+        "S8"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/fuzz-tex"
+        ],
+        [
+          "build/fuzz-tex"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S8-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC26",
+      "steps": [
+        "S4",
+        "S7"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ],
+        [
+          "make",
+          "tex-compile-test"
+        ],
+        [
+          "env",
+          "CWIKI_REQUIRE_TEX=1",
+          "make",
+          "tex-compile-test"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S7-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC27",
+      "steps": [
+        "S9"
+      ],
+      "tests": [
+        [
+          "sh",
+          "tests/render/check_s2_boundaries.sh"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S9-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC28",
+      "steps": [
+        "S2",
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ],
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC29",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC30",
+      "steps": [
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC31",
+      "steps": [
+        "S4"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC32",
+      "steps": [
+        "S1"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-env"
+        ],
+        [
+          "build/test-tex-env"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC33",
+      "steps": [
+        "S1",
+        "S2",
+        "S3",
+        "S5"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-env"
+        ],
+        [
+          "build/test-tex-env"
+        ],
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ],
+        [
+          "make",
+          "build/test-config"
+        ],
+        [
+          "build/test-config"
+        ],
+        [
+          "make",
+          "build/test-tex-block"
+        ],
+        [
+          "build/test-tex-block"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S3-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC34",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    },
+    {
+      "id": "AC35",
+      "steps": [
+        "S6"
+      ],
+      "tests": [
+        [
+          "make",
+          "build/test-tex-source"
+        ],
+        [
+          "build/test-tex-source"
+        ]
+      ],
+      "evidence": [
+        "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+        "ai-factory/evidence/d-20261012-251ff8/final.json"
+      ],
+      "attestation": null,
+      "result": "passed",
+      "basis": "automated"
+    }
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC9",
+        "AC12",
+        "AC32",
+        "AC33"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S2",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC16",
+        "AC18",
+        "AC19",
+        "AC28",
+        "AC33"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S3",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC13",
+        "AC33"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S3-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S4",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC4",
+        "AC5",
+        "AC6",
+        "AC7",
+        "AC8",
+        "AC26",
+        "AC31"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S5",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC10",
+        "AC11",
+        "AC12",
+        "AC13",
+        "AC14",
+        "AC15",
+        "AC29",
+        "AC30",
+        "AC33"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S6",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC16",
+        "AC17",
+        "AC20",
+        "AC21",
+        "AC22",
+        "AC23",
+        "AC28",
+        "AC34",
+        "AC35"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S7",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC24",
+        "AC26"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S7-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S8",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC25"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S8-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S9",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [
+        "AC27"
+      ],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S9-step.json",
+      "evidence_status": "passed"
+    },
+    {
+      "id": "S10",
+      "mark": "x",
+      "withdrawn": false,
+      "criteria": [],
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S10-step.json",
+      "evidence_status": "passed"
+    }
+  ],
+  "contract_status": "valid",
+  "changes": {
+    "base": null,
+    "counts": {
+      "added": 0,
+      "modified": 0,
+      "deleted": 0,
+      "untracked": 0,
+      "other": 0
+    },
+    "total": 0,
+    "paths": [],
+    "truncated": false
+  },
+  "verification": [
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S1-red.json",
+      "scope": {
+        "kind": "step",
+        "step": "S1"
+      },
+      "phase": "red",
+      "expected": "fail",
+      "status": "failed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-env"
+          ],
+          "exit_code": 2,
+          "signal": null,
+          "status": "failed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S1-red.log",
+      "output_sha256": "5bd7f9654a37f39cabd4495eefc1ec1c6bbe8df6d848519e85cc9505f9b5a4f1",
+      "finished_at": "2026-10-12T17:03:34.999Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S1-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S1"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-env"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-tex-env"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S1-step.log",
+      "output_sha256": "a0203824a2892a8bb0e93585c6f0956437eaaff8ba83ac4d577941d340b01f45",
+      "finished_at": "2026-10-13T15:35:40.837Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S10-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S10"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S10-step.log",
+      "output_sha256": "ff063594d37826146ccf485e87b815f7cbba6fb23a719470fc78b6d6be3a353c",
+      "finished_at": "2026-10-13T15:36:23.389Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S2-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S2"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-config"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-config"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S2-step.log",
+      "output_sha256": "9c0816ab80baa602cf9d70d6e64353499efd954ce15c35cd0fc356833da17978",
+      "finished_at": "2026-10-13T15:35:41.278Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S3-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S3"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-config"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-config"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S3-step.log",
+      "output_sha256": "9c0816ab80baa602cf9d70d6e64353499efd954ce15c35cd0fc356833da17978",
+      "finished_at": "2026-10-13T15:35:41.790Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S4-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S4"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-block"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-tex-block"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S4-step.log",
+      "output_sha256": "8fd85cb2f668abc8d9e9350b448a30aa4e3e63a1c97fd29c92fcfb07246be822",
+      "finished_at": "2026-10-13T15:35:42.318Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S5-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S5"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-block"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-tex-block"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S5-step.log",
+      "output_sha256": "8fd85cb2f668abc8d9e9350b448a30aa4e3e63a1c97fd29c92fcfb07246be822",
+      "finished_at": "2026-10-13T15:35:42.827Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S6-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S6"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/test-tex-source"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/test-tex-source"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S6-step.log",
+      "output_sha256": "532c357d084ce1cc5b9b2eb7848330ce0da64a01d4e4779b88cbc6b6c6d16d17",
+      "finished_at": "2026-10-13T15:35:43.334Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S7-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S7"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "tex-compile-test"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "tex-compile-test"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S7-step.log",
+      "output_sha256": "ead4f949b90732a8c208553603aa4a5c401a396df0f4f24f944d23e7c8760b40",
+      "finished_at": "2026-10-13T15:35:49.243Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S8-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S8"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "build/fuzz-tex"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "build/fuzz-tex"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S8-step.log",
+      "output_sha256": "89e877bfd2c098a8c8782513b9fc6deb7a769e4c24d23bcb6467e0156c11888a",
+      "finished_at": "2026-10-13T15:35:51.690Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/S9-step.json",
+      "scope": {
+        "kind": "step",
+        "step": "S9"
+      },
+      "phase": "step",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_s2_boundaries.sh"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S9-step.log",
+      "output_sha256": "cdadab6fb9672e4d082de02c41b7dd4bd2eeb16e9c7201f2da639b26d0f18732",
+      "finished_at": "2026-10-13T15:35:52.075Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/final.json",
+      "scope": {
+        "kind": "final"
+      },
+      "phase": "final",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "135a625",
+            "--",
+            "tests/snapshots",
+            "tests/fixtures/keys",
+            "tests/fixtures/vaults/m2-render/class-note.md",
+            "tests/fixtures/vaults/m2-render/.cwiki/preamble.tex"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--exit-code",
+            "d7b3dc9",
+            "--",
+            "src/zone.c"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "make",
+            "verify"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "env",
+            "CWIKI_REQUIRE_TEX=1",
+            "make",
+            "check"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        },
+        {
+          "argv": [
+            "sh",
+            "tests/render/check_s2_boundaries.sh"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/final.log",
+      "output_sha256": "a74c569e470f9eda7a9b61ade87bb0d804d1894f0212021b4a7b74444ef0b613",
+      "finished_at": "2026-10-13T15:39:57.183Z"
+    },
+    {
+      "evidence": "ai-factory/evidence/d-20261012-251ff8/review.json",
+      "scope": {
+        "kind": "review"
+      },
+      "phase": "final",
+      "expected": "pass",
+      "status": "passed",
+      "state": "valid",
+      "commands": [
+        {
+          "argv": [
+            "make",
+            "review"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "status": "passed"
+        }
+      ],
+      "output_ref": null,
+      "output_sha256": null,
+      "finished_at": "2026-10-13T15:50:39.062Z"
+    }
+  ],
+  "review": {
+    "required": true,
+    "evidence": "ai-factory/evidence/d-20261012-251ff8/review.json",
+    "state": "valid",
+    "status": "passed",
+    "verdict": "approve",
+    "tool": "claude",
+    "output_sha256": "cbb3971ea8b297cd47f020d5cc09c00cfba5265dc7009649c423c9d18b4517ea",
+    "findings": [
+      {
+        "severity": "major",
+        "file": "ai-factory/evidence/d-20261012-251ff8/review.json",
+        "line": 0,
+        "issue": "Running contracts.js validate on d-20261012-251ff8 marks this evidence file invalid (E_EVIDENCE_FAILED, S_PLAN_CHANGED, S_CODE_CHANGED). It still holds the earlier request_changes review, recorded before commits 4412ecf, d7b3dc9 and 4af2e21. All other evidence for the delivery validates.",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "src/zone.c",
+        "line": 705,
+        "issue": "When the zone stack is full (CWIKI_ZONE_MAX_DEPTH = 16), an opening brace-group is not pushed, but its closing brace still pops a zone. Brace groups alone can now reach this limit. A probe with 17 nested braces in `$\\ce{...} y$ and $w$ tail` produced one compilable inline block that ran to the end o",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "src/tex_block.c",
+        "line": 381,
+        "issue": "tex_block measures depth by counting opening spans, not by reading the zone stack. When the zone engine drops a push at the depth limit, the count and the stack disagree. The block then ends through the 'stack emptied without a close span' fallback at the end of the line and takes in unrelated trail",
+        "blocking": false
+      },
+      {
+        "severity": "minor",
+        "file": "src/config.c",
+        "line": 3365,
+        "issue": "tex_package_name checks note `packages:` entries against the allowed character set only, without string_scalar(). As a result, `packages: [null]`, `[true]` and `[1.0]` are accepted as package names, and tagged nodes are not rejected. `preamble:` uses the stricter string check, so R2.8.5 is applied u",
+        "blocking": false
+      }
+    ],
+    "reason": null,
+    "independence": "independent"
+  },
+  "attestations": [],
+  "limitations": {
+    "open_questions": "None.",
+    "risks": "| Risk | Check |\n|---|---|\n| Frontmatter text leaks zone state into the body (stray `$`, `\\begin{` in `preamble:`). | Body-only zone scan; Step 4 frontmatter test; fuzz corpus starts with `---`. |\n| Extraction becomes a second parser (R1.9.7). | Blocks derived only from zone stacks/spans; the only extra scanning is the preamble scan (preamble text, not note body) and the `% cwiki:` line match inside a known block; reviewed at `/t4:check`. |\n| Preamble-scan regex hits a PCRE2 limit and silently drops a declaration. | Step 1 returns the limit as an error; Step 5/6 turn it into a report and no source. |\n| Line table off by one at block edges or frontmatter offset. | Step 6 per-line mapping assertions; Step 7 maps a real TeX error to note line 23; fuzz invariants. |\n| `standalone` `multi`+`varwidth` paging or display context differs from the S1 hand compile. | Step 7 real compile under `CWIKI_REQUIRE_TEX=1`; fallback to `preview` recorded if needed. |\n| Failing block halts output so the good blocks' pages are missing. | `nonstopmode`; Step 7 asserts at least 5 pages and the line-23 error mapping. |\n| Tests write into the committed fixture. | All tests use `fixture_vault_copy_in`; Step 10 `git diff --exit-code` on the S1 files; Step 4 byte comparison. |\n| Unreadable-file test passes vacuously when run as root (CI containers). | Test checks `geteuid()==0` and prints an explicit skip for that case only. |\n| Fuzz target slow or leaks under sanitizers. | Bounded iterations; `make sanitize` in `make verify`. |\n| A new file missing from `APP_SOURCES`/`PRODUCT_TESTS`/`ANALYZE_SOURCES`. | `make analyze` on Linux CI (not installed locally); `/t4:check` review of the Makefile diff. |\n| POSIX-make or shell portability of new targets/scripts. | Scripts run under `/bin/sh`; FreeBSD (bmake) CI after push approval. |",
+    "follow_up": []
+  },
+  "telemetry": {
+    "status": "unavailable",
+    "reason": "no delivery-scoped telemetry export exists for this delivery",
+    "source": "ai-factory/runs/telemetry/d-20261012-251ff8.json",
+    "coverage": null,
+    "metrics": null,
+    "pricing": null
+  },
+  "mr_draft": {
+    "draft": true,
+    "title": "0002 — Milestone 2 block extraction and TeX source generation",
+    "body": "> Draft generated from local evidence by delivery-report. Review and edit before posting; nothing was published.\n\nDelivery `d-20261012-251ff8` — status **ready**.\n\nAcceptance:\n- AC1: passed\n- AC2: passed\n- AC3: passed\n- AC4: passed\n- AC5: passed\n- AC6: passed\n- AC7: passed\n- AC8: passed\n- AC9: passed\n- AC10: passed\n- AC11: passed\n- AC12: passed\n- AC13: passed\n- AC14: passed\n- AC15: passed\n- AC16: passed\n- AC17: passed\n- AC18: passed\n- AC19: passed\n- AC20: passed\n- AC21: passed\n- AC22: passed\n- AC23: passed\n- AC24: passed\n- AC25: passed\n- AC26: passed\n- AC27: passed\n- AC28: passed\n- AC29: passed\n- AC30: passed\n- AC31: passed\n- AC32: passed\n- AC33: passed\n- AC34: passed\n- AC35: passed\n\nVerification run:\n- `make build/test-tex-env`, `build/test-tex-env` — passed\n- `make check` — passed\n- `make build/test-config`, `build/test-config` — passed\n- `make build/test-config`, `build/test-config` — passed\n- `make build/test-tex-block`, `build/test-tex-block` — passed\n- `make build/test-tex-block`, `build/test-tex-block` — passed\n- `make build/test-tex-source`, `build/test-tex-source` — passed\n- `make tex-compile-test`, `env CWIKI_REQUIRE_TEX=1 make tex-compile-test` — passed\n- `make build/fuzz-tex`, `build/fuzz-tex` — passed\n- `sh tests/render/check_s2_boundaries.sh` — passed\n- `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex`, `git diff --exit-code d7b3dc9 -- src/zone.c`, `make verify`, `env CWIKI_REQUIRE_TEX=1 make check`, `sh tests/render/check_s2_boundaries.sh` — passed\n- `make review` — passed\n\nReview: approve"
+  }
+}
