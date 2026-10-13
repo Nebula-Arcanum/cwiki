@@ -201,12 +201,12 @@ plus one read-only file read (`preamble.tex`); the only subprocess is in the tes
   Architecture module map: add `tex_env`, `tex_block`, `tex_source` under a "Render input" row
   citing R2.3, R2.8, R2.9, R6.1.1, R1.8.14.
   Verify: `sh tests/render/check_s2_boundaries.sh`
-- [ ] Step 10 — Final verification. All ACs. Approved snapshots, key recordings and the committed
+- [x] Step 10 — Final verification. All ACs. Approved snapshots, key recordings and the committed
   S1 fixture files are unchanged since the spec commit; the full suite passes, with TeX required.
   Verify (final): `git diff --exit-code 135a625 -- tests/snapshots tests/fixtures/keys tests/fixtures/vaults/m2-render/class-note.md tests/fixtures/vaults/m2-render/.cwiki/preamble.tex`
   Verify (final): `git diff --exit-code 3b936ee -- src/zone.c`
   Verify (final): `make verify` Verify (final): `env CWIKI_REQUIRE_TEX=1 make check`
-  Verify (final): `sh tests/render/check_s2_boundaries.sh`
+  Verify (final): `sh tests/render/check_s2_boundaries.sh` Verify: `make check`
 
 ## Risks and how each is checked
 

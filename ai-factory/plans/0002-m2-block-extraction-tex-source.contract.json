@@ -2,7 +2,7 @@
   "schema": "t4-contract/plan",
   "version": 1,
   "delivery_id": "d-20261012-251ff8",
-  "sha256": "f56a2f59c6c46d151a62c7b0f3315a26cd1b4f1a70ee314b26cb738623e065e5",
+  "sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5",
   "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
   "steps": [
     {
@@ -283,6 +283,13 @@
             "tests/render/check_s2_boundaries.sh"
           ],
           "phase": "final"
+        },
+        {
+          "argv": [
+            "make",
+            "check"
+          ],
+          "phase": "step"
         }
       ]
     }

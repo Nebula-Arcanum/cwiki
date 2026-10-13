@@ -10,12 +10,12 @@
   "expected": "pass",
   "inputs": {
     "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
-    "plan_sha256": "f56a2f59c6c46d151a62c7b0f3315a26cd1b4f1a70ee314b26cb738623e065e5"
+    "plan_sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5"
   },
   "code": {
-    "snapshot_sha256": "07ed407920339fd72aa5eb526bff8aa5736110c29927ea228a9298a9538fa81f",
-    "head": "6c67f86e31a7a4057f8f3b13b155cc4250f5473c",
-    "files": 147
+    "snapshot_sha256": "712a43caf7ca79b301c313cf101ef55c633d7062808c5e5d5051de648734a4fb",
+    "head": "b067c5322fa9b6bf64a1e71def4c7b6542e8bc6b",
+    "files": 149
   },
   "commands": [
     {
@@ -37,8 +37,8 @@
     }
   ],
   "status": "passed",
-  "started_at": "2026-10-12T23:49:55.011Z",
-  "finished_at": "2026-10-12T23:49:56.081Z",
+  "started_at": "2026-10-13T03:40:45.144Z",
+  "finished_at": "2026-10-13T03:40:47.017Z",
   "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/S8-step.log",
   "output_sha256": "9e513c2d72722cf647368f05f1ea135aafe5502e28c683443dffd98e2a4520a4"
 }
