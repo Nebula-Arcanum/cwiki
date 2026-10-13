@@ -9,11 +9,11 @@
   "expected": "pass",
   "inputs": {
     "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
-    "plan_sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5"
+    "plan_sha256": "092a3dba0e46df8cb9651dc85f9d302e17ddeb32f06cea6b3dfec3c9bbaf28e2"
   },
   "code": {
-    "snapshot_sha256": "804e90285385aabe6b21f535c58233d860b414977a5467e352183ca4d6a7fd5a",
-    "head": "8e72abe1b87eeed5b383ed27338e2fb7236d2ab6",
+    "snapshot_sha256": "0ef13d3b7544bec2c2a249bc6cd5442a42b32221dfcbbb3629bb77c121d7e788",
+    "head": "88e17e53fcc734b45bc925d098f9b81fe8056d02",
     "files": 149
   },
   "commands": [
@@ -22,63 +22,45 @@
         "make",
         "review"
       ],
-      "exit_code": 1,
+      "exit_code": 0,
       "signal": null,
-      "status": "failed"
+      "status": "passed"
     }
   ],
-  "status": "failed",
+  "status": "passed",
   "review": {
     "tool": "claude",
-    "verdict": "request_changes",
-    "output_sha256": "5a29b6328338f693b44316ccabea842a4afa25c0f696cbc2ef002c466598130c",
+    "verdict": "approve",
+    "output_sha256": "cbb3971ea8b297cd47f020d5cc09c00cfba5265dc7009649c423c9d18b4517ea",
     "findings": [
       {
         "severity": "major",
-        "file": "src/tex_env.c",
-        "line": 240,
-        "issue": "scan() calls cwiki_regex_execute on the whole comment-stripped preamble once per match. That entry point runs PCRE2's UTF check over the rest of the subject on every call, which makes the scan quadratic; src/regex.h documents this exact problem for the new cwiki_regex_execute_valid_utf. A standalone"
+        "file": "ai-factory/evidence/d-20261012-251ff8/review.json",
+        "line": 0,
+        "issue": "Running contracts.js validate on d-20261012-251ff8 marks this evidence file invalid (E_EVIDENCE_FAILED, S_PLAN_CHANGED, S_CODE_CHANGED). It still holds the earlier request_changes review, recorded before commits 4412ecf, d7b3dc9 and 4af2e21. All other evidence for the delivery validates."
       },
       {
         "severity": "minor",
-        "file": "src/tex_source.c",
-        "line": 178,
-        "issue": "Each package line is formatted into a fixed 256-byte buffer, but config.c accepts package names up to CONFIG_MAX_TEXT (1024) bytes. A name of about 243 to 1024 bytes passes frontmatter validation under R2.8.5, then cwiki_tex_generate fails with EINVAL. The user gets no source-located report."
-      },
-      {
-        "severity": "minor",
-        "file": "src/tex_block.c",
-        "line": 113,
-        "issue": "A block marked `% cwiki: norender` still gets an UNKNOWN_ENV report from check_env when it opens, and an UNTRUSTED report from finish_block, because the directive is only seen on a later line. R2.9.2a says a suppressed block is not compiled and is not an error."
+        "file": "src/zone.c",
+        "line": 705,
+        "issue": "When the zone stack is full (CWIKI_ZONE_MAX_DEPTH = 16), an opening brace-group is not pushed, but its closing brace still pops a zone. Brace groups alone can now reach this limit. A probe with 17 nested braces in `$\\ce{...} y$ and $w$ tail` produced one compilable inline block that ran to the end o"
       },
       {
         "severity": "minor",
         "file": "src/tex_block.c",
-        "line": 335,
-        "issue": "No deterministic test covers the branch where a `% VimTeX: SynIgnore on` line ends an open block (finished as unterminated on line index - 1). Only fuzz inputs reach it."
-      },
-      {
-        "severity": "minor",
-        "file": "tests/render/tex_compile_check.sh",
-        "line": 8,
-        "issue": "The script compiles whenever the probe prints `found: lualatex`. If lualatex is installed but standalone.cls, amsmath, tikz or mhchem is missing, the test fails instead of skipping, which the AC24 skip policy requires unless CWIKI_REQUIRE_TEX=1."
-      },
-      {
-        "severity": "minor",
-        "file": "scripts/codex-write",
-        "line": 1,
-        "issue": "The supplied diff includes Codex-assist work that is not part of S2: the `.gitignore` entry, the new section in ai-factory/AGENTS.md, and scripts/codex-write, all from commit 665fe0c."
+        "line": 381,
+        "issue": "tex_block measures depth by counting opening spans, not by reading the zone stack. When the zone engine drops a push at the depth limit, the count and the stack disagree. The block then ends through the 'stack emptied without a close span' fallback at the end of the line and takes in unrelated trail"
       },
       {
         "severity": "minor",
         "file": "src/config.c",
-        "line": 2183,
-        "issue": "Configuration now accepts the `environments:` key, but `cwiki --inspect-config` does not show the composed environment table or which scope supplied each entry. R7.2.3 asks for every effective value with its scope and source location."
+        "line": 3365,
+        "issue": "tex_package_name checks note `packages:` entries against the allowed character set only, without string_scalar(). As a result, `packages: [null]`, `[true]` and `[1.0]` are accepted as package names, and tagged nodes are not rejected. `preamble:` uses the stricter string check, so R2.8.5 is applied u"
       }
     ],
     "independence": "independent",
     "boundary": "make review"
   },
-  "started_at": "2026-10-13T11:17:00.594Z",
-  "finished_at": "2026-10-13T11:17:00.594Z"
+  "started_at": "2026-10-13T15:50:39.062Z",
+  "finished_at": "2026-10-13T15:50:39.062Z"
 }
