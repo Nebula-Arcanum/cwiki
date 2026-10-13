@@ -99,3 +99,8 @@ ts,session_id,source,user,branch,task,tool,agent,model,turns,input_tokens,output
 2026-10-13T03:39:49.093Z,01a13351-6801-75d3-ba36-6f18e270aff3,make,leon,master,run,codex,,,1,38785,2679,1622912,0,0.98,,
 2026-10-13T03:45:09.753Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,45,83,19635,19955223,0,1.00,6.2813,
 2026-10-13T03:46:53.978Z,525046d6-02ef-4340-9524-634c9aa2db9a,agent,leon,master,run,claude,t4-route-test-d3ed8215b3,claude-sonnet-5-5,13,26,6392,1449285,241094,0.86,1.4348,
+2026-10-13T11:17:00.205Z,23435db5-5c55-444f-b92d-0cb073cafe7d,make,leon,master,check,claude,,claude-opus-5-5,5,10,4911,962581,232215,0.81,4.533407999999999,
+2026-10-13T10:01:01.304Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,3,6,992,1421863,0,1.00,0.4415,
+2026-10-13T11:15:23.890Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,2,4,353,950570,0,1.00,0.2905,
+2026-10-13T11:16:16.247Z,23435db5-5c55-444f-b92d-0cb073cafe7d,agent,leon,master,report,claude,t4:reviewer,claude-opus-5-5,30,1728,16724,5251157,220942,0.96,2.6599,
+2026-10-13T11:16:59.122Z,23435db5-5c55-444f-b92d-0cb073cafe7d,session,leon,master,report,claude,,claude-opus-5-5,6,12,5285,962581,464430,0.67,2.1097,

@@ -1,0 +1,84 @@
+{
+  "schema": "t4-contract/evidence",
+  "version": 1,
+  "delivery_id": "d-20261012-251ff8",
+  "scope": {
+    "kind": "review"
+  },
+  "phase": "final",
+  "expected": "pass",
+  "inputs": {
+    "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
+    "plan_sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5"
+  },
+  "code": {
+    "snapshot_sha256": "804e90285385aabe6b21f535c58233d860b414977a5467e352183ca4d6a7fd5a",
+    "head": "8e72abe1b87eeed5b383ed27338e2fb7236d2ab6",
+    "files": 149
+  },
+  "commands": [
+    {
+      "argv": [
+        "make",
+        "review"
+      ],
+      "exit_code": 1,
+      "signal": null,
+      "status": "failed"
+    }
+  ],
+  "status": "failed",
+  "review": {
+    "tool": "claude",
+    "verdict": "request_changes",
+    "output_sha256": "5a29b6328338f693b44316ccabea842a4afa25c0f696cbc2ef002c466598130c",
+    "findings": [
+      {
+        "severity": "major",
+        "file": "src/tex_env.c",
+        "line": 240,
+        "issue": "scan() calls cwiki_regex_execute on the whole comment-stripped preamble once per match. That entry point runs PCRE2's UTF check over the rest of the subject on every call, which makes the scan quadratic; src/regex.h documents this exact problem for the new cwiki_regex_execute_valid_utf. A standalone"
+      },
+      {
+        "severity": "minor",
+        "file": "src/tex_source.c",
+        "line": 178,
+        "issue": "Each package line is formatted into a fixed 256-byte buffer, but config.c accepts package names up to CONFIG_MAX_TEXT (1024) bytes. A name of about 243 to 1024 bytes passes frontmatter validation under R2.8.5, then cwiki_tex_generate fails with EINVAL. The user gets no source-located report."
+      },
+      {
+        "severity": "minor",
+        "file": "src/tex_block.c",
+        "line": 113,
+        "issue": "A block marked `% cwiki: norender` still gets an UNKNOWN_ENV report from check_env when it opens, and an UNTRUSTED report from finish_block, because the directive is only seen on a later line. R2.9.2a says a suppressed block is not compiled and is not an error."
+      },
+      {
+        "severity": "minor",
+        "file": "src/tex_block.c",
+        "line": 335,
+        "issue": "No deterministic test covers the branch where a `% VimTeX: SynIgnore on` line ends an open block (finished as unterminated on line index - 1). Only fuzz inputs reach it."
+      },
+      {
+        "severity": "minor",
+        "file": "tests/render/tex_compile_check.sh",
+        "line": 8,
+        "issue": "The script compiles whenever the probe prints `found: lualatex`. If lualatex is installed but standalone.cls, amsmath, tikz or mhchem is missing, the test fails instead of skipping, which the AC24 skip policy requires unless CWIKI_REQUIRE_TEX=1."
+      },
+      {
+        "severity": "minor",
+        "file": "scripts/codex-write",
+        "line": 1,
+        "issue": "The supplied diff includes Codex-assist work that is not part of S2: the `.gitignore` entry, the new section in ai-factory/AGENTS.md, and scripts/codex-write, all from commit 665fe0c."
+      },
+      {
+        "severity": "minor",
+        "file": "src/config.c",
+        "line": 2183,
+        "issue": "Configuration now accepts the `environments:` key, but `cwiki --inspect-config` does not show the composed environment table or which scope supplied each entry. R7.2.3 asks for every effective value with its scope and source location."
+      }
+    ],
+    "independence": "independent",
+    "boundary": "make review"
+  },
+  "started_at": "2026-10-13T11:17:00.594Z",
+  "finished_at": "2026-10-13T11:17:00.594Z"
+}
