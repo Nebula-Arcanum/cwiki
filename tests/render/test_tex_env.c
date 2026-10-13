@@ -233,6 +233,30 @@ test_ac33_user_table(void)
    cwiki_tex_env_free(set);
 }
 
+static void
+test_starred_forms_explicit(void)
+{
+   static const char *const amsmath[] = {"amsmath"};
+   struct cwiki_tex_env_set *set = build(
+       "\\newenvironment{foo}{}{}\n\\newenvironment{bar*}{}{}\n", NULL,
+       amsmath, 1U, NULL, 0U);
+
+   check(avail(set, "align*") && provided_by(set, "align*", "amsmath"),
+       "starred amsmath form is listed explicitly");
+   check(avail(set, "equation*"), "amsmath provides equation*");
+   check(avail(set, "figure*") && provided_by(set, "figure*", "latex"),
+       "starred core form is listed explicitly");
+   check(!avail(set, "itemize*"), "itemize has no starred form");
+   check(!avail(set, "foo*"), "declaring foo does not declare foo*");
+   check(avail(set, "bar*") && !avail(set, "bar"),
+       "a declared starred name stands alone");
+   cwiki_tex_env_free(set);
+   set = build(NULL, NULL, NULL, 0U, NULL, 0U);
+   check(!avail(set, "align*") && !avail(set, "equation*"),
+       "amsmath starred forms need amsmath");
+   cwiki_tex_env_free(set);
+}
+
 int
 main(void)
 {
@@ -244,6 +268,7 @@ main(void)
    test_ac12_ac32_declaration_commands();
    test_ac12_declaration_scope();
    test_ac33_user_table();
+   test_starred_forms_explicit();
    if (failures != 0) {
       (void)fprintf(stderr, "%d failure(s)\n", failures);
       return 1;

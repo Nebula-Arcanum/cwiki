@@ -209,7 +209,8 @@ $(ZONE_TEST): src/zone.c src/zone.h src/regex.c src/regex.h src/buffer.c \
 		tests/zone/test_zone.c $(LDFLAGS) $(UTF8PROC_LIBS) $(PCRE2_LIBS) \
 		-o $(ZONE_TEST)
 
-$(TEX_ENV_TEST): tests/render/test_tex_env.c
+$(TEX_ENV_TEST): tests/render/test_tex_env.c src/tex_env.c src/tex_env.h \
+		src/buffer.c src/buffer.h src/unicode.c src/unicode.h src/regex.c src/regex.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
 		tests/render/test_tex_env.c src/buffer.c src/unicode.c src/regex.c \
@@ -508,6 +509,9 @@ product-test: $(PRODUCT_TESTS)
 	$(UNDO_TEST)
 	$(ZONE_TEST)
 	$(ZONE_FUZZ)
+	$(TEX_ENV_TEST)
+	$(TEX_BLOCK_TEST)
+	$(TEX_SOURCE_TEST)
 	$(TEX_FUZZ)
 	$(REGEX_TEST)
 	$(VIM_REGEX_TEST)

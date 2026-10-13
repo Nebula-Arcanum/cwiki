@@ -538,6 +538,32 @@ test_note_tex(void)
    parse_tex("---\npreamble: [x]\n---\n", &tex, &error,
        CWIKI_CONFIG_SCHEMA_ERROR);
    assert(error.line == 2U);
+   {
+      static const char *const rejected[] = {
+         "---\npreamble: null\n---\n", "---\npreamble: ~\n---\n",
+         "---\npreamble:\n---\n", "---\npreamble: !!int 42\n---\n",
+         "---\npreamble: 42\n---\n", "---\npreamble: -1.5e3\n---\n",
+         "---\npreamble: true\n---\n", "---\npreamble: .inf\n---\n",
+         "---\npreamble: !!null x\n---\n"
+      };
+      static const char *const accepted[] = {
+         "---\npreamble: \"42\"\n---\n",
+         "---\npreamble: '\\\\newcommand{\\\\x}{1}'\n---\n",
+         "---\npreamble: \\\\def\\\\y{2}\n---\n"
+      };
+      size_t i;
+
+      for (i = 0U; i < sizeof(rejected) / sizeof(rejected[0]); i++) {
+         parse_tex(rejected[i], &tex, &error, CWIKI_CONFIG_SCHEMA_ERROR);
+         /* An empty value is marked where it would start, after the colon. */
+         assert(error.line == 2U &&
+             (error.column == 11U || error.column == 10U));
+      }
+      for (i = 0U; i < sizeof(accepted) / sizeof(accepted[0]); i++) {
+         parse_tex(accepted[i], &tex, &error, CWIKI_CONFIG_OK);
+         cwiki_config_note_tex_free(&tex);
+      }
+   }
    parse_tex("---\npreamble: |\n  \\newcommand{\\R}{\\mathbb{R}}\n"
        "  \\usetikzlibrary{arrows.meta}\n---\nbody\n", &tex, &error,
        CWIKI_CONFIG_OK);

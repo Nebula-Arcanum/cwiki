@@ -31,11 +31,13 @@ struct table {
 static const char *const core_names[] = {"document", "itemize", "enumerate",
    "description", "center", "flushleft", "flushright", "quote", "quotation",
    "verse", "verbatim", "tabular", "tabbing", "array", "equation",
-   "eqnarray", "displaymath", "math", "minipage", "figure", "table",
+   "eqnarray", "eqnarray*", "displaymath", "math", "minipage", "figure",
+   "figure*", "table", "table*", "tabular*",
    "abstract", "titlepage", "thebibliography", "picture", "list", "trivlist",
    "sloppypar", NULL};
-static const char *const amsmath_names[] = {"align", "alignat", "flalign",
-   "gather", "multline", "split", "aligned", "alignedat", "gathered", "cases",
+static const char *const amsmath_names[] = {"align", "align*", "alignat",
+   "alignat*", "flalign", "flalign*", "gather", "gather*", "multline",
+   "multline*", "equation*", "split", "aligned", "alignedat", "gathered", "cases",
    "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix",
    "smallmatrix", "subequations", "subarray", "xalignat", "xxalignat", NULL};
 static const char *const tikz_names[] = {"tikzpicture", "scope",
@@ -373,22 +375,14 @@ cwiki_tex_env_free(struct cwiki_tex_env_set *set)
 const char *
 cwiki_tex_env_provider(const struct cwiki_tex_env_set *set, const char *name)
 {
-   size_t i, length = strlen(name);
+   size_t i;
 
    for (i = 0U; i < set->env_count; i++) {
       if (strcmp(set->envs[i].name, name) == 0) {
          return set->envs[i].provider;
       }
    }
-   /* amsmath-style starred forms share their base environment. */
-   if (length > 1U && name[length - 1U] == '*') {
-      for (i = 0U; i < set->env_count; i++) {
-         if (strlen(set->envs[i].name) == length - 1U &&
-             memcmp(set->envs[i].name, name, length - 1U) == 0) {
-            return set->envs[i].provider;
-         }
-      }
-   }
+   /* Starred forms are separate environments; each is listed explicitly. */
    return NULL;
 }
 

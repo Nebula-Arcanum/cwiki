@@ -3,6 +3,7 @@
 #include "snippet_catalog.h"
 #include "unicode.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -169,6 +170,108 @@ null_node(const yaml_node_t *node)
       }
    }
    return false;
+}
+
+static bool
+digits(const unsigned char *at, size_t length, size_t *used)
+{
+   size_t n = 0U;
+
+   while (n < length && at[n] >= '0' && at[n] <= '9') {
+      n++;
+   }
+   *used = n;
+   return n != 0U;
+}
+
+/* YAML 1.2 core-schema number: decimal, 0o/0x integers, floats, .inf, .nan. */
+static bool
+core_number(const unsigned char *v, size_t length)
+{
+   static const char *const specials[] = {".inf", ".Inf", ".INF", "-.inf",
+      "-.Inf", "-.INF", "+.inf", "+.Inf", "+.INF", ".nan", ".NaN", ".NAN"};
+   size_t i;
+   size_t at = 0U;
+   size_t used;
+   bool mantissa = false;
+
+   for (i = 0U; i < sizeof(specials) / sizeof(specials[0]); i++) {
+      if (strlen(specials[i]) == length &&
+          memcmp(v, specials[i], length) == 0) {
+         return true;
+      }
+   }
+   if (length > 2U && v[0] == '0' && (v[1] == 'x' || v[1] == 'o')) {
+      for (i = 2U; i < length; i++) {
+         if (!isxdigit(v[i]) || (v[1] == 'o' && (v[i] < '0' || v[i] > '7'))) {
+            return false;
+         }
+      }
+      return true;
+   }
+   if (at < length && (v[at] == '-' || v[at] == '+')) {
+      at++;
+   }
+   if (digits(v + at, length - at, &used)) {
+      mantissa = true;
+      at += used;
+   }
+   if (at < length && v[at] == '.') {
+      at++;
+      if (digits(v + at, length - at, &used)) {
+         mantissa = true;
+         at += used;
+      }
+   }
+   if (!mantissa) {
+      return false;
+   }
+   if (at < length && (v[at] == 'e' || v[at] == 'E')) {
+      at++;
+      if (at < length && (v[at] == '-' || v[at] == '+')) {
+         at++;
+      }
+      if (!digits(v + at, length - at, &used)) {
+         return false;
+      }
+      at += used;
+   }
+   return at == length;
+}
+
+/*
+ * A scalar that YAML resolves to a string: any quoted or block scalar, or a
+ * plain scalar that is not null, a boolean or a number. libyaml gives an
+ * untagged scalar the !!str tag too, so `!!str 42` cannot be told from `42`
+ * and is rejected; quoting is the supported spelling.
+ */
+static bool
+string_scalar(const yaml_node_t *node)
+{
+   static const char *const booleans[] = {"true", "True", "TRUE", "false",
+      "False", "FALSE"};
+   const char *tag;
+   size_t i;
+
+   if (node == NULL || node->type != YAML_SCALAR_NODE) {
+      return false;
+   }
+   tag = (const char *)node->tag;
+   if (tag != NULL && strcmp(tag, YAML_STR_TAG) != 0) {
+      return false;
+   }
+   if (node->data.scalar.style != YAML_PLAIN_SCALAR_STYLE) {
+      return true;
+   }
+   if (null_node(node)) {
+      return false;
+   }
+   for (i = 0U; i < sizeof(booleans) / sizeof(booleans[0]); i++) {
+      if (scalar_is(node, booleans[i])) {
+         return false;
+      }
+   }
+   return !core_number(node->data.scalar.value, node->data.scalar.length);
 }
 
 static char *
@@ -3112,7 +3215,7 @@ note_tex_apply(yaml_document_t *document, yaml_node_t *root,
             return CWIKI_CONFIG_SCHEMA_ERROR;
          }
          seen_preamble = true;
-         if (value->type != YAML_SCALAR_NODE ||
+         if (!string_scalar(value) ||
              !cwiki_utf8_validate((const char *)value->data.scalar.value,
              value->data.scalar.length)) {
             at = mark(value);

@@ -230,6 +230,51 @@ test_untrusted(void)
    cwiki_zone_engine_free(engine);
 }
 
+static void
+test_untrusted_single_line(void)
+{
+   /* A block that opens and closes on one degraded line leaves no spans and
+    * an empty end stack; it must still be reported, never silently dropped. */
+   static const struct cwiki_zone_region regions[] = {
+      {CWIKI_ZONE_MATH_DISPLAY, "display", "\\$\\$", "\\$\\$", NULL,
+          2U, 0U, 0U, 0U, false},
+      {CWIKI_ZONE_CUSTOM, "match-bound", "(*NO_AUTO_POSSESS)^(a+)+$", ">",
+          NULL, 0U, 0U, 0U, 0U, false}
+   };
+   static const char *const clean[] = {
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX\n",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX \\$5\n"
+   };
+   struct cwiki_zone_engine *engine = NULL;
+   struct cwiki_buffer note;
+   struct cwiki_tex_extraction x;
+   size_t i;
+
+   check(cwiki_zone_engine_init_with_limits(&engine, regions, 2U, 3U, 50U,
+       1000U) == 0, "limited top-level zone engine compiles");
+   if (engine == NULL) {
+      return;
+   }
+   extract_text(engine,
+       "ok\n"
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX $$y$$\n",
+       0U, &note, &x);
+   check(x.block_count == 0U && x.report_count == 1U &&
+       x.reports[0].reason == CWIKI_TEX_REPORT_UNTRUSTED &&
+       x.reports[0].line == 1U,
+       "AC31 block wholly inside a degraded line is reported");
+   cwiki_tex_extraction_free(&x);
+   cwiki_buffer_free(&note);
+   for (i = 0U; i < sizeof(clean) / sizeof(clean[0]); i++) {
+      extract_text(engine, clean[i], 0U, &note, &x);
+      check(x.block_count == 0U && x.report_count == 0U,
+          "degraded line without a block start is not reported");
+      cwiki_tex_extraction_free(&x);
+      cwiki_buffer_free(&note);
+   }
+   cwiki_zone_engine_free(engine);
+}
+
 /* Copies the committed fixture into a disposable root (AC26). */
 static char *
 read_from_fixture(const struct fixture_vault *vault, const char *name,
@@ -509,6 +554,7 @@ main(void)
    test_frontmatter_offset();
    test_unterminated();
    test_untrusted();
+   test_untrusted_single_line();
    test_fixtures();
    test_gating();
    if (failures != 0) {

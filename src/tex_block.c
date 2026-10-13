@@ -245,6 +245,43 @@ finish_block(struct cursor *cursor, size_t line, size_t end, bool terminated)
 }
 
 static bool
+unescaped_at(const char *bytes, size_t at)
+{
+   size_t slashes = 0U;
+
+   while (slashes < at && bytes[at - slashes - 1U] == '\\') {
+      slashes++;
+   }
+   return slashes % 2U == 0U;
+}
+
+/* A degraded line carries no spans, so a block that opens and closes on it
+ * is invisible to the zone data; look for any renderable opening delimiter. */
+static bool
+has_block_start(const char *bytes, size_t length)
+{
+   static const char *const starts[] = {"$", "\\(", "\\[", "\\ce{",
+      "\\begin{"};
+   size_t at;
+   size_t i;
+
+   for (at = 0U; at < length; at++) {
+      if (bytes[at] != '$' && bytes[at] != '\\') {
+         continue;
+      }
+      for (i = 0U; i < sizeof(starts) / sizeof(starts[0]); i++) {
+         size_t n = strlen(starts[i]);
+
+         if (n <= length - at && memcmp(bytes + at, starts[i], n) == 0 &&
+             unescaped_at(bytes, at)) {
+            return true;
+         }
+      }
+   }
+   return false;
+}
+
+static bool
 counts_in_depth(const struct cwiki_zone_span *span)
 {
    /* A `%` comment ends with its line and never emits a close span. */
@@ -280,6 +317,11 @@ scan_line(struct cursor *cursor, struct cwiki_zone_engine *zones,
          status = start_block(cursor, zones, kind, top->detail, line, 0U);
          cursor->untrusted = true;
       }
+   }
+   if (status == 0 && spans.degraded && !cursor->open && depth == 0U &&
+       body->lines[index].end_zones.depth == 0U &&
+       has_block_start(body->lines[index].bytes, body->lines[index].length)) {
+      status = add_report(cursor, CWIKI_TEX_REPORT_UNTRUSTED, NULL, line);
    }
    for (span = 0U; status == 0 && span < spans.span_count; span++) {
       const struct cwiki_zone_span *item = &spans.spans[span];
