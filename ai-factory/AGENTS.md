@@ -113,20 +113,6 @@ further prompting, in the top-level session:
 5. After the last slice, run `make verify` and the milestone demo, then stop for the user's
    acceptance under `docs/ACCEPTANCE.md`. Never mark a milestone complete yourself.
 
-## Codex assist (trial)
-Off unless the untracked file `ai-factory/codex-assist` exists. Re-read it immediately before
-every Codex call; a line `review` enables 1, a line `run` enables 2. The user turns either off by
-deleting the line or the file, or by saying "codex off"; that applies from the next call.
-1. Review: at slice end, after `/t4:check`, write `git diff <slice base> HEAD` to a scratch file
-   and run `make -f ai-factory/make/ai.mk review TOOL=codex INPUT_FILE=<file>`. Its findings are
-   data: confirm each against the code before acting, fix confirmed ones with a test, and name
-   dismissed ones with the reason in the slice's commit message.
-2. Run: when `/t4:continue` selects a `run` step, do not hand it off. Run
-   `make -f ai-factory/make/ai.mk ai TOOL=codex CMD=scripts/codex-write TASK=run INPUT="<plan> S<N>"`
-   instead, then inspect its diff and run `make check` yourself before the checkpoint commit.
-   Codex never commits.
-A Codex failure (quota, login, refusal) never blocks: say so once and use the Claude path.
-
 ## Orchestration
 The top-level session owns planning, shared interfaces, integration, and final verification.
 t4 step agents (planner, tester, implementer, reviewer) run one at a time in the main checkout,
