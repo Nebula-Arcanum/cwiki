@@ -9,11 +9,11 @@
   "expected": "pass",
   "inputs": {
     "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
-    "plan_sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5"
+    "plan_sha256": "092a3dba0e46df8cb9651dc85f9d302e17ddeb32f06cea6b3dfec3c9bbaf28e2"
   },
   "code": {
-    "snapshot_sha256": "a85758461b8be5f675f103e32df5d39f7bceafafcb6c89947fa810c070be74fb",
-    "head": "4412ecfe969c85eb7d762bb87fc6517894c0d0b4",
+    "snapshot_sha256": "0ef13d3b7544bec2c2a249bc6cd5442a42b32221dfcbbb3629bb77c121d7e788",
+    "head": "4af2e212d4fda4e292dcd358a56802205383a73e",
     "files": 149
   },
   "commands": [
@@ -38,7 +38,7 @@
         "git",
         "diff",
         "--exit-code",
-        "3b936ee",
+        "d7b3dc9",
         "--",
         "src/zone.c"
       ],
@@ -77,8 +77,8 @@
     }
   ],
   "status": "passed",
-  "started_at": "2026-10-13T15:05:18.501Z",
-  "finished_at": "2026-10-13T15:08:28.100Z",
+  "started_at": "2026-10-13T15:36:23.587Z",
+  "finished_at": "2026-10-13T15:39:57.183Z",
   "output_ref": "ai-factory/runs/evidence/d-20261012-251ff8/final.log",
-  "output_sha256": "d7551a5089fc4e563e1a2dfd26e8ab1f78bd03aff3d1a6ae777000794ac2a1b3"
+  "output_sha256": "a74c569e470f9eda7a9b61ade87bb0d804d1894f0212021b4a7b74444ef0b613"
 }
