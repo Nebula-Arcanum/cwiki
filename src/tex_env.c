@@ -60,11 +60,13 @@ static const struct {
 } implied_loads[] = {
    {"pgfplots", "tikz"}, {"tikz-cd", "tikz"}, {"tikz", "pgf"}};
 
+/* R1.9.6a: the command backslash must not itself be escaped, i.e. it follows
+ * an even number of backslashes (the same idiom as UNESCAPED in zone.c). */
 static const char package_pattern[] =
-    "(?<!\\\\)\\\\(?:usepackage|RequirePackage)\\s*(?:\\[[^\\]]*\\])?\\s*"
+    "(?<!\\\\)(?:\\\\\\\\)*\\K\\\\(?:usepackage|RequirePackage)\\s*(?:\\[[^\\]]*\\])?\\s*"
     "\\{([^}]*)\\}";
 static const char env_pattern[] =
-    "(?<!\\\\)\\\\(?:newenvironment|renewenvironment|NewDocumentEnvironment|"
+    "(?<!\\\\)(?:\\\\\\\\)*\\K\\\\(?:newenvironment|renewenvironment|NewDocumentEnvironment|"
     "RenewDocumentEnvironment|ProvideDocumentEnvironment|"
     "DeclareDocumentEnvironment)\\*?\\s*\\{([^}]*)\\}";
 

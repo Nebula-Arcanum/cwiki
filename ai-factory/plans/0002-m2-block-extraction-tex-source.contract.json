@@ -2,7 +2,7 @@
   "schema": "t4-contract/plan",
   "version": 1,
   "delivery_id": "d-20261012-251ff8",
-  "sha256": "605c4c975d3a725d155d1cc5358303a53d369bb7c6968045636f43d333e1fca5",
+  "sha256": "092a3dba0e46df8cb9651dc85f9d302e17ddeb32f06cea6b3dfec3c9bbaf28e2",
   "spec_sha256": "56d4a50c597fd22676a73d3b3508ef9de200a07bf62d7cbd4d7c0ec74aba99ff",
   "steps": [
     {
@@ -255,7 +255,7 @@
             "git",
             "diff",
             "--exit-code",
-            "3b936ee",
+            "d7b3dc9",
             "--",
             "src/zone.c"
           ],

@@ -152,6 +152,20 @@ test_ac32_comments_do_not_load(void)
    check(avail(set, "align"), "AC32 escaped percent is not a comment");
    cwiki_tex_env_free(set);
 
+   set = build("x \\\\\\usepackage{amsmath}\n", NULL, NULL, 0U, NULL, 0U);
+   check(avail(set, "align"),
+       "R1.9.6a command after an escaped backslash pair loads its package");
+   cwiki_tex_env_free(set);
+
+   set = build("x \\\\usepackage{amsmath}\n", NULL, NULL, 0U, NULL, 0U);
+   check(!avail(set, "align"), "R1.9.6a escaped command loads nothing");
+   cwiki_tex_env_free(set);
+
+   set = build(NULL, "\\\\\\newenvironment{foo}{}{}\n", NULL, 0U, NULL, 0U);
+   check(avail(set, "foo"),
+       "R1.9.6a declaration after an escaped backslash pair registers");
+   cwiki_tex_env_free(set);
+
    set = build(NULL, "% \\newenvironment{foo}{}{}\n", NULL, 0U, NULL, 0U);
    check(!avail(set, "foo"), "AC32 commented-out declaration registers nothing");
    cwiki_tex_env_free(set);

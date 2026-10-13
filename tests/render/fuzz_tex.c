@@ -1,10 +1,15 @@
 /* Fuzz target for frontmatter parse, availability, extraction and TeX
- * generation (delivery d-20261012-251ff8, AC25). Invariants abort. */
+ * generation (delivery d-20261012-251ff8, AC25). Invariants abort.
+ * Inputs whose first byte is 1 mod 4 are raw: byte 1 sizes the vault
+ * preamble, which takes the following bytes verbatim, and the rest is the
+ * note verbatim (non-ASCII, invalid UTF-8 and NUL included). Every other
+ * input is token-biased: each byte becomes a token or a structural char. */
 #include "buffer.h"
 #include "config.h"
 #include "tex_block.h"
 #include "tex_env.h"
 #include "tex_source.h"
+#include "unicode.h"
 #include "zone.h"
 
 #include <stdint.h>
@@ -138,6 +143,13 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
       free(vault);
       return 0;
    }
+   if (size >= 2U && data[0] % 4U == 1U) {
+      vault_used = data[1] % (size - 1U);
+      used = size - 2U - vault_used;
+      memcpy(vault, data + 2U, vault_used);
+      memcpy(text, data + 2U + vault_used, used);
+      size = 0U;
+   }
    for (i = 0U; i < size; i++) {
       const char *piece;
       size_t length;
@@ -166,14 +178,28 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
       free(vault);
       return 0;
    }
-   if (cwiki_buffer_load(&note, text, used) == 0) {
+   if (cwiki_buffer_load(&note, text, used) != 0) {
+      /* Invalid UTF-8 is rejected at load; nothing downstream sees it. */
+   } else if (!cwiki_utf8_validate(text, used)) {
+      abort();
+   } else {
+      int env_rc;
+      bool bad_preamble;
+
       rc = cwiki_config_parse_note_tex(&note, &tex, &error);
       if (rc != CWIKI_CONFIG_OK) {
          memset(&tex, 0, sizeof tex);
       }
-      if (cwiki_tex_env_build(&env, vault, vault_used, tex.preamble,
-              tex.preamble_length, (const char *const *)tex.packages,
-              tex.package_count, NULL, 0U) != 0) {
+      env_rc = cwiki_tex_env_build(&env, vault, vault_used, tex.preamble,
+          tex.preamble_length, (const char *const *)tex.packages,
+          tex.package_count, NULL, 0U);
+      bad_preamble = !cwiki_utf8_validate(vault, vault_used) ||
+          (tex.preamble != NULL &&
+          !cwiki_utf8_validate(tex.preamble, tex.preamble_length));
+      if (bad_preamble != (env_rc == CWIKI_TEX_ENV_INVALID_UTF8)) {
+         abort();
+      }
+      if (env_rc != 0) {
          env = NULL;
       }
       if (cwiki_tex_extract(engine, &note, tex.body_first_line, env, &x) == 0) {
@@ -221,6 +247,27 @@ main(void)
    uint32_t state = UINT32_C(0x74657866);
    size_t iteration;
 
+   /* Raw-mode corpus: {mode, vault length, vault bytes, note bytes}. */
+   static const struct {
+      const char *bytes;
+      size_t length;
+   } corpus[] = {
+#define RAW(literal) {literal, sizeof(literal) - 1U}
+      RAW("\x01\x14\\usepackage{amsmath}\xc3\xa9 \xce\xb1 \\ce{SO4^{2-}} $\\alpha$\n"),
+      RAW("\x01\x00\xff\xfe $x$\n"),
+      RAW("\x01\x03" "a\xc3\x28$x$ and \\ce{H2O}\n"),
+      RAW("\x01\x00" "a\0$x$\0\n\\begin{align}\0\\end{align}\n"),
+      RAW("\x01\x02\0\0---\npreamble: x\n---\n$y$\n"),
+      RAW("\x01\x00---\npreamble: \"\\xff\\0\"\n---\n$y$\n"),
+      RAW("\x01\x00\xed\xa0\x80 $z$\n"),
+#undef RAW
+   };
+
+   for (iteration = 0U; iteration < sizeof corpus / sizeof corpus[0];
+       iteration++) {
+      (void)LLVMFuzzerTestOneInput((const uint8_t *)corpus[iteration].bytes,
+          corpus[iteration].length);
+   }
    for (iteration = 0U; iteration < 1500U; iteration++) {
       size_t length = (size_t)(next_random(&state) %
           (uint32_t)(sizeof(input) + 1U));
@@ -231,7 +278,7 @@ main(void)
       }
       (void)LLVMFuzzerTestOneInput(input, length);
    }
-   (void)puts("tex fuzz smoke: ok (1500 deterministic inputs)");
+   (void)puts("tex fuzz smoke: ok (raw corpus + 1500 deterministic inputs)");
    return 0;
 }
 #endif
