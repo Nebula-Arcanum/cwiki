@@ -546,9 +546,90 @@ test_gating(void)
    cwiki_zone_engine_free(engine);
 }
 
+/* R2.9.2a: a suppressed block is not compiled and is not an error, even when
+ * its unknown environment or degraded line was seen before the directive. */
+static void
+test_suppressed_not_reported(void)
+{
+   static const struct cwiki_zone_region regions[] = {
+      {CWIKI_ZONE_MATH_DISPLAY, "display", "\\$\\$", "\\$\\$", NULL,
+          2U, 0U, 0U, 0U, false},
+      {CWIKI_ZONE_CUSTOM, "match-bound", "(*NO_AUTO_POSSESS)^(a+)+$", ">",
+          NULL, 0U, 0U, 0U, 0U, false}
+   };
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_tex_env_set *env = build_env("", NULL, NULL, 0U, NULL, 0U);
+   struct cwiki_buffer note;
+   struct cwiki_tex_extraction x;
+
+   extract_text(engine,
+       "\\begin{zzz}\n% cwiki: norender\n% cwiki: frobnicate\n\\end{zzz}\n"
+       "\\begin{zzz}\nq\n\\end{zzz}\n", 0U, &note, &x);
+   cwiki_tex_extraction_free(&x);
+   check(cwiki_tex_extract(engine, &note, 0U, env, &x) == 0 &&
+       x.block_count == 2U && x.blocks[0].suppressed &&
+       !x.blocks[0].compilable && !x.blocks[1].compilable,
+       "R2.9.2a norender block with unknown environment is suppressed");
+   check(x.report_count == 2U &&
+       x.reports[0].reason == CWIKI_TEX_REPORT_UNKNOWN_DIRECTIVE &&
+       strcmp(x.reports[0].name, "frobnicate") == 0 &&
+       x.reports[1].reason == CWIKI_TEX_REPORT_UNKNOWN_ENV &&
+       strcmp(x.reports[1].name, "zzz") == 0 && x.reports[1].line == 4U,
+       "R2.9.2a suppressed block drops its unknown-env report; the unknown "
+       "directive and a later real use of the name are still reported");
+   cwiki_tex_extraction_free(&x);
+   cwiki_buffer_free(&note);
+   cwiki_tex_env_free(env);
+   cwiki_zone_engine_free(engine);
+
+   engine = NULL;
+   check(cwiki_zone_engine_init_with_limits(&engine, regions, 2U, 1U, 50U,
+       1000U) == 0, "limited zone engine compiles");
+   if (engine == NULL) {
+      return;
+   }
+   extract_text(engine,
+       "$$\n"
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX\n"
+       "% cwiki: norender\n"
+       "$$\n", 0U, &note, &x);
+   check(x.block_count == 1U && x.blocks[0].suppressed &&
+       !x.blocks[0].compilable && x.report_count == 0U,
+       "R2.9.2a suppressed block touching a degraded line is not reported");
+   cwiki_tex_extraction_free(&x);
+   cwiki_buffer_free(&note);
+   cwiki_zone_engine_free(engine);
+}
+
+/* R1.9.6b: SynIgnore inside an open block resets the stack; the block ends
+ * unterminated at the previous line and is reported once. */
+static void
+test_synignore_inside_block(void)
+{
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer note;
+   struct cwiki_tex_extraction x;
+
+   extract_text(engine,
+       "\\begin{align}\na\n% VimTeX: SynIgnore on\n\\end{align}\n$q$\n",
+       0U, &note, &x);
+   check(x.block_count == 1U && !x.blocks[0].compilable &&
+       x.blocks[0].first_line == 0U && x.blocks[0].last_line == 1U &&
+       x.blocks[0].last_end == 1U,
+       "SynIgnore ends the open block unterminated at the previous line");
+   check(x.report_count == 1U &&
+       x.reports[0].reason == CWIKI_TEX_REPORT_UNTERMINATED &&
+       x.reports[0].line == 0U, "SynIgnore-cut block reported once");
+   cwiki_tex_extraction_free(&x);
+   cwiki_buffer_free(&note);
+   cwiki_zone_engine_free(engine);
+}
+
 int
 main(void)
 {
+   test_suppressed_not_reported();
+   test_synignore_inside_block();
    test_math_and_chemistry();
    test_environments();
    test_frontmatter_offset();

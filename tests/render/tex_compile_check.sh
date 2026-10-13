@@ -4,9 +4,11 @@
 root=$1
 cd "$root" || exit 1
 probe=$(sh "$OLDPWD/scripts/tex-probe.sh" 2>&1) || { echo "$probe" >&2; exit 1; }
+# The probe exits 1 when CWIKI_REQUIRE_TEX=1 and anything is missing (above);
+# otherwise any missing item (lualatex, standalone.cls, amsmath...) skips.
 case $probe in
-*"found: lualatex"*) ;;
-*) echo "tex-compile-test skipped: $(echo "$probe" | tr '\n' ' ')"; exit 0 ;;
+*"TeX toolchain missing:"*)
+	echo "tex-compile-test skipped: $(echo "$probe" | tr '\n' ' ')"; exit 0 ;;
 esac
 lualatex -no-shell-escape -interaction=nonstopmode -file-line-error \
 	class-note.tex >lualatex.stdout 2>&1

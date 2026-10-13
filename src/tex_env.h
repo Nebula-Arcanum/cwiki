@@ -17,9 +17,11 @@ struct cwiki_tex_env_set;
  * Builds the set of environments in force: LaTeX core always, each shipped
  * or user table once its package is loaded (via `packages`, \usepackage or
  * \RequirePackage in either preamble), and every environment the preambles
- * declare. Returns 0, -1 on allocation failure, or -2 when a regex limit was
- * hit (never a silent no-match, R1.11.4). On failure *set is NULL.
+ * declare. Returns 0, -1 on allocation failure, -2 when a regex limit was
+ * hit (never a silent no-match, R1.11.4), or CWIKI_TEX_ENV_INVALID_UTF8 when
+ * either preamble is not valid UTF-8. On failure *set is NULL.
  */
+#define CWIKI_TEX_ENV_INVALID_UTF8 (-3)
 int cwiki_tex_env_build(struct cwiki_tex_env_set **set, const char *vault,
     size_t vault_length, const char *note, size_t note_length,
     const char *const *packages, size_t package_count,

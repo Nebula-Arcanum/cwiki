@@ -6,7 +6,9 @@
 #include "tex_env.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static int failures;
 
@@ -257,9 +259,59 @@ test_starred_forms_explicit(void)
    cwiki_tex_env_free(set);
 }
 
+/* R2.8.6 allows a 1 MiB preamble over Git: the scan must stay linear. A
+ * per-match UTF re-check of the rest of the subject takes minutes here. */
+static void
+test_large_preamble_is_linear(void)
+{
+   static const char unit[] =
+       "\\usepackage{amsmath}\n\\newenvironment{foo}{}{}\ntext \xc3\xa9\n";
+   size_t unit_length = sizeof unit - 1U;
+   size_t count = (1024U * 1024U) / unit_length;
+   char *text = malloc(count * unit_length + 1U);
+   struct cwiki_tex_env_set *set = NULL;
+   clock_t start;
+   double seconds;
+   size_t i;
+
+   check(text != NULL, "large preamble allocates");
+   if (text == NULL) {
+      return;
+   }
+   for (i = 0U; i < count; i++) {
+      memcpy(text + i * unit_length, unit, unit_length);
+   }
+   text[count * unit_length] = '\0';
+   start = clock();
+   check(cwiki_tex_env_build(&set, text, count * unit_length, text,
+       count * unit_length, NULL, 0U, NULL, 0U) == 0, "1 MiB preamble builds");
+   seconds = (double)(clock() - start) / CLOCKS_PER_SEC;
+   check(seconds < 10.0, "1 MiB preamble scan stays linear (under 10 s CPU)");
+   check(avail(set, "align") && avail(set, "foo"),
+       "1 MiB preamble scan finds its loads and declarations");
+   cwiki_tex_env_free(set);
+   free(text);
+}
+
+static void
+test_invalid_utf8_reported(void)
+{
+   static const char bad[] = "\\usepackage{amsmath}\n\xff\xfe\n";
+   struct cwiki_tex_env_set *set = NULL;
+
+   check(cwiki_tex_env_build(&set, bad, sizeof bad - 1U, NULL, 0U, NULL, 0U,
+       NULL, 0U) == CWIKI_TEX_ENV_INVALID_UTF8 && set == NULL,
+       "invalid UTF-8 in the vault preamble is reported distinctly");
+   check(cwiki_tex_env_build(&set, NULL, 0U, bad, sizeof bad - 1U, NULL, 0U,
+       NULL, 0U) == CWIKI_TEX_ENV_INVALID_UTF8 && set == NULL,
+       "invalid UTF-8 in the note preamble is reported distinctly");
+}
+
 int
 main(void)
 {
+   test_large_preamble_is_linear();
+   test_invalid_utf8_reported();
    test_ac9_core_always_others_gated();
    test_ac9_tables_by_package();
    test_ac32_usepackage_forms();

@@ -1,6 +1,7 @@
 #include "tex_env.h"
 
 #include "regex.h"
+#include "unicode.h"
 #include "zone.h"
 
 #include <stdlib.h>
@@ -225,6 +226,9 @@ scan(struct cwiki_tex_env_set *set, const char *text, size_t length, int kind)
    if (text == NULL || length == 0U) {
       return 0;
    }
+   if (!cwiki_utf8_validate(text, length)) {
+      return CWIKI_TEX_ENV_INVALID_UTF8;
+   }
    clean = strip_comments(text, length, &clean_length);
    if (clean == NULL) {
       return -1;
@@ -237,8 +241,10 @@ scan(struct cwiki_tex_env_set *set, const char *text, size_t length, int kind)
       return -2;
    }
    while (offset <= clean_length) {
-      struct cwiki_regex_result r = cwiki_regex_execute(regex, clean,
-          clean_length, offset, false);
+      /* Validated once above; stripping whole comments keeps it valid. A
+       * per-call UTF check would make this loop quadratic. */
+      struct cwiki_regex_result r = cwiki_regex_execute_valid_utf(regex,
+          clean, clean_length, offset, false);
       const char *name;
       size_t start, end, pos;
 

@@ -175,14 +175,20 @@ cwiki_tex_generate(const struct cwiki_buffer *note,
       goto fail;
    }
    for (i = 0U; i < tex->package_count; i++) {
-      char line[256];
-      int n = snprintf(line, sizeof(line), "\\usepackage{%s}", tex->packages[i]);
+      size_t name_length = strlen(tex->packages[i]);
+      size_t n = name_length + sizeof("\\usepackage{}") - 1U;
+      char *line = malloc(n + 1U);
+      int status;
 
-      if (n < 0 || (size_t)n >= sizeof(line)) {
-         errno = EINVAL;
+      if (line == NULL) {
          goto fail;
       }
-      if (add_line(&g, line, (size_t)n, CWIKI_TEX_ORIGIN_PACKAGES, i) != 0) {
+      memcpy(line, "\\usepackage{", 12U);
+      memcpy(line + 12U, tex->packages[i], name_length);
+      memcpy(line + 12U + name_length, "}", 2U);
+      status = add_line(&g, line, n, CWIKI_TEX_ORIGIN_PACKAGES, i);
+      free(line);
+      if (status != 0) {
          goto fail;
       }
    }

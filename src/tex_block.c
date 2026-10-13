@@ -16,6 +16,7 @@ struct cursor {
    bool untrusted;
    bool unknown;
    bool suppressed;
+   size_t report_mark; /* report_count when the open block started */
 };
 
 static int
@@ -109,6 +110,7 @@ start_block(struct cursor *cursor, struct cwiki_zone_engine *zones,
    cursor->untrusted = false;
    cursor->unknown = false;
    cursor->suppressed = false;
+   cursor->report_mark = cursor->out->report_count;
    if (kind == CWIKI_TEX_BLOCK_ENVIRONMENT) {
       return check_env(cursor, block->env, line);
    }
@@ -221,6 +223,27 @@ scan_directive(struct cursor *cursor, const struct cwiki_buffer *body,
    return status;
 }
 
+/* A suppressed block is not an error (R2.9.2a): drop the unknown-environment
+ * reports it raised before its directive was seen. Unknown directive words
+ * stay reported, since they are typos the user must still see. */
+static void
+drop_suppressed_reports(struct cursor *cursor)
+{
+   struct cwiki_tex_extraction *out = cursor->out;
+   size_t from = cursor->report_mark;
+   size_t kept = from;
+   size_t index;
+
+   for (index = from; index < out->report_count; index++) {
+      if (out->reports[index].reason == CWIKI_TEX_REPORT_UNKNOWN_DIRECTIVE) {
+         out->reports[kept++] = out->reports[index];
+      } else {
+         free(out->reports[index].name);
+      }
+   }
+   out->report_count = kept;
+}
+
 /* Closes the open block; a block that did not end properly is reported. */
 static int
 finish_block(struct cursor *cursor, size_t line, size_t end, bool terminated)
@@ -232,13 +255,16 @@ finish_block(struct cursor *cursor, size_t line, size_t end, bool terminated)
    block->last_end = end;
    block->suppressed = cursor->suppressed;
    cursor->open = false;
+   if (cursor->suppressed) {
+      drop_suppressed_reports(cursor);
+   }
    if (!terminated) {
       block->compilable = false;
       return report(cursor, block, CWIKI_TEX_REPORT_UNTERMINATED);
    }
    block->compilable = !cursor->untrusted && !cursor->unknown &&
        !cursor->suppressed;
-   if (cursor->untrusted) {
+   if (cursor->untrusted && !cursor->suppressed) {
       return report(cursor, block, CWIKI_TEX_REPORT_UNTRUSTED);
    }
    return 0;

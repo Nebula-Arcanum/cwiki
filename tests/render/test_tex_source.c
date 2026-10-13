@@ -347,10 +347,44 @@ test_refuses_withheld_blocks(void)
    cwiki_config_note_tex_free(&tex);
 }
 
+/* A package name near CONFIG_MAX_TEXT is valid and must reach the source. */
+static void
+test_long_package_name(void)
+{
+   struct cwiki_buffer note;
+   struct cwiki_config_note_tex tex;
+   struct cwiki_config_error error;
+   struct cwiki_tex_extraction x;
+   struct cwiki_tex_source s;
+   static char text[1200];
+   static char want[1100];
+   char name[1001];
+   int n;
+
+   memset(name, 'p', 1000U);
+   name[1000] = '\0';
+   n = snprintf(text, sizeof(text), "---\npackages: [%s]\n---\nbody\n", name);
+   (void)snprintf(want, sizeof(want), "\\usepackage{%s}", name);
+   memset(&tex, 0, sizeof(tex));
+   memset(&x, 0, sizeof(x));
+   check(n > 0 && cwiki_buffer_init(&note) == 0 &&
+       cwiki_buffer_load(&note, text, (size_t)n) == 0 &&
+       cwiki_config_parse_note_tex(&note, &tex, &error) == CWIKI_CONFIG_OK &&
+       tex.package_count == 1U, "1000-byte package name parses");
+   check(cwiki_tex_generate(&note, &tex, NULL, 0U, &x, NULL, 0U, &s) == 0,
+       "1000-byte package name generates");
+   check(has_line(&s, want, CWIKI_TEX_ORIGIN_PACKAGES, 0U, NULL),
+       "1000-byte package line present");
+   cwiki_tex_source_free(&s);
+   cwiki_buffer_free(&note);
+   cwiki_config_note_tex_free(&tex);
+}
+
 int
 main(void)
 {
    test_fixture();
+   test_long_package_name();
    test_inputs();
    test_refuses_withheld_blocks();
    test_vault_preamble();

@@ -31,4 +31,14 @@ done
 run "$root/partial"
 [ $rc = 0 ] && [ "$(count found)" = 5 ] || fail "partial: rc=$rc"
 case $out in *"checks skipped"*) ;; *) fail "partial: no skip message";; esac
+# AC24 compile check: lualatex present but a required probe item missing.
+check=$(pwd)/tests/render/tex_compile_check.sh
+mkdir "$root/work"
+rc=0
+out=$(env -i PATH="$root/partial:/usr/bin:/bin" /bin/sh "$check" "$root/work" 2>&1) || rc=$?
+[ $rc = 0 ] || fail "compile check partial: rc=$rc $out"
+case $out in *"tex-compile-test skipped"*"standalone.cls"*) ;; *) fail "compile check partial: no skip naming the missing item: $out";; esac
+rc=0
+out=$(env -i PATH="$root/partial:/usr/bin:/bin" CWIKI_REQUIRE_TEX=1 /bin/sh "$check" "$root/work" 2>&1) || rc=$?
+[ $rc = 1 ] || fail "compile check partial required: rc=$rc $out"
 echo "tex probe test ok"

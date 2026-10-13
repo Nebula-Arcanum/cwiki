@@ -56,8 +56,10 @@ struct cwiki_tex_extraction {
  * not compilable, and reported (R2.9.7). With `env` non-NULL, an environment
  * block or nested \begin whose name is not available withholds the whole
  * block and is reported once per name (R2.9.4a, R2.9.6a); `% cwiki: norender`
- * on a line of its own inside a display or environment block suppresses it,
- * and any other `% cwiki:` word is reported while the block stays compilable.
+ * on a line of its own inside a display or environment block suppresses it
+ * without unknown-environment or untrusted reports (R2.9.2a; unterminated is
+ * still reported), and any other `% cwiki:` word is reported, in a suppressed
+ * block too, while an unsuppressed block stays compilable.
  * A NULL `env` skips availability gating. Returns 0, or -1 with errno set.
  */
 int cwiki_tex_extract(struct cwiki_zone_engine *zones,
