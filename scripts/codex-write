@@ -1,0 +1,9 @@
+#!/bin/sh
+# CMD for headless t4 tasks run through Codex that must edit files (TASK=run).
+# `codex exec` defaults to a read-only sandbox; this allows writes inside the
+# workspace only. Network access stays off.
+if [ "$1" = exec ]; then
+	shift
+	exec codex exec -s workspace-write "$@"
+fi
+exec codex "$@"
