@@ -199,6 +199,17 @@ source_matches(const char *source, size_t source_length, size_t offset,
        !is_ascii_letter(source[offset + pattern_length]);
 }
 
+/* Preconditions: source is valid UTF-8 and offset is a grapheme boundary. */
+static bool
+ends_on_boundary(const char *source, size_t source_length, size_t offset,
+    size_t end)
+{
+   while (offset < end) {
+      offset = cwiki_grapheme_next_unchecked(source, source_length, offset);
+   }
+   return offset == end;
+}
+
 static const struct cwiki_conceal_entry *
 match_entry(const struct cwiki_conceal_table *table,
     struct cwiki_zone_engine *zones, const struct cwiki_buffer *buffer,
@@ -211,7 +222,22 @@ match_entry(const struct cwiki_conceal_table *table,
    struct cwiki_zone zone;
    uint32_t context;
 
-   if (cwiki_zone_at(zones, buffer, line, offset, &zone) != 0) {
+   /* cwiki_zone_at rescans the line prefix, so ask for the zone only once
+    * some entry matches here; most offsets have no candidate at all.
+    * ponytail: still O(matches x line) on a line dense with concealable
+    * commands; a per-line cursor-context table would make it linear. */
+   for (i = 0U; i < table->count; i++) {
+      const struct cwiki_conceal_entry *entry = &table->entries[i];
+      size_t length = strlen(entry->source);
+
+      if ((category_mask & CWIKI_CONCEAL_CATEGORY_BIT(entry->category)) != 0U &&
+          source_matches(source, source_length, offset, entry->source, length) &&
+          ends_on_boundary(source, source_length, offset, offset + length)) {
+         break;
+      }
+   }
+   if (i == table->count ||
+       cwiki_zone_at(zones, buffer, line, offset, &zone) != 0) {
       return NULL;
    }
    context = zone_context(zone.kind);
@@ -222,7 +248,7 @@ match_entry(const struct cwiki_conceal_table *table,
       if ((category_mask & CWIKI_CONCEAL_CATEGORY_BIT(entry->category)) == 0U ||
           (entry->contexts & context) == 0U || length <= best_length ||
           !source_matches(source, source_length, offset, entry->source, length) ||
-          !cwiki_grapheme_boundary(source, source_length, offset + length)) {
+          !ends_on_boundary(source, source_length, offset, offset + length)) {
          continue;
       }
       best = entry;
@@ -350,14 +376,15 @@ cwiki_conceal_build_line(const struct cwiki_conceal_table *table,
             continue;
          }
       } else {
-         end = cwiki_grapheme_next(source, source_length, offset);
+         end = cwiki_grapheme_next_unchecked(source, source_length, offset);
       }
       if (revealed) {
          size_t cursor = offset;
          size_t width = 0U;
 
          while (cursor < end) {
-            size_t next = cwiki_grapheme_next(source, source_length, cursor);
+            size_t next = cwiki_grapheme_next_unchecked(source,
+                source_length, cursor);
             int cluster_width = cwiki_grapheme_width(source + cursor,
                 next - cursor);
 
@@ -421,7 +448,8 @@ width_between(const char *source, size_t source_length, size_t start,
    size_t columns = 0U;
 
    while (cursor < end) {
-      size_t next = cwiki_grapheme_next(source, source_length, cursor);
+      size_t next = cwiki_grapheme_next_unchecked(source, source_length,
+          cursor);
       int cluster_width;
 
       if (next == SIZE_MAX || next > end) {
@@ -479,15 +507,48 @@ cwiki_conceal_source_to_display(const struct cwiki_conceal_line *line,
    return -1;
 }
 
+size_t
+cwiki_conceal_run_at_column(const struct cwiki_conceal_line *line,
+    size_t column)
+{
+   size_t low = 0U;
+   size_t high = line->run_count;
+
+   while (low < high) {
+      size_t middle = low + (high - low) / 2U;
+
+      if (line->runs[middle].column_end > column) {
+         high = middle;
+      } else {
+         low = middle + 1U;
+      }
+   }
+   return low;
+}
+
 int
 cwiki_conceal_display_to_source(const struct cwiki_conceal_line *line,
     const char *source, size_t source_length, size_t display_column,
     size_t *source_byte, size_t *run_index)
 {
+   if (!cwiki_utf8_validate(source, source_length)) {
+      errno = EINVAL;
+      return -1;
+   }
+   return cwiki_conceal_display_to_source_unchecked(line, source,
+       source_length, display_column, source_byte, run_index);
+}
+
+int
+cwiki_conceal_display_to_source_unchecked(
+    const struct cwiki_conceal_line *line, const char *source,
+    size_t source_length, size_t display_column, size_t *source_byte,
+    size_t *run_index)
+{
+   const struct cwiki_conceal_run *run;
    size_t i;
 
-   if (line == NULL || source_byte == NULL || display_column > line->columns ||
-       !cwiki_utf8_validate(source, source_length)) {
+   if (line == NULL || source_byte == NULL || display_column > line->columns) {
       errno = EINVAL;
       return -1;
    }
@@ -498,36 +559,33 @@ cwiki_conceal_display_to_source(const struct cwiki_conceal_line *line,
       }
       return 0;
    }
-   for (i = 0U; i < line->run_count; i++) {
-      const struct cwiki_conceal_run *run = &line->runs[i];
-
-      if (display_column < run->column_start ||
-          display_column >= run->column_end) {
-         continue;
-      }
-      if (run_index != NULL) {
-         *run_index = i;
-      }
-      if (run->concealed) {
-         *source_byte = run->source_start;
-      } else {
-         size_t cursor = run->source_start;
-         size_t column = run->column_start;
-
-         while (cursor < run->source_end) {
-            size_t next = cwiki_grapheme_next(source, source_length, cursor);
-            int width = cwiki_grapheme_width(source + cursor, next - cursor);
-
-            if (width < 0 || display_column < column + (size_t)width) {
-               break;
-            }
-            column += (size_t)width;
-            cursor = next;
-         }
-         *source_byte = cursor;
-      }
-      return 0;
+   i = cwiki_conceal_run_at_column(line, display_column);
+   if (i == line->run_count || display_column < line->runs[i].column_start) {
+      errno = EINVAL;
+      return -1;
    }
-   errno = EINVAL;
-   return -1;
+   run = &line->runs[i];
+   if (run_index != NULL) {
+      *run_index = i;
+   }
+   if (run->concealed) {
+      *source_byte = run->source_start;
+   } else {
+      size_t cursor = run->source_start;
+      size_t column = run->column_start;
+
+      while (cursor < run->source_end) {
+         size_t next = cwiki_grapheme_next_unchecked(source, source_length,
+             cursor);
+         int width = cwiki_grapheme_width(source + cursor, next - cursor);
+
+         if (width < 0 || display_column < column + (size_t)width) {
+            break;
+         }
+         column += (size_t)width;
+         cursor = next;
+      }
+      *source_byte = cursor;
+   }
+   return 0;
 }

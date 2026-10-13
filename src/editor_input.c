@@ -1052,7 +1052,8 @@ insert_indent(struct cwiki_editor_input *input)
       return CWIKI_EDITOR_INVALID;
    }
    while (byte < input->editor->motion.cursor.byte) {
-      size_t next = cwiki_grapheme_next(line->bytes, line->length, byte);
+      size_t next = cwiki_grapheme_next_unchecked(line->bytes, line->length,
+          byte);
 
       if (next == byte + 1U && line->bytes[byte] == '\t') {
          column += width - column % width;

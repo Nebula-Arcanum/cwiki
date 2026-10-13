@@ -502,9 +502,11 @@ emit_span(struct cwiki_zone_line *line, const char *bytes, size_t length,
    if (start >= end) {
       return;
    }
+   /* scan validated the line, and start is the previous span's end, which
+    * is a boundary: step cluster by cluster without rewalking the prefix. */
    next = start;
    while (next < end) {
-      next = cwiki_grapheme_next(bytes, length, next);
+      next = cwiki_grapheme_next_unchecked(bytes, length, next);
    }
    if (line->span_count != 0U) {
       struct cwiki_zone_span *last = &spans[line->span_count - 1U];

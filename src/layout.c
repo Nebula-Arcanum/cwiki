@@ -283,42 +283,42 @@ display_byte_at_column(const struct cwiki_conceal_line *display,
       *byte = display->display_length;
       return 0;
    }
-   for (run = 0U; run < display->run_count; run++) {
+   run = cwiki_conceal_run_at_column(display, column);
+   if (run < display->run_count) {
       const struct cwiki_conceal_run *item = &display->runs[run];
 
-      if (column < item->column_end) {
-         *byte = item->display_start;
-         if (!item->concealed && column > item->column_start) {
-            size_t offset = item->display_start;
-            size_t current = item->column_start;
+      *byte = item->display_start;
+      if (!item->concealed && column > item->column_start) {
+         size_t offset = item->display_start;
+         size_t current = item->column_start;
 
-            while (offset < item->display_end) {
-               size_t next = cwiki_grapheme_next(display->display,
-                   display->display_length, offset);
-               int width;
-               size_t next_column;
+         /* Runs start on display cluster boundaries. */
+         while (offset < item->display_end) {
+            size_t next = cwiki_grapheme_next_unchecked(display->display,
+                display->display_length, offset);
+            int width;
+            size_t next_column;
 
-               if (next == SIZE_MAX) {
-                  errno = EINVAL;
-                  return -1;
-               }
-               width = cwiki_grapheme_width(display->display + offset,
-                   next - offset);
-               if (width < 0 || add_overflow(current, (size_t)width,
-                   &next_column)) {
-                  errno = EOVERFLOW;
-                  return -1;
-               }
-               if (column < next_column) {
-                  break;
-               }
-               current = next_column;
-               offset = next;
+            if (next == SIZE_MAX) {
+               errno = EINVAL;
+               return -1;
             }
-            *byte = offset;
+            width = cwiki_grapheme_width(display->display + offset,
+                next - offset);
+            if (width < 0 || add_overflow(current, (size_t)width,
+                &next_column)) {
+               errno = EOVERFLOW;
+               return -1;
+            }
+            if (column < next_column) {
+               break;
+            }
+            current = next_column;
+            offset = next;
          }
-         return 0;
+         *byte = offset;
       }
+      return 0;
    }
    errno = EINVAL;
    return -1;
@@ -350,8 +350,9 @@ static int
 source_at_column(const struct cwiki_layout_line *line,
     size_t column, size_t *source)
 {
-   return cwiki_conceal_display_to_source(&line->display, line->source,
-       line->source_length, column, source, NULL);
+   /* line->source was validated when its display was built. */
+   return cwiki_conceal_display_to_source_unchecked(&line->display,
+       line->source, line->source_length, column, source, NULL);
 }
 
 static int
@@ -444,7 +445,7 @@ build_rows(struct cwiki_layout_line *line, size_t line_index,
          if (display_byte_at_column(&line->display, cursor, &byte) != 0) {
             return -1;
          }
-         next_byte = cwiki_grapheme_next(line->display.display,
+         next_byte = cwiki_grapheme_next_unchecked(line->display.display,
              line->display.display_length, byte);
          if (next_byte == SIZE_MAX) {
             errno = EINVAL;
@@ -740,7 +741,8 @@ raw_source_to_column(const struct cwiki_line *line, size_t byte,
       return -1;
    }
    while (offset < byte) {
-      size_t next = cwiki_grapheme_next(line->bytes, line->length, offset);
+      size_t next = cwiki_grapheme_next_unchecked(line->bytes, line->length,
+          offset);
       int cluster_width;
 
       if (next == SIZE_MAX) {
@@ -767,8 +769,10 @@ raw_column_to_source(const struct cwiki_line *line, size_t column,
    size_t offset = 0U;
    size_t current = 0U;
 
+   /* Buffer lines are valid UTF-8; offset walks boundaries from 0. */
    while (offset < line->length) {
-      size_t next = cwiki_grapheme_next(line->bytes, line->length, offset);
+      size_t next = cwiki_grapheme_next_unchecked(line->bytes, line->length,
+          offset);
       int width;
       size_t next_column;
 

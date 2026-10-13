@@ -573,7 +573,8 @@ cwiki_editor_insert(struct cwiki_editor *editor, const char *bytes,
          }
          offset++;
       } else {
-         size_t next = cwiki_grapheme_next(bytes, length, offset);
+         /* Validated above; offset is 0, after LF, or a returned boundary. */
+         size_t next = cwiki_grapheme_next_unchecked(bytes, length, offset);
 
          if (next == SIZE_MAX || insert_one(editor, bytes + offset,
              next - offset) != 0) {

@@ -114,5 +114,15 @@ int cwiki_conceal_source_to_display(const struct cwiki_conceal_line *line,
 int cwiki_conceal_display_to_source(const struct cwiki_conceal_line *line,
     const char *source, size_t source_length, size_t display_column,
     size_t *source_byte, size_t *run_index);
+/* As above without revalidating source, which must be the valid UTF-8 the
+ * line was built from. For per-row and per-cluster loops over one line. */
+int cwiki_conceal_display_to_source_unchecked(
+    const struct cwiki_conceal_line *line, const char *source,
+    size_t source_length, size_t display_column, size_t *source_byte,
+    size_t *run_index);
+/* Index of the first run whose column_end exceeds column (run_count if none);
+ * runs are contiguous in column order, so this is the run covering column. */
+size_t cwiki_conceal_run_at_column(const struct cwiki_conceal_line *line,
+    size_t column);
 
 #endif

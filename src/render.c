@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <utf8proc.h>
 
 #define CURSORLINE_STYLE "\x1b[48;5;236m"
 
@@ -80,34 +79,6 @@ position(struct output *out, size_t row, size_t column)
    emit(out, sequence, (size_t)length);
 }
 
-/* Iterate once, rather than repeatedly validating the entire remaining line. */
-static size_t
-cluster_end(const char *bytes, size_t length, size_t start)
-{
-   size_t offset = start;
-   utf8proc_int32_t previous = 0;
-   utf8proc_int32_t state = 0;
-
-   while (offset < length) {
-      utf8proc_int32_t current;
-      utf8proc_ssize_t used = utf8proc_iterate(
-          (const utf8proc_uint8_t *)bytes + offset,
-          (utf8proc_ssize_t)(length - offset < 4U ? length - offset : 4U),
-          &current);
-
-      if (used <= 0) {
-         return SIZE_MAX;
-      }
-      if (offset != start && utf8proc_grapheme_break_stateful(previous,
-          current, &state) != 0) {
-         return offset;
-      }
-      previous = current;
-      offset += (size_t)used;
-   }
-   return offset;
-}
-
 static const char *
 style(enum cwiki_highlight_role role)
 {
@@ -123,6 +94,8 @@ style(enum cwiki_highlight_role role)
    return styles[role];
 }
 
+/* *index is SIZE_MAX before the first lookup on a row; runs are sorted, so
+ * seek the first run ending after source instead of walking from run 0. */
 static enum cwiki_highlight_role
 role_at(const struct cwiki_highlight_line *highlight, size_t source,
     size_t *index)
@@ -132,6 +105,21 @@ role_at(const struct cwiki_highlight_line *highlight, size_t source,
    }
    if (highlight->degraded) {
       return CWIKI_HIGHLIGHT_RAW;
+   }
+   if (*index == SIZE_MAX) {
+      size_t low = 0U;
+      size_t high = highlight->run_count;
+
+      while (low < high) {
+         size_t middle = low + (high - low) / 2U;
+
+         if (highlight->runs[middle].source_end <= source) {
+            low = middle + 1U;
+         } else {
+            high = middle;
+         }
+      }
+      *index = low;
    }
    while (*index < highlight->run_count &&
        highlight->runs[*index].source_end <= source) {
@@ -144,20 +132,21 @@ role_at(const struct cwiki_highlight_line *highlight, size_t source,
    return CWIKI_HIGHLIGHT_PROSE;
 }
 
-/* Emit only whole clusters within [left, right); pad clipped wide glyphs. */
+/* Emit only whole clusters within [left, right); pad clipped wide glyphs.
+ * Painting starts at cluster boundary start, whose cell is *column, and at
+ * display run index run (any run not after the one holding start). */
 static void
-paint(struct output *out, const char *bytes, size_t length, size_t left,
-    size_t right, size_t *column, size_t *painted,
+paint(struct output *out, const char *bytes, size_t length, size_t start,
+    size_t run, size_t left, size_t right, size_t *column, size_t *painted,
     const struct cwiki_conceal_line *display,
     const struct cwiki_highlight_line *highlight, bool raw, bool cursorline)
 {
-   size_t offset = 0U;
-   size_t run = 0U;
-   size_t highlight_run = 0U;
+   size_t offset = start;
+   size_t highlight_run = SIZE_MAX;
    enum cwiki_highlight_role active = CWIKI_HIGHLIGHT_ROLE_COUNT;
 
    while (offset < length && *column < right && out->error == 0) {
-      size_t end = cluster_end(bytes, length, offset);
+      size_t end = cwiki_grapheme_next_unchecked(bytes, length, offset);
       int width;
       size_t next;
 
@@ -224,7 +213,7 @@ cell_width(struct output *out, const char *bytes, size_t length)
    size_t columns = 0U;
 
    while (offset < length) {
-      size_t next = cluster_end(bytes, length, offset);
+      size_t next = cwiki_grapheme_next_unchecked(bytes, length, offset);
       int width;
 
       if (next == SIZE_MAX) {
@@ -276,14 +265,16 @@ source_row(struct output *out, const struct cwiki_layout_window *layout,
          spaces(out, indent);
          painted += indent;
          paint(out, layout->continuation_marker,
-             strlen(layout->continuation_marker), 0U, prefix - indent,
+             strlen(layout->continuation_marker), 0U, 0U, 0U, prefix - indent,
              &column, &painted, NULL, NULL, false, cursorline);
          spaces(out, prefix - painted);
          painted = prefix;
       }
-      column = 0U;
-      /* Scan the full display to preserve its original run/source offsets. */
-      paint(out, line->display.display, row->display_end,
+      /* Rows start on cluster boundaries, so earlier clusters lie wholly
+       * left of the row and painting can begin at the row itself. */
+      column = row->column_start;
+      paint(out, line->display.display, row->display_end, row->display_start,
+          cwiki_conceal_run_at_column(&line->display, row->column_start),
           row->column_start + left,
           row->column_start + right - prefix,
           &column, &ignored, &line->display,
@@ -350,7 +341,7 @@ status_row(struct output *out, const struct cwiki_editor *editor,
       painted = 1U;
       if (available > 0U) {
          paint(out, editor->command, editor->command_length,
-             left, left + available, &column, &painted, NULL, NULL, false,
+             0U, 0U, left, left + available, &column, &painted, NULL, NULL, false,
              false);
       }
       cursor = 1U + command_width - left;
@@ -368,13 +359,13 @@ status_row(struct output *out, const struct cwiki_editor *editor,
 
       base = path == NULL ? base : (base == NULL ? path : base + 1);
       paint(out, modes[editor->mode], strlen(modes[editor->mode]),
-          0U, width, &column, &painted, NULL, NULL, false, false);
-      paint(out, " ", 1U, 0U, width, &column, &painted, NULL, NULL, false,
+          0U, 0U, 0U, width, &column, &painted, NULL, NULL, false, false);
+      paint(out, " ", 1U, 0U, 0U, 0U, width, &column, &painted, NULL, NULL, false,
           false);
-      paint(out, base, strlen(base), 0U, width, &column, &painted,
+      paint(out, base, strlen(base), 0U, 0U, 0U, width, &column, &painted,
           NULL, NULL, false, false);
       if (editor->document->dirty) {
-         paint(out, " [+]", 4U, 0U, width, &column, &painted,
+         paint(out, " [+]", 4U, 0U, 0U, 0U, width, &column, &painted,
              NULL, NULL, false, false);
       }
       length = snprintf(coordinates, sizeof(coordinates), " %zu:%zu",
@@ -383,14 +374,14 @@ status_row(struct output *out, const struct cwiki_editor *editor,
          out->error = EOVERFLOW;
          return 0U;
       }
-      paint(out, coordinates, (size_t)length, 0U, width, &column,
+      paint(out, coordinates, (size_t)length, 0U, 0U, 0U, width, &column,
           &painted, NULL, NULL, false, false);
       if (view->status_message != NULL && painted < width) {
-         paint(out, " [", 2U, 0U, width, &column, &painted,
+         paint(out, " [", 2U, 0U, 0U, 0U, width, &column, &painted,
              NULL, NULL, false, false);
          paint(out, view->status_message, strlen(view->status_message),
-             0U, width, &column, &painted, NULL, NULL, false, false);
-         paint(out, "]", 1U, 0U, width, &column, &painted,
+             0U, 0U, 0U, width, &column, &painted, NULL, NULL, false, false);
+         paint(out, "]", 1U, 0U, 0U, 0U, width, &column, &painted,
              NULL, NULL, false, false);
       }
    }

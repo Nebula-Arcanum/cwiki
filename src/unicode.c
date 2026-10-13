@@ -9,11 +9,25 @@
 #error "cwiki requires utf8proc 2.11 or newer"
 #endif
 
+#ifdef CWIKI_UNICODE_TESTING
+static size_t testing_steps;
+
+size_t
+cwiki_unicode_testing_steps(void)
+{
+   return testing_steps;
+}
+#define COUNT_STEP() (testing_steps++)
+#else
+#define COUNT_STEP() ((void)0)
+#endif
+
 static utf8proc_ssize_t
 decode(const char *bytes, size_t length, utf8proc_int32_t *codepoint)
 {
    utf8proc_ssize_t available;
 
+   COUNT_STEP();
    available = (utf8proc_ssize_t)(length < 4U ? length : 4U);
    return utf8proc_iterate((const utf8proc_uint8_t *)bytes, available,
        codepoint);
@@ -96,6 +110,12 @@ cwiki_grapheme_next(const char *bytes, size_t length, size_t offset)
       return length;
    }
    return next_boundary(bytes, length, offset);
+}
+
+size_t
+cwiki_grapheme_next_unchecked(const char *bytes, size_t length, size_t offset)
+{
+   return offset >= length ? length : next_boundary(bytes, length, offset);
 }
 
 size_t

@@ -37,6 +37,7 @@ VIM_REGEX_TEST = $(BUILD_DIR)/test-vim-regex
 VIM_REGEX_FUZZ = $(BUILD_DIR)/fuzz-vim-regex
 CONCEAL_TEST = $(BUILD_DIR)/test-conceal
 LAYOUT_TEST = $(BUILD_DIR)/test-layout
+LONG_LINE_TEST = $(BUILD_DIR)/test-long-line
 SNIPPET_TEST = $(BUILD_DIR)/test-snippet
 SNIPPET_FUZZ = $(BUILD_DIR)/fuzz-snippet
 SNIPPET_CATALOG_TEST = $(BUILD_DIR)/test-snippet-catalog
@@ -72,8 +73,8 @@ SUPPORT_TESTS = $(FIXTURE_VAULT_TEST) $(REFERENCE_BUFFER_TEST)
 PRODUCT_TESTS = $(DURABLE_WRITE_TEST) $(INPUT_TEST) $(KEY_RECORD_TEST) $(BUFFER_TEST) \
 	$(CAPABILITIES_TEST) $(TERMINAL_TEST) $(UNDO_TEST) $(ZONE_TEST) \
 	$(ZONE_FUZZ) $(REGEX_TEST) $(VIM_REGEX_TEST) $(VIM_REGEX_FUZZ) \
-	$(CONCEAL_TEST) $(LAYOUT_TEST) $(SNIPPET_TEST) $(SNIPPET_FUZZ) \
-	$(SNIPPET_CATALOG_TEST) \
+	$(CONCEAL_TEST) $(LAYOUT_TEST) $(LONG_LINE_TEST) $(SNIPPET_TEST) \
+	$(SNIPPET_FUZZ) $(SNIPPET_CATALOG_TEST) \
 	$(ACTION_TEST) $(STRUCTURAL_SEARCH_TEST) $(DOCUMENT_TEST) $(KEYMAP_TEST) \
 	$(MOTION_TEST) $(EDITOR_TEST) $(EDITOR_INPUT_TEST) $(HIGHLIGHT_TEST) \
 	$(RENDER_TEST) $(LINE_EDIT_TEST) $(PICKER_TEST) $(PICKER_RENDER_TEST) \
@@ -93,7 +94,8 @@ ANALYZE_SOURCES = tests/render/tex_compile_driver.c src/tex_env.c tests/render/t
 	src/zone.c tests/zone/test_zone.c tests/zone/fuzz_zone.c src/regex.c \
 	tests/regex/test_regex.c src/vim_regex.c tests/regex/test_vim_regex.c \
 	tests/regex/fuzz_vim_regex.c src/conceal.c tests/conceal/test_conceal.c \
-	src/layout.c tests/layout/test_layout.c src/snippet.c \
+	src/layout.c tests/layout/test_layout.c tests/layout/test_long_line.c \
+	src/snippet.c \
 	tests/snippet/test_snippet.c tests/snippet/fuzz_snippet.c \
 	src/snippet_catalog.c tests/snippet/test_snippet_catalog.c src/action.c \
 	tests/action/test_action.c src/structural_search.c \
@@ -307,6 +309,18 @@ $(LAYOUT_TEST): src/layout.c src/layout.h src/conceal.c src/conceal.h \
 		src/layout.c tests/layout/test_layout.c $(LDFLAGS) $(UTF8PROC_LIBS) \
 		$(PCRE2_LIBS) -o $(LAYOUT_TEST)
 
+$(LONG_LINE_TEST): src/layout.c src/layout.h src/conceal.c src/conceal.h \
+		src/highlight.c src/highlight.h src/motion.c src/motion.h \
+		src/render.c src/render.h src/buffer.c src/buffer.h src/unicode.c \
+		src/unicode.h src/zone.c src/zone.h src/regex.c src/regex.h \
+		tests/layout/test_long_line.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(UTF8PROC_CFLAGS) $(PCRE2_CFLAGS) -Isrc \
+		-DCWIKI_UNICODE_TESTING src/buffer.c src/unicode.c src/regex.c \
+		src/zone.c src/conceal.c src/layout.c src/highlight.c src/motion.c \
+		src/render.c tests/layout/test_long_line.c $(LDFLAGS) $(UTF8PROC_LIBS) \
+		$(PCRE2_LIBS) -o $(LONG_LINE_TEST)
+
 $(SNIPPET_TEST): src/snippet.c src/snippet.h src/buffer.c src/buffer.h \
 		src/unicode.c src/unicode.h src/undo.c src/undo.h src/regex.c \
 		src/regex.h src/zone.c src/zone.h tests/snippet/test_snippet.c
@@ -518,6 +532,7 @@ product-test: $(PRODUCT_TESTS)
 	$(VIM_REGEX_FUZZ)
 	$(CONCEAL_TEST)
 	$(LAYOUT_TEST)
+	$(LONG_LINE_TEST)
 	$(SNIPPET_TEST)
 	$(SNIPPET_FUZZ)
 	$(SNIPPET_CATALOG_TEST)

@@ -71,8 +71,11 @@ first_nonblank_between(const struct cwiki_line *line, size_t start, size_t end)
 {
    size_t offset = start;
 
+   /* Buffer lines are valid UTF-8 and start is a boundary (line or row
+    * start), so step without rewalking the line per cluster. */
    while (offset < end) {
-      size_t next = cwiki_grapheme_next(line->bytes, line->length, offset);
+      size_t next = cwiki_grapheme_next_unchecked(line->bytes, line->length,
+          offset);
       struct cwiki_line cluster;
 
       if (next == SIZE_MAX) {
