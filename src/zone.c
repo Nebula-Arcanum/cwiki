@@ -32,6 +32,9 @@ enum builtin_region {
    REGION_INTERTEXT,
    REGION_REFERENCE,
    REGION_COMMENT_PERCENT,
+   REGION_CHEMISTRY_GROUP,
+   REGION_TEXT_GROUP,
+   REGION_REFERENCE_GROUP,
    REGION_COUNT
 };
 
@@ -42,6 +45,15 @@ enum builtin_region {
    (EVERYWHERE_COMMENTS | BIT(REGION_CHEMISTRY) | BIT(REGION_TEXT) | \
     BIT(REGION_INTERTEXT) | BIT(REGION_REFERENCE) | \
     BIT(REGION_COMMENT_PERCENT) | BIT(REGION_TIKZ) | BIT(REGION_LATEX))
+#define TEXT_CHILDREN \
+   (EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) | \
+    BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) | \
+    BIT(REGION_MATH_INLINE_PAREN) | BIT(REGION_TEXT_GROUP))
+/* Brace groups nested in a braced argument keep their parent's kind and push
+ * and pop with each unescaped brace, so the argument ends at its balancing
+ * brace rather than the first unescaped one. */
+#define BRACE_OPEN UNESCAPED_BEFORE("{") "\\{"
+#define BRACE_CLOSE UNESCAPED_BEFORE("}") "\\}"
 #define LATEX_CHILDREN \
    (EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) | \
     BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) | \
@@ -74,23 +86,25 @@ static const struct cwiki_zone_region builtin_regions[REGION_COUNT] = {
        UNESCAPED_BEFORE("") "\\\\end\\{([A-Za-z*][A-Za-z0-9*@:-]*)\\}", NULL,
        LATEX_CHILDREN, 0U, 1U, 1U, false},
    {CWIKI_ZONE_CHEMISTRY, "chemistry", UNESCAPED_BEFORE("") "\\\\ce\\{",
-       UNESCAPED_BEFORE("}") "\\}", NULL,
-       EVERYWHERE_COMMENTS | BIT(REGION_COMMENT_PERCENT), 0U, 0U, 0U, false},
+       BRACE_CLOSE, NULL, EVERYWHERE_COMMENTS | BIT(REGION_COMMENT_PERCENT) |
+       BIT(REGION_CHEMISTRY_GROUP), 0U, 0U, 0U, false},
    {CWIKI_ZONE_TEXT, "math text hole", UNESCAPED_BEFORE("") "\\\\text\\{",
-       UNESCAPED_BEFORE("}") "\\}", NULL,
-       EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) |
-       BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) |
-       BIT(REGION_MATH_INLINE_PAREN), 0U, 0U, 0U, false},
+       BRACE_CLOSE, NULL, TEXT_CHILDREN, 0U, 0U, 0U, false},
    {CWIKI_ZONE_TEXT, "math intertext hole", UNESCAPED_BEFORE("") "\\\\intertext\\{",
-       UNESCAPED_BEFORE("}") "\\}", NULL,
-       EVERYWHERE_COMMENTS | BIT(REGION_MATH_DISPLAY_DOLLAR) |
-       BIT(REGION_MATH_DISPLAY_BRACKET) | BIT(REGION_MATH_INLINE_DOLLAR) |
-       BIT(REGION_MATH_INLINE_PAREN), 0U, 0U, 0U, false},
+       BRACE_CLOSE, NULL, TEXT_CHILDREN, 0U, 0U, 0U, false},
    {CWIKI_ZONE_REFERENCE, "reference hole",
-       UNESCAPED_BEFORE("") "\\\\(?:label|ref|eqref)\\{", UNESCAPED_BEFORE("}") "\\}", NULL,
-       EVERYWHERE_COMMENTS, 0U, 0U, 0U, false},
+       UNESCAPED_BEFORE("") "\\\\(?:label|ref|eqref)\\{", BRACE_CLOSE, NULL,
+       EVERYWHERE_COMMENTS | BIT(REGION_REFERENCE_GROUP), 0U, 0U, 0U, false},
    {CWIKI_ZONE_COMMENT_PERCENT, "LaTeX line comment", UNESCAPED_BEFORE("%") "%", NULL,
-       NULL, 0U, 0U, 0U, 0U, true}
+       NULL, 0U, 0U, 0U, 0U, true},
+   {CWIKI_ZONE_CHEMISTRY, "chemistry brace group", BRACE_OPEN, BRACE_CLOSE, NULL,
+       EVERYWHERE_COMMENTS | BIT(REGION_COMMENT_PERCENT) |
+       BIT(REGION_CHEMISTRY_GROUP), 0U, 0U, 0U, false},
+   {CWIKI_ZONE_TEXT, "math text brace group", BRACE_OPEN, BRACE_CLOSE, NULL,
+       TEXT_CHILDREN, 0U, 0U, 0U, false},
+   {CWIKI_ZONE_REFERENCE, "reference brace group", BRACE_OPEN, BRACE_CLOSE,
+       NULL, EVERYWHERE_COMMENTS | BIT(REGION_REFERENCE_GROUP), 0U, 0U, 0U,
+       false}
 };
 
 struct compiled_pattern {

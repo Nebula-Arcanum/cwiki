@@ -357,7 +357,12 @@ zone_settings_and_precedence(void)
    configs[1] = second;
    assert(cwiki_config_build_zones(configs, 2U, &table, &error) ==
        CWIKI_CONFIG_OK);
-   assert(table.count == 17U);
+   {
+      size_t builtin_count;
+
+      (void)cwiki_zone_builtin_regions(&builtin_count, NULL);
+      assert(table.count == builtin_count + 2U);
+   }
    assert(cwiki_zone_engine_init(&zones, table.regions, table.count,
        table.top_level) == 0);
    assert(cwiki_buffer_init(&buffer) == 0 &&

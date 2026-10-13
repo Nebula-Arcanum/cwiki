@@ -26,7 +26,8 @@ static const char *const builtin_zone_ids[] = {
    "code-fence", "note-block-comment", "note-inline-comment", "html-comment",
    "display-math-dollar", "display-math-bracket", "inline-math-dollar",
    "inline-math-paren", "tikz-environment", "latex-environment", "chemistry",
-   "math-text", "math-intertext", "reference", "latex-line-comment"
+   "math-text", "math-intertext", "reference", "latex-line-comment",
+   "chemistry-group", "math-text-group", "reference-group"
 };
 
 struct source_mark {

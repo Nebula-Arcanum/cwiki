@@ -637,7 +637,7 @@ config_inspection_before_terminal(const char *path)
    };
    FILE *output = tmpfile();
    FILE *errors = tmpfile();
-   char inspection[32768];
+   static char inspection[65536];
    char *definition;
    size_t length;
 

@@ -308,6 +308,63 @@ test_prose_chemistry(void)
 }
 
 static void
+test_balanced_braces(void)
+{
+   const char text[] =
+       "a \\ce{SO4^{2-}} tail1\n"
+       "$x + \\ce{Fe^{3+}} + y1$ tail2\n"
+       "b \\ce{a \\{ c} tail3\n"
+       "c \\ce{a \\} c} tail4\n"
+       "$\\text{a {b} c} m1 \\label{q{r}} m2$ tail5\n"
+       "d \\ce{a{b}\n"
+       "still";
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer buffer;
+
+   if (engine == NULL) {
+      return;
+   }
+   parse(engine, &buffer, text);
+   check_kind(engine, &buffer, 0U, "2-", CWIKI_ZONE_CHEMISTRY,
+       "nested brace group in prose ce stays chemistry");
+   check_kind(engine, &buffer, 0U, "} tail1", CWIKI_ZONE_CHEMISTRY,
+       "inner close brace does not end prose ce");
+   check_kind(engine, &buffer, 0U, " tail1", CWIKI_ZONE_PROSE,
+       "outer close brace returns to prose");
+   check_kind(engine, &buffer, 1U, "} + y1", CWIKI_ZONE_CHEMISTRY,
+       "inner close brace does not end math ce");
+   check_kind(engine, &buffer, 1U, " + y1", CWIKI_ZONE_MATH_INLINE,
+       "outer close brace returns to math");
+   check_kind(engine, &buffer, 1U, " tail2", CWIKI_ZONE_PROSE,
+       "math closes after balanced ce");
+   check_kind(engine, &buffer, 2U, " c}", CWIKI_ZONE_CHEMISTRY,
+       "escaped open brace is not counted");
+   check_kind(engine, &buffer, 2U, " tail3", CWIKI_ZONE_PROSE,
+       "ce with escaped open brace closes at its brace");
+   check_kind(engine, &buffer, 3U, " c}", CWIKI_ZONE_CHEMISTRY,
+       "escaped close brace does not end ce");
+   check_kind(engine, &buffer, 3U, " tail4", CWIKI_ZONE_PROSE,
+       "ce with escaped close brace closes at its brace");
+   check_kind(engine, &buffer, 4U, " c} m1", CWIKI_ZONE_TEXT,
+       "nested brace group does not end text hole");
+   check_kind(engine, &buffer, 4U, " m1", CWIKI_ZONE_MATH_INLINE,
+       "text hole closes at its balanced brace");
+   check_kind(engine, &buffer, 4U, "} m2", CWIKI_ZONE_REFERENCE,
+       "nested brace group does not end reference argument");
+   check_kind(engine, &buffer, 4U, " m2", CWIKI_ZONE_MATH_INLINE,
+       "reference argument closes at its balanced brace");
+   check_kind(engine, &buffer, 4U, " tail5", CWIKI_ZONE_PROSE,
+       "math with balanced holes closes");
+   check_kind(engine, &buffer, 6U, "still", CWIKI_ZONE_CHEMISTRY,
+       "unbalanced ce stays open past its inner group");
+   check(buffer.lines[6].end_zones.depth == 1U &&
+       buffer.lines[6].end_zones.zones[0].kind == CWIKI_ZONE_CHEMISTRY,
+       "unbalanced ce leaves only the chemistry zone open");
+   cwiki_buffer_free(&buffer);
+   cwiki_zone_engine_free(engine);
+}
+
+static void
 test_synignore_escape_hatch(void)
 {
    const char text[] =
@@ -740,6 +797,7 @@ main(void)
    test_declarative_skip_and_containment();
    test_incremental_propagation();
    test_prose_chemistry();
+   test_balanced_braces();
    test_synignore_escape_hatch();
    test_depth_bound_and_malformed_input();
    test_regex_resource_degradation();

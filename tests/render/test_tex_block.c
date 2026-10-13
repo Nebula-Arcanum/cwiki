@@ -116,6 +116,30 @@ test_math_and_chemistry(void)
 }
 
 static void
+test_nested_chemistry_braces(void)
+{
+   struct cwiki_zone_engine *engine = builtin_engine();
+   struct cwiki_buffer note;
+   struct cwiki_tex_extraction x;
+
+   extract_text(engine,
+       "Sulfate \\ce{SO4^{2-}} ion.\n"
+       "In math $\\ce{Fe^{3+}} + \\text{a {b}}$ end.\n",
+       0U, &note, &x);
+   check(x.block_count == 2U, "AC3 nested-brace chemistry gives two blocks");
+   check(block_is(&note, &x, 0U, CWIKI_TEX_BLOCK_CHEMISTRY, 1U, 1U,
+       "\\ce{SO4^{2-}}"), "AC3 nested-brace ce block bytes are complete");
+   check(block_is(&note, &x, 1U, CWIKI_TEX_BLOCK_INLINE, 2U, 2U,
+       "$\\ce{Fe^{3+}} + \\text{a {b}}$"),
+       "AC3 nested-brace ce and text inside math stay in one math block");
+   check(x.block_count == 2U && x.blocks[0].compilable &&
+       x.blocks[1].compilable, "AC21 balanced nested blocks are compilable");
+   cwiki_tex_extraction_free(&x);
+   cwiki_buffer_free(&note);
+   cwiki_zone_engine_free(engine);
+}
+
+static void
 test_environments(void)
 {
    struct cwiki_zone_engine *engine = builtin_engine();
@@ -631,6 +655,7 @@ main(void)
    test_suppressed_not_reported();
    test_synignore_inside_block();
    test_math_and_chemistry();
+   test_nested_chemistry_braces();
    test_environments();
    test_frontmatter_offset();
    test_unterminated();
