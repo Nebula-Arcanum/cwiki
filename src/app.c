@@ -52,6 +52,11 @@ struct app_action_context {
    enum app_action_id id;
 };
 
+struct highlight_cache {
+   struct cwiki_highlight_line line;
+   uint64_t layout_id;
+};
+
 struct app {
    struct cwiki_document document;
    struct cwiki_editor editor;
@@ -59,6 +64,8 @@ struct app {
    struct cwiki_zone_engine *zones;
    struct cwiki_conceal_table conceal;
    struct cwiki_layout_window layout;
+   struct highlight_cache *highlights;
+   size_t highlight_count;
    struct cwiki_render_viewport viewport;
    struct cwiki_motion_viewport motion_viewport;
    struct cwiki_config_settings settings;
@@ -125,7 +132,7 @@ refresh(struct app *app)
    options.cursor = app->editor.motion.cursor;
    options.reveal_line = app->editor.reveal_line;
    options.reveal = app->editor.reveal;
-   /* ponytail: rebuild after every event; incremental caching can follow profiling. */
+   /* Zones recompute downward from edits (R1.9.2); layout reuses unchanged lines. */
    for (size_t line = 0U; line < app->document.buffer.line_count; line++) {
       if (app->document.buffer.lines[line].zone_dirty &&
           cwiki_zone_recompute(app->zones, &app->document.buffer, line, NULL) != 0) {
@@ -610,6 +617,60 @@ size_from_tty(struct app *app, int fd)
    return refresh(app) == 0 ? 1 : -1;
 }
 
+static void
+highlight_cache_free(struct highlight_cache *cache, size_t count)
+{
+   for (size_t i = 0U; i < count; i++) {
+      cwiki_highlight_line_free(&cache[i].line);
+   }
+   free(cache);
+}
+
+/* Highlight only on-screen lines, reusing the previous frame's entry for a
+ * layout line kept unchanged (same id), so typing elsewhere never rescans a
+ * long visible line. highlights[] borrows the cache entries. */
+static int
+highlight_visible(struct app *app, struct cwiki_highlight_line *highlights)
+{
+   struct highlight_cache *next;
+   size_t first_line;
+   size_t end_line;
+   size_t count;
+
+   cwiki_layout_visible_lines(&app->layout, app->viewport.first_row,
+       app->viewport.rows, &first_line, &end_line);
+   count = end_line - first_line;
+   next = calloc(count == 0U ? 1U : count, sizeof(*next));
+   if (next == NULL) {
+      return -1;
+   }
+   for (size_t i = first_line; i < end_line; i++) {
+      struct highlight_cache *slot = &next[i - first_line];
+      uint64_t id = app->layout.lines[i].id;
+
+      for (size_t j = 0U; j < app->highlight_count; j++) {
+         if (app->highlights[j].layout_id == id) {
+            *slot = app->highlights[j];
+            (void)memset(&app->highlights[j], 0, sizeof(app->highlights[j]));
+            break;
+         }
+      }
+      if (slot->layout_id == 0U) {
+         if (cwiki_highlight_build_line(app->zones, &app->document.buffer, i,
+             &slot->line) != 0) {
+            highlight_cache_free(next, count);
+            return -1;
+         }
+         slot->layout_id = id;
+      }
+      highlights[i] = slot->line;
+   }
+   highlight_cache_free(app->highlights, app->highlight_count);
+   app->highlights = next;
+   app->highlight_count = count;
+   return 0;
+}
+
 static int
 draw(struct app *app, struct cwiki_terminal *terminal)
 {
@@ -630,15 +691,12 @@ draw(struct app *app, struct cwiki_terminal *terminal)
    int error_number = 0;
 
    if (app->settings.module_syntax) {
-      highlights = calloc(count, sizeof(*highlights));
+      highlights = calloc(count == 0U ? 1U : count, sizeof(*highlights));
       if (highlights == NULL) {
          return -1;
       }
-      for (size_t i = 0U; i < count; i++) {
-         if (cwiki_highlight_build_line(app->zones, &app->document.buffer, i,
-             &highlights[i]) != 0) {
-            goto fail;
-         }
+      if (highlight_visible(app, highlights) != 0) {
+         goto fail;
       }
    }
    if (app->picker != NULL && app->viewport.rows >= 5U &&
@@ -784,11 +842,6 @@ draw(struct app *app, struct cwiki_terminal *terminal)
 fail:
    error_number = errno;
 done:
-   if (highlights != NULL) {
-      for (size_t i = 0U; i < count; i++) {
-         cwiki_highlight_line_free(&highlights[i]);
-      }
-   }
    free(highlights);
    free(snippet_infos);
    free(snippet_items);
@@ -1084,6 +1137,7 @@ done:
    cwiki_picker_free(app.picker);
    cwiki_editor_input_free(app.input);
    cwiki_layout_window_free(&app.layout);
+   highlight_cache_free(app.highlights, app.highlight_count);
    cwiki_conceal_table_free(&app.conceal);
    cwiki_zone_engine_free(app.zones);
    cwiki_config_zone_table_free(&zone_table);

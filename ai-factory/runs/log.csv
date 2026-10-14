@@ -121,3 +121,7 @@ ts,session_id,source,user,branch,task,tool,agent,model,turns,input_tokens,output
 2026-10-13T20:33:53.469Z,a72f1a5c-9535-4d40-940f-5575496345d3,session,leon,master,,claude,,claude-opus-5-5,6,12,3190,1196760,5390,1.00,0.4271,
 2026-10-13T20:34:39.738Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,2,4,1329,1027458,0,1.00,0.3282,
 2026-10-13T20:48:34.001Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,12,23,6110,6258210,0,1.00,1.9692,
+2026-10-13T21:13:58.186Z,525046d6-02ef-4340-9524-634c9aa2db9a,agent,leon,master,run,claude,t4-route-fix-853e2d9934,claude-opus-5-5,69,3468,43741,11973822,4831,1.00,4.2768,
+2026-10-13T21:17:34.309Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,2,4,1043,1060749,0,1.00,0.3339,
+2026-10-13T23:03:20.321Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,5,9,2588,2673582,0,1.00,0.8409,
+2026-10-14T01:28:21.618Z,525046d6-02ef-4340-9524-634c9aa2db9a,session,leon,master,run,claude,,claude-opus-5-5,5,8,860,2156907,0,1.00,0.6600,

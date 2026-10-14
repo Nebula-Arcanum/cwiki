@@ -3,6 +3,7 @@
 
 #include "buffer.h"
 #include "conceal.h"
+#include "zone.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -47,6 +48,14 @@ struct cwiki_layout_line {
    size_t horizontal_extent;
    bool degraded;
    bool code;
+   /* Per-line layout inputs beyond the source bytes; a cached line is reused
+    * only while these, the bytes and the window-wide options all match. */
+   struct cwiki_zone_stack start_zones;
+   bool concealed;
+   struct cwiki_conceal_reveal reveal;
+   /* Nonzero, unique within the window's lifetime, kept while the line is
+    * reused: derived per-line state (highlights) may be cached by it. */
+   uint64_t id;
 };
 
 struct cwiki_layout_window {
@@ -64,6 +73,9 @@ struct cwiki_layout_window {
    struct cwiki_position cursor;
    size_t reveal_line;
    struct cwiki_conceal_reveal reveal;
+   const struct cwiki_zone_engine *zones;
+   const struct cwiki_conceal_table *conceal;
+   uint64_t last_id;
    bool valid;
 };
 
@@ -87,6 +99,9 @@ int cwiki_layout_rebuild(struct cwiki_layout_window *window,
     const struct cwiki_buffer *buffer, struct cwiki_zone_engine *zones,
     const struct cwiki_conceal_table *conceal,
     const struct cwiki_layout_options *options);
+/* Lines [*first_line, *end_line) own a row in [first_row, first_row + rows). */
+void cwiki_layout_visible_lines(const struct cwiki_layout_window *window,
+    size_t first_row, size_t rows, size_t *first_line, size_t *end_line);
 const struct cwiki_layout_row *cwiki_layout_row_at(
     const struct cwiki_layout_window *window, size_t row);
 int cwiki_layout_source_to_display(const struct cwiki_layout_window *window,

@@ -506,6 +506,68 @@ valid_options(const struct cwiki_buffer *buffer,
        buffer->lines[options->reveal_line].length));
 }
 
+static void
+line_inputs(const struct cwiki_buffer *buffer, size_t line,
+    const struct cwiki_layout_options *options, struct cwiki_layout_line *key)
+{
+   static const struct cwiki_zone_stack prose = {{{CWIKI_ZONE_PROSE, 0U, 0U}},
+       0U};
+
+   key->start_zones = line == 0U ? prose : buffer->lines[line - 1U].end_zones;
+   key->degraded = cwiki_buffer_line_degraded(buffer, line);
+   key->concealed = line != options->cursor.line ||
+       (options->concealcursor_modes &
+       CWIKI_CONCEAL_MODE_BIT(options->mode)) != 0U;
+   (void)memset(&key->reveal, 0, sizeof(key->reveal));
+   if (options->reveal.active && options->reveal_line == line) {
+      key->reveal = options->reveal;
+   }
+}
+
+/* Conceal and wrap of one line read only its bytes, the zone stack entering
+ * it, its degraded state, its cursor/reveal conceal inputs and window-wide
+ * options (checked by the caller), so an equal key reproduces equal output. */
+static bool
+line_reusable(const struct cwiki_layout_line *cached,
+    const struct cwiki_buffer *buffer, size_t line,
+    const struct cwiki_layout_options *options)
+{
+   const struct cwiki_line *source = &buffer->lines[line];
+   struct cwiki_layout_line key;
+
+   line_inputs(buffer, line, options, &key);
+   return cached->source_length == source->length &&
+       cached->degraded == key.degraded &&
+       cached->concealed == key.concealed &&
+       cached->reveal.active == key.reveal.active &&
+       cached->reveal.source_start == key.reveal.source_start &&
+       cached->reveal.source_end == key.reveal.source_end &&
+       cwiki_zone_stack_equal(&cached->start_zones, &key.start_zones) &&
+       (source->length == 0U ||
+       memcmp(cached->source, source->bytes, source->length) == 0);
+}
+
+static bool
+window_reusable(const struct cwiki_layout_window *window,
+    const struct cwiki_zone_engine *zones,
+    const struct cwiki_conceal_table *conceal,
+    const struct cwiki_layout_options *options)
+{
+   return window->valid && window->zones == zones &&
+       window->conceal == conceal && window->continuation_marker != NULL &&
+       window->content_width == options->content_width &&
+       window->wrap == options->wrap &&
+       window->break_indent == options->break_indent &&
+       window->conceal_categories == options->conceal_categories &&
+       strcmp(window->continuation_marker, options->continuation_marker) == 0;
+}
+
+/*
+ * R1.12.3: resize and wrap/conceal option changes rebuild every line; an edit
+ * or cursor move rebuilds only lines whose own inputs changed. Unchanged lines
+ * are matched as a common prefix and suffix (so inserted or deleted lines
+ * shift the rest), or index for index when the line count is unchanged.
+ */
 int
 cwiki_layout_rebuild(struct cwiki_layout_window *window,
     const struct cwiki_buffer *buffer, struct cwiki_zone_engine *zones,
@@ -513,8 +575,13 @@ cwiki_layout_rebuild(struct cwiki_layout_window *window,
     const struct cwiki_layout_options *options)
 {
    struct cwiki_layout_window built;
+   size_t *reused = NULL;
    size_t marker_columns;
    size_t line;
+   size_t old_count = 0U;
+   size_t prefix = 0U;
+   size_t suffix = 0U;
+   size_t shared;
 
    if (window == NULL || buffer == NULL || zones == NULL || conceal == NULL ||
        !valid_options(buffer, options) ||
@@ -528,14 +595,30 @@ cwiki_layout_rebuild(struct cwiki_layout_window *window,
          return -1;
       }
    }
+   if (window_reusable(window, zones, conceal, options)) {
+      old_count = window->line_count;
+   }
+   shared = old_count < buffer->line_count ? old_count : buffer->line_count;
+   while (prefix < shared &&
+       line_reusable(&window->lines[prefix], buffer, prefix, options)) {
+      prefix++;
+   }
+   while (suffix < shared - prefix &&
+       line_reusable(&window->lines[old_count - 1U - suffix], buffer,
+       buffer->line_count - 1U - suffix, options)) {
+      suffix++;
+   }
    cwiki_layout_window_init(&built);
    if (buffer->line_count > SIZE_MAX / sizeof(*built.lines)) {
       errno = ENOMEM;
       return -1;
    }
    built.lines = calloc(buffer->line_count, sizeof(*built.lines));
+   reused = malloc(buffer->line_count * sizeof(*reused));
    built.continuation_marker = strdup(options->continuation_marker);
-   if (built.lines == NULL || built.continuation_marker == NULL) {
+   if (built.lines == NULL || reused == NULL ||
+       built.continuation_marker == NULL) {
+      free(reused);
       cwiki_layout_window_free(&built);
       return -1;
    }
@@ -550,24 +633,48 @@ cwiki_layout_rebuild(struct cwiki_layout_window *window,
    built.cursor = options->cursor;
    built.reveal_line = options->reveal_line;
    built.reveal = options->reveal;
+   built.zones = zones;
+   built.conceal = conceal;
+   built.last_id = window->last_id;
+   for (line = 0U; line < buffer->line_count; line++) {
+      reused[line] = SIZE_MAX;
+   }
    for (line = 0U; line < buffer->line_count; line++) {
       struct cwiki_layout_line *item = &built.lines[line];
       const struct cwiki_line *source = &buffer->lines[line];
       const struct cwiki_conceal_reveal *reveal = NULL;
 
+      if (line < prefix) {
+         reused[line] = line;
+      } else if (line >= buffer->line_count - suffix) {
+         reused[line] = line - buffer->line_count + old_count;
+      } else if (old_count == buffer->line_count &&
+          line_reusable(&window->lines[line], buffer, line, options)) {
+         reused[line] = line;
+      }
+      if (reused[line] != SIZE_MAX) {
+         /* Shares the cached allocations; ownership moves on success. */
+         *item = window->lines[reused[line]];
+         item->first_row = built.row_count;
+         if (add_overflow(built.row_count, item->row_count,
+             &built.row_count)) {
+            goto fail;
+         }
+         continue;
+      }
+      line_inputs(buffer, line, options, item);
+      item->id = ++built.last_id;
       item->source_length = source->length;
       if (source->length != 0U) {
          item->source = malloc(source->length);
          if (item->source == NULL) {
-            cwiki_layout_window_free(&built);
-            return -1;
+            goto fail;
          }
          (void)memcpy(item->source, source->bytes, source->length);
       }
-      item->degraded = cwiki_buffer_line_degraded(buffer, line);
       item->code = !item->degraded && line_is_code(zones, buffer, line);
       item->first_row = built.row_count;
-      if (options->reveal.active && options->reveal_line == line) {
+      if (item->reveal.active) {
          reveal = &options->reveal;
       }
       if ((item->degraded ? build_degraded_display(source, &item->display) :
@@ -578,14 +685,65 @@ cwiki_layout_rebuild(struct cwiki_layout_window *window,
           build_rows(item, line, options, marker_columns) != 0 ||
           add_overflow(built.row_count, item->row_count,
           &built.row_count)) {
-         cwiki_layout_window_free(&built);
-         return -1;
+         goto fail;
       }
    }
+   for (line = 0U; line < buffer->line_count; line++) {
+      struct cwiki_layout_line *item = &built.lines[line];
+
+      if (reused[line] == SIZE_MAX) {
+         continue;
+      }
+      (void)memset(&window->lines[reused[line]], 0,
+          sizeof(window->lines[reused[line]]));
+      if (reused[line] != line) {
+         for (size_t row = 0U; row < item->row_count; row++) {
+            item->rows[row].line = line;
+         }
+      }
+   }
+   free(reused);
    built.valid = true;
    cwiki_layout_window_free(window);
    *window = built;
    return 0;
+fail:
+   /* Reused entries still belong to the cached window; free only new ones. */
+   for (line = 0U; line < buffer->line_count; line++) {
+      if (reused[line] != SIZE_MAX) {
+         (void)memset(&built.lines[line], 0, sizeof(built.lines[line]));
+      }
+   }
+   free(reused);
+   cwiki_layout_window_free(&built);
+   return -1;
+}
+
+void
+cwiki_layout_visible_lines(const struct cwiki_layout_window *window,
+    size_t first_row, size_t rows, size_t *first_line, size_t *end_line)
+{
+   size_t line;
+   size_t end_row = rows > SIZE_MAX - first_row ? SIZE_MAX : first_row + rows;
+
+   *first_line = 0U;
+   *end_line = 0U;
+   if (window == NULL || !window->valid) {
+      return;
+   }
+   for (line = 0U; line < window->line_count; line++) {
+      const struct cwiki_layout_line *item = &window->lines[line];
+
+      if (item->first_row >= end_row) {
+         break;
+      }
+      if (item->first_row + item->row_count > first_row) {
+         if (*end_line == 0U) {
+            *first_line = line;
+         }
+         *end_line = line + 1U;
+      }
+   }
 }
 
 const struct cwiki_layout_row *
